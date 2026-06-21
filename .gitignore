@@ -1,0 +1,54 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Build output
+dist/
+**/dist/
+
+# Environment & secrets — NEVER commit (only .env.example is tracked)
+.env
+**/.env
+daemon.env
+secrets.enc
+
+# Local database (SQLite) & local data
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+
+# Python (NLP pre-pass virtualenv — ricreato in locale con server/nlp/setup.sh)
+.venv/
+**/.venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Logs
+*.log
+logs/
+
+# Editor / OS
+.idea/
+.vscode/
+*.iml
+.DS_Store
+
+# Agent / tooling state (not part of the project)
+.omc/
+.serena/
+.claude/
+.remember/
+
+# Legacy Java build (not used by this project)
+target/
+*.class
+.classpath
+.project
+.settings/
+
+# Internal deploy tooling (maintainer-specific, not for end users)
+deploy/

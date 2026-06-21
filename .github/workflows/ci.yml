@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+
+      - name: tooling — install (Prettier + ESLint)
+        run: npm ci
+
+      - name: format:check
+        run: npm run format:check
+
+      - name: lint
+        run: npm run lint
+        continue-on-error: true
+
+      - name: server — install, typecheck, test
+        working-directory: server
+        run: |
+          npm ci
+          npx tsc --noEmit
+          npm test
+
+      - name: web — install, build
+        working-directory: web
+        run: |
+          npm ci
+          npm run build
