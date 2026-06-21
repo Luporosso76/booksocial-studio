@@ -1,0 +1,36 @@
+BookSocial Studio
+Copyright (c) 2026 Alessandro Cimarelli
+
+This product is licensed under the PolyForm Noncommercial License 1.0.0 (see LICENSE).
+
+------------------------------------------------------------------------------
+Third-party assets bundled in this repository
+------------------------------------------------------------------------------
+
+Liberation Fonts (server/assets/fonts/)
+  Liberation Sans and Liberation Serif.
+  Copyright (c) Red Hat, Inc. and others.
+  Licensed under the SIL Open Font License, Version 1.1.
+  https://github.com/liberationfonts/liberation-fonts
+  These fonts are metric-compatible substitutes and are freely redistributable
+  under the OFL.
+
+------------------------------------------------------------------------------
+Sample content
+------------------------------------------------------------------------------
+
+samples/the-keeper-of-tides.md is an original, fictional sample text written for
+this project, provided so the application can be tried without any third-party or
+user-owned content. It may be freely replaced.
+
+------------------------------------------------------------------------------
+Runtime dependencies
+------------------------------------------------------------------------------
+
+This software depends on third-party npm packages, each under its own license;
+see the respective packages in server/package.json and web/package.json and their
+LICENSE files under node_modules after install.
+
+No music, images, or books belonging to any user are included in this repository.
+Media you generate or upload, and any music you add, are stored only in your local
+data directory and are never committed to source control.

@@ -1,0 +1,22 @@
+# Avvio rapido: `docker compose up -d --build`  →  http://localhost:8771
+# I dati (DB SQLite + media + musica + libri) vivono nel volume ./data sull'host.
+
+services:
+  app:
+    build: .
+    image: booksocial-studio
+    ports:
+      - "8771:8770"
+    volumes:
+      - ./data:/data
+    environment:
+      - BOOKSOCIAL_DATA_DIR=/data
+      - PORT=8770
+      - HOST=0.0.0.0
+      # Motore AI per la generazione testi/canone (vedi server/.env.example):
+      - CONTENT_PROVIDER=${CONTENT_PROVIDER:-opencode}
+    # Carica eventuali altre variabili da server/.env se presente.
+    env_file:
+      - path: ./server/.env
+        required: false
+    restart: unless-stopped
