@@ -64,7 +64,7 @@ export interface SceneCharacter {
   name: string;
   physical?: string | null;
   role?: string | null; // serve a distinguere il protagonista dai personaggi secondari
-  outfits?: CharacterOutfits; // abbigliamento canonico (default + per contesto), V19
+  outfits?: CharacterOutfits; // abbigliamento canonico (default + per contesto)
 }
 
 // Override FLASHBACK/ricordo (manuale, per-immagine): marca una generazione come scena del PASSATO,
@@ -83,15 +83,15 @@ export interface SceneDescriptionInput {
   characters: SceneCharacter[];
   bookTitle: string | null;
   angle?: string | null;
-  // Scheda visiva del capitolo (V15): grounding affidabile per soggetto/ambiente/personaggi.
+  // Scheda visiva del capitolo: grounding affidabile per soggetto/ambiente/personaggi.
   sceneCard?: ChapterScene | null;
-  // Configurazione VISIVA per-libro (V17): moduli-dominio attivi (windsurf, porta rossa, …) e
+  // Configurazione VISIVA per-libro: moduli-dominio attivi (windsurf, porta rossa, …) e
   // direttive d'arte libere. Scoppiano i blocchi specifici per libro invece di applicarli a tutti.
   visualDomains?: readonly string[];
   visualDirectives?: string | null;
-  // Oggetti/veicoli ricorrenti canonici + lato di guida (V20).
+  // Oggetti/veicoli ricorrenti canonici + lato di guida.
   visualProps?: BookVisualProps;
-  // Personaggi minori/incidentali con un look canonico (V21).
+  // Personaggi minori/incidentali con un look canonico.
   visualExtras?: BookVisualExtras;
   // Override manuale per scene di FLASHBACK/ricordo: rende i personaggi più giovani e li veste per
   // l'epoca del ricordo, scavalcando età e outfit canonici SOLO per questa immagine. Assente = normale.
@@ -175,7 +175,7 @@ function domainHaystack(card: ChapterScene | null | undefined, passage: string):
   return passage.toLowerCase();
 }
 
-// Blocco DIRETTIVE D'ARTE per-libro (V17): testo libero scritto dall'utente per QUESTO libro
+// Blocco DIRETTIVE D'ARTE per-libro: testo libero scritto dall'utente per QUESTO libro
 // (es. dettagli ricorrenti, palette, luoghi). Vuoto se assente.
 function directivesBlock(directives: string | null | undefined): string {
   const d = (directives ?? "").trim();
@@ -200,7 +200,7 @@ function resolveOutfit(outfits: CharacterOutfits | undefined, haystack: string):
   return outfits.default ?? null;
 }
 
-// Blocco OGGETTI RICORRENTI + MONDO (V20): inietta gli oggetti/veicoli canonici pertinenti alla scena
+// Blocco OGGETTI RICORRENTI + MONDO: inietta gli oggetti/veicoli canonici pertinenti alla scena
 // (match keyword sulla scheda, o proprietario presente in scena) e il LATO DI GUIDA quando la scena
 // coinvolge auto/strade. Tutto da rendere IDENTICO tra le immagini.
 function propsBlock(vp: BookVisualProps | undefined, haystack: string, names: string[]): string {
@@ -239,7 +239,7 @@ function propsBlock(vp: BookVisualProps | undefined, haystack: string, names: st
 ${lines.join("\n")}`;
 }
 
-// Blocco PERSONAGGI MINORI/incidentali canonici (V21): inietta le figure secondarie pertinenti alla
+// Blocco PERSONAGGI MINORI/incidentali canonici: inietta le figure secondarie pertinenti alla
 // scena (match keyword `when` sull'haystack della scheda) col loro aspetto FISSO, da rendere IDENTICO
 // ogni volta che la scena torna. Vuoto se nessuna combacia.
 function extrasBlock(extras: BookVisualExtras | undefined, haystack: string): string {
@@ -337,7 +337,7 @@ export async function buildSceneDescription(
   const cast = castBlock(input.characters, haystack, !!input.flashback);
   const card = sceneCardBlock(input.sceneCard);
   const physics = physicsBlock(input.sceneCard);
-  // Moduli-dominio per-libro (V17), pertinenti alla scena del capitolo, + direttive d'arte del libro.
+  // Moduli-dominio per-libro, pertinenti alla scena del capitolo, + direttive d'arte del libro.
   const domainBlocks = selectDomainBlocks({
     enabled: input.visualDomains ?? [],
     haystack,

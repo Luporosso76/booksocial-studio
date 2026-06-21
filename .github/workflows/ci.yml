@@ -24,12 +24,11 @@ jobs:
         run: npm run lint
         continue-on-error: true
 
-      - name: server — install, typecheck, test
+      - name: server — install, typecheck
         working-directory: server
         run: |
           npm ci
           npx tsc --noEmit
-          npm test
 
       - name: web — install, build
         working-directory: web

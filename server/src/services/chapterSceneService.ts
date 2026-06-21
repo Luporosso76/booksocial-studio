@@ -3,7 +3,7 @@ import type { ContentEngine } from "../content/engine.js";
 import { extractChapterScene, type ExtractedChapterScene } from "../content/chapterScene.js";
 import type { BookChapter, BookCharacter, ChapterScene } from "../domain.js";
 
-// Orchestratore della SCHEDA VISIVA per capitolo (V15): estrae on-demand dal testo e mette in
+// Orchestratore della SCHEDA VISIVA per capitolo: estrae on-demand dal testo e mette in
 // cache su book_chapter.scene_json. Usata sia dalla generazione immagini (grounding del prompt)
 // sia dalla UI (vista/modifica per capitolo).
 

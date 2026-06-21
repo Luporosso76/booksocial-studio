@@ -336,7 +336,7 @@ export function buildApi(deps: AppDeps): Hono {
             if (oldPath !== newPath) await unlink(oldPath).catch(() => {});
             bumpMediaRegenCompleted(); // avanza il contatore "fatte" del run (indicatore globale)
 
-            // QUALITY CHECK visivo (V22): un modello multimodale GUARDA la nuova immagine e segnala i
+            // QUALITY CHECK visivo: un modello multimodale GUARDA la nuova immagine e segnala i
             // problemi. Best-effort: non far MAI fallire la rigenerazione se la QA si rompe.
             try {
               // Gate globale: il controllo qualità si può disattivare dal pulsante in Impostazioni.
@@ -466,8 +466,8 @@ export function buildApi(deps: AppDeps): Hono {
         index: ch.index,
         title: ch.title,
         summary: null,
-        excluded: ch.excluded, // V23: capitolo escluso dalla generazione immagini (anti-frontespizio/toggle)
-        scene: ch.scene, // scheda visiva (V15): null se non ancora estratta
+        excluded: ch.excluded, // capitolo escluso dalla generazione immagini (anti-frontespizio/toggle)
+        scene: ch.scene, // scheda visiva: null se non ancora estratta
       })),
       links: bookLinks.map(linkDto),
       media: mediaDtos,
@@ -839,7 +839,7 @@ export function buildApi(deps: AppDeps): Hono {
     } else if (typeof body.baseHashtags === "string") {
       await books.setBaseHashtags(id, body.baseHashtags);
     }
-    // Configurazione VISIVA per-libro (V17). Aggiornata solo se almeno uno dei due campi è presente
+    // Configurazione VISIVA per-libro. Aggiornata solo se almeno uno dei due campi è presente
     // nel body, così un PUT che tocca solo il titolo non azzera la config. I domini sono validati
     // contro le chiavi note (gli sconosciuti vengono scartati silenziosamente).
     if ("visualDomains" in body || "visualDirectives" in body) {
@@ -865,11 +865,11 @@ export function buildApi(deps: AppDeps): Hono {
       }
       await books.setVisualConfig(id, domains, directives, directivesEn);
     }
-    // Oggetti/veicoli ricorrenti + mondo (V20), modificabili a mano.
+    // Oggetti/veicoli ricorrenti + mondo, modificabili a mano.
     if ("visualProps" in body) {
       await books.setVisualProps(id, parseVisualPropsInput(body.visualProps));
     }
-    // Personaggi minori/incidentali canonici (V21), modificabili a mano.
+    // Personaggi minori/incidentali canonici, modificabili a mano.
     if ("visualExtras" in body) {
       await books.setVisualExtras(id, parseVisualExtrasInput(body.visualExtras));
     }
@@ -920,13 +920,13 @@ export function buildApi(deps: AppDeps): Hono {
         title: ch.title,
         text: ch.text,
         charCount: ch.charCount,
-        excluded: ch.excluded, // V23: escluso dalla generazione immagini
-        scene: ch.scene, // scheda visiva (V15): null se non ancora estratta
+        excluded: ch.excluded, // escluso dalla generazione immagini
+        scene: ch.scene, // scheda visiva: null se non ancora estratta
       })),
     );
   });
 
-  // Esclude/include un capitolo dalla generazione immagini (V23). Body: { excluded: boolean }.
+  // Esclude/include un capitolo dalla generazione immagini. Body: { excluded: boolean }.
   // 404 se il capitolo non esiste. Toggle manuale che scavalca l'auto-default del frontespizio.
   api.post("/books/:id/chapters/:idx/excluded", async (c) => {
     const id = Number(c.req.param("id"));
@@ -1117,7 +1117,7 @@ export function buildApi(deps: AppDeps): Hono {
     return c.json({ status: "analyzing" });
   });
 
-  // ---------------- schede visive capitolo (V15) ----------------
+  // ---------------- schede visive capitolo ----------------
 
   // Scheda del capitolo: dalla cache o estratta on-demand (LAZY). Per la UI quando si apre il capitolo.
   api.get("/books/:id/chapters/:idx/scene", async (c) => {
@@ -1359,7 +1359,7 @@ export function buildApi(deps: AppDeps): Hono {
       charNames = normalized;
       // Pool capitoli: se l'utente non ha scelto capitoli espliciti, usa l'UNIONE dei capitoli dei
       // personaggi selezionati (∩ regole anti-spoiler applicate più a valle dalla pipeline).
-      // V23: escludi dall'unione i capitoli marcati `excluded` (frontespizio/toggle). I capitoli
+      // escludi dall'unione i capitoli marcati `excluded` (frontespizio/toggle). I capitoli
       // scelti ESPLICITAMENTE nel body restano onorati (questo ramo scatta solo se chapters è vuoto).
       if (chapters.length === 0) {
         const excludedIdx = new Set(
@@ -1407,8 +1407,7 @@ export function buildApi(deps: AppDeps): Hono {
     const ac = new AbortController();
     activeSceneGen.set(id, ac);
     // VARIETÀ DI COMPOSIZIONE: ruota tra più inquadrature lungo il lotto. Due assi di varietà:
-    // (1) SOLO 2 slot su 8 SENZA persone (ambientazioni/oggetti iconici); prima erano 4/8 e nelle scene
-    // i personaggi (specie i secondari) comparivano troppo poco. Ora 6/8 hanno persone; (2) tra quelle
+    // (1) SOLO 2 slot su 8 SENZA persone (ambientazioni/oggetti iconici); 6/8 hanno persone; (2) tra quelle
     // con persone NON sempre il protagonista — spinta ai SECONDARI (Sara, Elena, Marco…), anche DA SOLI o
     // in coppia/gruppetto, scelti tra quelli realmente presenti nel capitolo. Per l'attrezzatura che
     // richiede un rider (windsurf, surf, vela condotta): o c'è la persona che la usa, o è a riposo — mai

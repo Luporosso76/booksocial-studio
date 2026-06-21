@@ -172,7 +172,7 @@ export function mediaDto(m: MediaAsset) {
     chapterIdx: m.chapterIdx,
     tags: m.tags,
     genPrompt: m.genPrompt,
-    // Verdetto del QUALITY CHECK visivo (V22): { ok, issues[] } o null se non eseguito.
+    // Verdetto del QUALITY CHECK visivo: { ok, issues[] } o null se non eseguito.
     qa: m.qa,
   };
 }

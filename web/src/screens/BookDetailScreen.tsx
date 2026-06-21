@@ -3073,7 +3073,7 @@ function ChapterRow({
   );
 }
 
-// --- Scheda visiva del capitolo (V15): sotto-tab Ambiente / Oggetti / Personaggi, editabili. ---
+// --- Scheda visiva del capitolo: sotto-tab Ambiente / Oggetti / Personaggi, editabili. ---
 // Fonda la generazione delle immagini. Lazy: se non c'è ancora, un bottone la genera.
 
 type SceneSubTab = "ambiente" | "oggetti" | "personaggi" | "fisica";

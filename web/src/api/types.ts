@@ -320,7 +320,7 @@ export interface BookProfile {
   spoilerPolicy?: SpoilerPolicy | null;
 }
 
-// Scheda visiva del capitolo (V15): ambiente/luogo, oggetti, personaggi presenti.
+// Scheda visiva del capitolo: ambiente/luogo, oggetti, personaggi presenti.
 // Serve a fondare la generazione delle immagini ed è editabile dalla UI.
 export interface ChapterScene {
   location: string | null;
@@ -354,7 +354,7 @@ export interface BookChapterFull {
   title?: string | null;
   text: string;
   charCount: number;
-  scene?: ChapterScene | null; // scheda visiva (V15): null se non ancora estratta
+  scene?: ChapterScene | null; // scheda visiva: null se non ancora estratta
   // true = capitolo escluso manualmente dai pool di generazione (immagini/contenuti).
   excluded?: boolean;
 }

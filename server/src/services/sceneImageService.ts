@@ -103,7 +103,7 @@ export class SceneImageService {
   ): Promise<{ text: string; chapterIndex: number; title: string | null } | null> {
     const chapters = await books.chapters(bookId);
     if (chapters.length === 0) return null;
-    // ESCLUSIONE capitoli (V23): i capitoli esclusi (frontespizio/toggle) NON entrano nel pool di
+    // ESCLUSIONE capitoli: i capitoli esclusi (frontespizio/toggle) NON entrano nel pool di
     // selezione random né nell'intersezione con restrictChapters. ECCEZIONE più sotto: un capitolo
     // `prefer` esplicito viene onorato comunque (cerca su `chapters` interi, non sul pool eleggibile).
     const eligibleChapters = chapters.filter((ch) => !ch.excluded);
@@ -320,7 +320,7 @@ export class SceneImageService {
       tags: scene.tags, // soggetti/mood (catalogazione + selezione per pertinenza)
       addedAt: Date.now(), // qa: default null; il verdetto QA è riempito sotto (best-effort)
     });
-    // QUALITY CHECK visivo (V22): un modello multimodale GUARDA l'immagine e segnala i problemi.
+    // QUALITY CHECK visivo: un modello multimodale GUARDA l'immagine e segnala i problemi.
     // Best-effort: la QA è opzionale e NON deve mai far fallire la generazione (batch = solo flag,
     // nessun auto-retry: quello è opt-in lato rigenerazione). Usa opencode direttamente via config.
     try {
