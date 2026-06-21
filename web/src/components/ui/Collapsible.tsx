@@ -57,9 +57,7 @@ export function Collapsible({
             )}
           />
           <span className="min-w-0 flex-1">
-            <span className="block truncate text-sm font-medium text-content-primary">
-              {title}
-            </span>
+            <span className="block truncate text-sm font-medium text-content-primary">{title}</span>
             {summary != null && !isOpen && (
               <span className="mt-0.5 block truncate text-xs leading-snug text-content-tertiary">
                 {summary}
@@ -72,10 +70,7 @@ export function Collapsible({
       {isOpen && (
         <div
           id={bodyId}
-          className={cn(
-            "border-t border-border-subtle px-3.5 py-3 animate-fade-in",
-            bodyClassName,
-          )}
+          className={cn("border-t border-border-subtle px-3.5 py-3 animate-fade-in", bodyClassName)}
         >
           {children}
         </div>

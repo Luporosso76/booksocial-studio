@@ -471,7 +471,12 @@ function DraftCard({
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" aria-label={t("common.moreActions")} disabled={busy}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  aria-label={t("common.moreActions")}
+                  disabled={busy}
+                >
                   <MoreVertical className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
@@ -535,10 +540,7 @@ function DraftCard({
 }
 
 // Tipo di pubblicazione leggibile: Reel / Storia / Post (in base a mediaType e visualKind).
-function draftKindLabel(
-  d: ScheduledPost,
-  t: (key: string) => string,
-): string {
+function draftKindLabel(d: ScheduledPost, t: (key: string) => string): string {
   const vk = d.contentFormat?.visualKind;
   if (d.mediaType === "REEL" || vk === "reel") return t("planner.kindReel");
   if (d.mediaType === "STORY" || vk === "story") return t("planner.kindStory");
@@ -551,9 +553,21 @@ function draftKindLabel(
 // ---------------------------------------------------------------------------
 
 const QUOTA_FIELDS: { key: keyof WeeklyPlan; labelKey: string; icon: ReactNode }[] = [
-  { key: "postsPerWeek", labelKey: "planner.quotaPosts", icon: <FileText className="h-4 w-4 text-content-tertiary" /> },
-  { key: "reelsPerWeek", labelKey: "planner.quotaReels", icon: <Film className="h-4 w-4 text-content-tertiary" /> },
-  { key: "storiesPerWeek", labelKey: "planner.quotaStories", icon: <Layers className="h-4 w-4 text-content-tertiary" /> },
+  {
+    key: "postsPerWeek",
+    labelKey: "planner.quotaPosts",
+    icon: <FileText className="h-4 w-4 text-content-tertiary" />,
+  },
+  {
+    key: "reelsPerWeek",
+    labelKey: "planner.quotaReels",
+    icon: <Film className="h-4 w-4 text-content-tertiary" />,
+  },
+  {
+    key: "storiesPerWeek",
+    labelKey: "planner.quotaStories",
+    icon: <Layers className="h-4 w-4 text-content-tertiary" />,
+  },
 ];
 
 function WeeklyPlanEditor({ pageId }: { pageId: string }) {
@@ -700,8 +714,7 @@ function ScheduleAllControl({
             {typeof result.jobScheduled === "number" &&
               result.jobScheduled > 0 &&
               t("planner.scheduleResultJob", { count: result.jobScheduled })}
-            {result.skipped > 0 &&
-              t("planner.scheduleResultSkipped", { count: result.skipped })}
+            {result.skipped > 0 && t("planner.scheduleResultSkipped", { count: result.skipped })}
           </span>
         </div>
       )}
@@ -1033,16 +1046,10 @@ export function PlannerScreen() {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader
-        title={t("nav.planner")}
-        description={t("planner.generateDescription")}
-      />
+      <PageHeader title={t("nav.planner")} description={t("planner.generateDescription")} />
 
       <Card>
-        <CardHeader
-          title={t("planner.planTitle")}
-          description={t("planner.planDescription")}
-        />
+        <CardHeader title={t("planner.planTitle")} description={t("planner.planDescription")} />
         <CardBody className="flex flex-col gap-4">
           {pagesState.error ? (
             <ErrorBanner message={pagesState.error} onRetry={pagesState.reload} />
@@ -1095,11 +1102,7 @@ export function PlannerScreen() {
 
       {pageId && (
         <div className="flex flex-col gap-2">
-          <Collapsible
-            title={t("planner.slotsTitle")}
-            summary={slotsSummary}
-            defaultOpen={false}
-          >
+          <Collapsible title={t("planner.slotsTitle")} summary={slotsSummary} defaultOpen={false}>
             {slotsState.loading ? (
               <Skeleton className="h-12 w-full" />
             ) : slots.length === 0 ? (
@@ -1117,13 +1120,15 @@ export function PlannerScreen() {
                         {DAY_SHORT_KEY[s.dayOfWeek] ? t(DAY_SHORT_KEY[s.dayOfWeek]) : s.dayOfWeek}{" "}
                         {slotTimeLabel(s, t)}
                       </span>
-                      {s.timeStart && s.timeEnd && (
-                        <Badge tone="accent">{t("planner.band")}</Badge>
-                      )}
+                      {s.timeStart && s.timeEnd && <Badge tone="accent">{t("planner.band")}</Badge>}
                     </div>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm" aria-label={t("planner.removeWindowAria")}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          aria-label={t("planner.removeWindowAria")}
+                        >
                           <MoreVertical className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
@@ -1227,7 +1232,9 @@ export function PlannerScreen() {
             <span className="inline-flex items-center gap-2">
               {t("planner.generateTitle")}
               {drafts.length > 0 && (
-                <Badge tone="neutral">{drafts.length} {t("planner.draftsCountSuffix")}</Badge>
+                <Badge tone="neutral">
+                  {drafts.length} {t("planner.draftsCountSuffix")}
+                </Badge>
               )}
             </span>
           }
@@ -1318,9 +1325,7 @@ export function PlannerScreen() {
                     </Button>
                   </div>
                 </div>
-                {customRangeInvalid && (
-                  <ErrorBanner message={t("planner.endDateBeforeStart")} />
-                )}
+                {customRangeInvalid && <ErrorBanner message={t("planner.endDateBeforeStart")} />}
               </div>
             )}
           </div>
@@ -1384,9 +1389,7 @@ export function PlannerScreen() {
                 <div className="flex flex-col gap-2">
                   <EmptyState
                     title={t("planner.noDraftsCreatedTitle")}
-                    description={
-                      weekGen.reason || t("planner.noDraftsCreatedDescription")
-                    }
+                    description={weekGen.reason || t("planner.noDraftsCreatedDescription")}
                   />
                   {weekGen.messages && weekGen.messages.length > 0 && (
                     <ul className="mx-auto max-w-md list-disc space-y-1 pl-5 text-xs text-content-tertiary">
@@ -1423,9 +1426,7 @@ export function PlannerScreen() {
                     icon={<Sparkles className="h-5 w-5" />}
                     title={t("planner.noDraftsTitle")}
                     description={
-                      pageId
-                        ? t("planner.noDraftsWithPage")
-                        : t("planner.noDraftsWithoutPage")
+                      pageId ? t("planner.noDraftsWithPage") : t("planner.noDraftsWithoutPage")
                     }
                   />
                 )

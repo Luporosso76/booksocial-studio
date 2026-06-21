@@ -228,7 +228,12 @@ function CommentRow({
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button size="sm" variant="ghost" disabled={busy !== null} aria-label={t("pageMgmt.moreActions")}>
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={busy !== null}
+              aria-label={t("pageMgmt.moreActions")}
+            >
               <MoreVertical className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
@@ -502,21 +507,26 @@ function PostRow({
       {/* Azioni post */}
       {!editing && (
         <div className="mt-2 flex items-center gap-2">
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => setExpanded((v) => !v)}
-          >
+          <Button size="sm" variant="ghost" onClick={() => setExpanded((v) => !v)}>
             <MessageCircle className="h-3.5 w-3.5" />
             {t("pageMgmt.comments")}
             <ChevronDown
-              className={cn("h-3.5 w-3.5 transition-transform duration-200", expanded ? "rotate-0" : "-rotate-90")}
+              className={cn(
+                "h-3.5 w-3.5 transition-transform duration-200",
+                expanded ? "rotate-0" : "-rotate-90",
+              )}
             />
           </Button>
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button size="sm" variant="ghost" disabled={busy !== null} aria-label={t("pageMgmt.morePostActions")} className="ml-auto">
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={busy !== null}
+                aria-label={t("pageMgmt.morePostActions")}
+                className="ml-auto"
+              >
                 <MoreVertical className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>

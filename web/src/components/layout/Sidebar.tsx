@@ -54,9 +54,7 @@ function SidebarLink({ to, labelKey, icon: Icon }: NavItem) {
           <Icon
             className={cn(
               "h-[1.05rem] w-[1.05rem] shrink-0 transition-colors",
-              isActive
-                ? "text-accent"
-                : "text-content-tertiary group-hover:text-content-secondary",
+              isActive ? "text-accent" : "text-content-tertiary group-hover:text-content-secondary",
             )}
           />
           <span aria-current={isActive ? "page" : undefined}>{t(labelKey)}</span>

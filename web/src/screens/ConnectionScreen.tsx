@@ -167,11 +167,7 @@ export function ConnectionScreen() {
                   className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-content-tertiary transition-colors hover:text-content-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-ring"
                   aria-label={t(showToken ? "connection.hideToken" : "connection.showToken")}
                 >
-                  {showToken ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
+                  {showToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
               <Button variant="primary" onClick={handleConnect} loading={connecting}>

@@ -261,11 +261,7 @@ function ProgrammatoCard({
         description={t("programmati.publishConfirmDescription")}
         footer={
           <>
-            <Button
-              variant="ghost"
-              onClick={() => setConfirmPublish(false)}
-              disabled={publishing}
-            >
+            <Button variant="ghost" onClick={() => setConfirmPublish(false)} disabled={publishing}>
               {t("common.cancel")}
             </Button>
             <Button variant="primary" onClick={handlePublishNow} loading={publishing}>
@@ -299,11 +295,7 @@ function ProgrammatoCard({
         description={t("programmati.removeConfirmDescription")}
         footer={
           <>
-            <Button
-              variant="ghost"
-              onClick={() => setConfirmDelete(false)}
-              disabled={deleting}
-            >
+            <Button variant="ghost" onClick={() => setConfirmDelete(false)} disabled={deleting}>
               {t("common.cancel")}
             </Button>
             <Button variant="danger" onClick={handleRemove} loading={deleting}>
@@ -356,9 +348,7 @@ function ProgrammatiList({ page }: { page: FacebookPage }) {
         title={t("programmati.queueTitle")}
         description={t("programmati.queueDescription")}
         action={
-          !postsState.loading && fbCount > 0 ? (
-            <Badge tone="neutral">{fbCount}</Badge>
-          ) : undefined
+          !postsState.loading && fbCount > 0 ? <Badge tone="neutral">{fbCount}</Badge> : undefined
         }
       />
       <CardBody>
@@ -413,10 +403,7 @@ export function ProgrammatiScreen() {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader
-        title={t("programmati.title")}
-        description={t("programmati.description")}
-      />
+      <PageHeader title={t("programmati.title")} description={t("programmati.description")} />
 
       {pagesState.error ? (
         <ErrorBanner message={pagesState.error} onRetry={pagesState.reload} />
@@ -469,9 +456,7 @@ export function ProgrammatiScreen() {
             </p>
           </div>
 
-          {activePage && (
-            <ProgrammatiList key={activePage.id} page={activePage} />
-          )}
+          {activePage && <ProgrammatiList key={activePage.id} page={activePage} />}
         </>
       )}
     </div>

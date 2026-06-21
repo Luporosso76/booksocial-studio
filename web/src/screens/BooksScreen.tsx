@@ -29,11 +29,7 @@ function titleInitials(title: string): string {
 function BookCover({ book }: { book: Book }) {
   if (book.coverUrl) {
     return (
-      <img
-        src={book.coverUrl}
-        alt={book.title}
-        className="h-36 w-full rounded-lg object-cover"
-      />
+      <img src={book.coverUrl} alt={book.title} className="h-36 w-full rounded-lg object-cover" />
     );
   }
 
@@ -145,9 +141,7 @@ export function BooksScreen() {
                   {book.title}
                 </h3>
                 {book.author && (
-                  <p className="mt-0.5 truncate text-xs text-content-tertiary">
-                    {book.author}
-                  </p>
+                  <p className="mt-0.5 truncate text-xs text-content-tertiary">{book.author}</p>
                 )}
               </div>
 

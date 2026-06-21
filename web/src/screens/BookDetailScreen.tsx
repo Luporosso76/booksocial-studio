@@ -2889,7 +2889,9 @@ function SceneGenSection({
             >
               {t("book.sceneGen.recomputePresence")}
             </Button>
-            <span className="text-xs text-content-tertiary">{t("book.sceneGen.recomputeHint")}</span>
+            <span className="text-xs text-content-tertiary">
+              {t("book.sceneGen.recomputeHint")}
+            </span>
           </div>
         </Field>
       )}
@@ -3145,7 +3147,9 @@ function ChapterRow({
     setToggling(true);
     try {
       await setChapterExcluded(bookId, chapter.index, !excluded);
-      toast.success(!excluded ? t("book.chapters.chapterExcluded") : t("book.chapters.chapterIncluded"));
+      toast.success(
+        !excluded ? t("book.chapters.chapterExcluded") : t("book.chapters.chapterIncluded"),
+      );
       onChanged();
     } catch (err) {
       toast.error(errorMessage(err) || t("common.operationFailed"));
@@ -4039,7 +4043,9 @@ function VisualPropsCard({
                 key={idx}
                 defaultOpen={p.name.trim() === ""}
                 title={p.name.trim() || t("book.visualProps.newObject")}
-                summary={p.description.trim() || p.when.trim() || t("book.visualProps.noDescription")}
+                summary={
+                  p.description.trim() || p.when.trim() || t("book.visualProps.noDescription")
+                }
                 actions={
                   <Button
                     variant="ghost"
@@ -4205,7 +4211,9 @@ function VisualExtrasCard({
                 key={idx}
                 defaultOpen={m.label.trim() === ""}
                 title={m.label.trim() || t("book.visualExtras.newMinor")}
-                summary={m.appearance.trim() || m.when.trim() || t("book.visualExtras.noAppearance")}
+                summary={
+                  m.appearance.trim() || m.when.trim() || t("book.visualExtras.noAppearance")
+                }
                 actions={
                   <Button
                     variant="ghost"

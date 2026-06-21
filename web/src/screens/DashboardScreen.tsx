@@ -61,10 +61,22 @@ function metricValue(metrics: PageInsights["metrics"], name: string): number {
 type KpiColor = "indigo" | "sky" | "rose" | "amber";
 
 const KPI_COLORS: Record<KpiColor, { chip: string; glow: string }> = {
-  indigo: { chip: "bg-indigo-500/15 text-indigo-300", glow: "hover:shadow-[0_0_36px_-12px_rgba(129,140,248,0.55)]" },
-  sky: { chip: "bg-sky-500/15 text-sky-300", glow: "hover:shadow-[0_0_36px_-12px_rgba(56,189,248,0.55)]" },
-  rose: { chip: "bg-rose-500/15 text-rose-300", glow: "hover:shadow-[0_0_36px_-12px_rgba(251,113,133,0.55)]" },
-  amber: { chip: "bg-amber-500/15 text-amber-300", glow: "hover:shadow-[0_0_36px_-12px_rgba(251,191,36,0.55)]" },
+  indigo: {
+    chip: "bg-indigo-500/15 text-indigo-300",
+    glow: "hover:shadow-[0_0_36px_-12px_rgba(129,140,248,0.55)]",
+  },
+  sky: {
+    chip: "bg-sky-500/15 text-sky-300",
+    glow: "hover:shadow-[0_0_36px_-12px_rgba(56,189,248,0.55)]",
+  },
+  rose: {
+    chip: "bg-rose-500/15 text-rose-300",
+    glow: "hover:shadow-[0_0_36px_-12px_rgba(251,113,133,0.55)]",
+  },
+  amber: {
+    chip: "bg-amber-500/15 text-amber-300",
+    glow: "hover:shadow-[0_0_36px_-12px_rgba(251,191,36,0.55)]",
+  },
 };
 
 interface KpiTileProps {
@@ -114,10 +126,30 @@ function KpiRow({
   const { t } = useTranslation();
   return (
     <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-      <KpiTile icon={<Users className="h-5 w-5" />} label={t("dashboard.kpiFollowers")} value={followers} color="indigo" />
-      <KpiTile icon={<Eye className="h-5 w-5" />} label={t("dashboard.kpiCoverage")} value={coverage} color="sky" />
-      <KpiTile icon={<Zap className="h-5 w-5" />} label={t("dashboard.kpiEngagements")} value={interactions} color="rose" />
-      <KpiTile icon={<CalendarClock className="h-5 w-5" />} label={t("dashboard.kpiScheduled")} value={scheduled} color="amber" />
+      <KpiTile
+        icon={<Users className="h-5 w-5" />}
+        label={t("dashboard.kpiFollowers")}
+        value={followers}
+        color="indigo"
+      />
+      <KpiTile
+        icon={<Eye className="h-5 w-5" />}
+        label={t("dashboard.kpiCoverage")}
+        value={coverage}
+        color="sky"
+      />
+      <KpiTile
+        icon={<Zap className="h-5 w-5" />}
+        label={t("dashboard.kpiEngagements")}
+        value={interactions}
+        color="rose"
+      />
+      <KpiTile
+        icon={<CalendarClock className="h-5 w-5" />}
+        label={t("dashboard.kpiScheduled")}
+        value={scheduled}
+        color="amber"
+      />
     </div>
   );
 }
@@ -247,7 +279,10 @@ function PageInsightRow({ page }: { page: FacebookPage }) {
       ) : (
         <div className="flex flex-wrap gap-2">
           {insightsState.data.metrics.map((m) => (
-            <div key={m.metric} className="flex flex-col items-start gap-1 rounded-md bg-bg-hover px-2 py-1.5">
+            <div
+              key={m.metric}
+              className="flex flex-col items-start gap-1 rounded-md bg-bg-hover px-2 py-1.5"
+            >
               <span className="text-2xs uppercase tracking-wide text-content-tertiary">
                 {metricLabel(m.metric)}
               </span>
@@ -360,9 +395,24 @@ function DashSectionTabs({
 }) {
   const { t } = useTranslation();
   const tabs: { id: DashSection; label: string; icon: typeof FileText; activeColor: string }[] = [
-    { id: "post", label: t("dashboard.sectionPost"), icon: FileText, activeColor: "text-indigo-300" },
-    { id: "usage", label: t("dashboard.sectionUsage"), icon: BarChart3, activeColor: "text-sky-300" },
-    { id: "insight", label: t("dashboard.sectionInsight"), icon: TrendingUp, activeColor: "text-rose-300" },
+    {
+      id: "post",
+      label: t("dashboard.sectionPost"),
+      icon: FileText,
+      activeColor: "text-indigo-300",
+    },
+    {
+      id: "usage",
+      label: t("dashboard.sectionUsage"),
+      icon: BarChart3,
+      activeColor: "text-sky-300",
+    },
+    {
+      id: "insight",
+      label: t("dashboard.sectionInsight"),
+      icon: TrendingUp,
+      activeColor: "text-rose-300",
+    },
   ];
   return (
     <div
@@ -453,10 +503,7 @@ function PlatformSubTabs({
 
 function IgInsightRow({ page }: { page: FacebookPage }) {
   const { t } = useTranslation();
-  const state = useAsync<IgInsightsResponse>(
-    (s) => getIgInsights(page.id, "day", s),
-    [page.id],
-  );
+  const state = useAsync<IgInsightsResponse>((s) => getIgInsights(page.id, "day", s), [page.id]);
   return (
     <div className="rounded-lg border border-border-subtle bg-bg-inset px-4 py-3">
       <div className="mb-2 flex items-center gap-2">
@@ -474,7 +521,10 @@ function IgInsightRow({ page }: { page: FacebookPage }) {
       ) : (
         <div className="flex flex-wrap gap-2">
           {state.data.metrics.map((m) => (
-            <div key={m.metric} className="flex flex-col items-start gap-1 rounded-md bg-bg-hover px-2 py-1.5">
+            <div
+              key={m.metric}
+              className="flex flex-col items-start gap-1 rounded-md bg-bg-hover px-2 py-1.5"
+            >
               <span className="text-2xs uppercase tracking-wide text-content-tertiary">
                 {metricLabel(m.metric)}
               </span>
@@ -496,10 +546,7 @@ function PostList({ posts }: { posts: ScheduledPost[] }) {
       {posts.map((p) => {
         const when = formatWhen(p.scheduledAt);
         return (
-          <div
-            key={p.id}
-            className="rounded-lg border border-border-subtle bg-bg-inset p-4"
-          >
+          <div key={p.id} className="rounded-lg border border-border-subtle bg-bg-inset p-4">
             <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <Badge tone={statusTone(p.status)}>{statusLabel(p.status)}</Badge>

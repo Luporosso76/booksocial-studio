@@ -1100,10 +1100,7 @@ export function InsightsScreen() {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader
-        title={t("insights.title")}
-        description={t("insights.description")}
-      />
+      <PageHeader title={t("insights.title")} description={t("insights.description")} />
 
       <Card>
         <CardBody>

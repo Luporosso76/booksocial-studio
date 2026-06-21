@@ -49,10 +49,7 @@ export function ImpostazioniScreen() {
   const { t } = useTranslation();
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader
-        title={t("settings.title")}
-        description={t("settings.subtitle")}
-      />
+      <PageHeader title={t("settings.title")} description={t("settings.subtitle")} />
 
       <AiProvidersCard />
       <AiImageModeCard />
