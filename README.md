@@ -1,5 +1,10 @@
 # BookSocial Studio
 
+![CI](https://github.com/Luporosso76/booksocial-studio/actions/workflows/ci.yml/badge.svg)
+![License: PolyForm Noncommercial 1.0.0](https://img.shields.io/badge/license-PolyForm%20Noncommercial%201.0.0-blue)
+![Node](https://img.shields.io/badge/node-%3E%3D24-green)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue)
+
 Turn a book (Markdown) into ready-to-publish **social media content** — spoiler‑aware posts, reels and
 stories with real text, AI visuals and music — and schedule/publish them to Facebook and Instagram.
 
@@ -82,6 +87,14 @@ Production (single process serving the built frontend):
 cd web && npm ci && npm run build       # outputs web/dist
 cd ../server && npm ci && npm start     # serves API + ../web/dist on :8770
 ```
+
+## Security note for remote servers
+
+BookSocial Studio is designed as a **local-first, single-user** app and binds to `127.0.0.1` by
+default. The bundled Docker Compose sets `HOST=0.0.0.0` and maps a port for convenience — if you run
+it on a VPS or expose it outside localhost, **enable `AUTH_USER` and `AUTH_PASS`** and put it behind a
+reverse proxy with HTTPS. Do not expose the app publicly without authentication: it can access local
+project data, AI provider keys, and social publishing tokens.
 
 ## Configuration
 
