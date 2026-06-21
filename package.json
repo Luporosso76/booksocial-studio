@@ -2,6 +2,7 @@
   "name": "booksocial-studio",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "description": "BookSocial Studio — quality & release tooling (Prettier, ESLint) for server/ and web/.",
   "scripts": {
     "format": "prettier --write \"server/src/**/*.{ts,tsx}\" \"web/src/**/*.{ts,tsx}\"",

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { NavLink } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
@@ -1082,7 +1082,7 @@ export function InsightsScreen() {
   const [activeId, setActiveId] = useState("");
   const [platform, setPlatform] = useState<Platform>("facebook");
 
-  const pages = pagesState.data ?? [];
+  const pages = useMemo(() => pagesState.data ?? [], [pagesState.data]);
   const activePage = pages.find((p) => p.id === activeId) ?? pages[0] ?? null;
   const hasInstagram = activePage?.igUserId != null;
 

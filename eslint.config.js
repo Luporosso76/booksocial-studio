@@ -37,7 +37,11 @@ export default tseslint.config(
     rules: {
       // Keep warn-level signal without ever failing the existing codebase.
       "@typescript-eslint/no-explicit-any": "off",
-      "@typescript-eslint/no-unused-vars": "warn",
+      // Underscore-prefixed identifiers are an intentional "unused" marker.
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_", caughtErrorsIgnorePattern: "^_" },
+      ],
       "@typescript-eslint/no-empty-object-type": "off",
       "no-empty": "warn",
       "no-control-regex": "off",
@@ -47,6 +51,13 @@ export default tseslint.config(
       "no-console": "warn",
       "react-hooks/rules-of-hooks": "warn",
       "react-hooks/exhaustive-deps": "warn",
+    },
+  },
+  {
+    // The backend is a Node CLI/server: console is the intended logging channel.
+    files: ["server/**/*.ts"],
+    rules: {
+      "no-console": "off",
     },
   },
 );

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { NavLink } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
@@ -308,7 +308,7 @@ export function DashboardScreen() {
     [pageId],
   );
 
-  const pages = pagesState.data ?? [];
+  const pages = useMemo(() => pagesState.data ?? [], [pagesState.data]);
   const posts = postsState.data ?? [];
 
   // Imposta la prima pagina come attiva al caricamento (o se quella selezionata
