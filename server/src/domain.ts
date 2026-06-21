@@ -259,7 +259,7 @@ export interface PostingSlot {
   id: number;
   pageId: string;
   dayOfWeek: number; // 1=Mon .. 7=Sun (ISO-8601)
-  timeOfDay: string; // HH:mm — orario "legacy"/fallback (centro della fascia)
+  timeOfDay: string; // HH:mm — orario di fallback (centro della fascia)
   // Fascia oraria (HH:mm): se entrambi presenti, la generazione assegna un orario
   // VARIATO dentro [timeStart, timeEnd], diverso ogni settimana. Se null, usa timeOfDay.
   timeStart: string | null;
@@ -341,7 +341,7 @@ export interface ContentUsage {
 // montate sui reel/storie da ffmpeg. Tracciata come media_asset ma indipendente.
 export interface MusicTrack {
   id: number;
-  bookId: number | null; // libro a cui appartiene la traccia (null = libreria globale/legacy)
+  bookId: number | null; // libro a cui appartiene la traccia (null = libreria globale)
   title: string;
   path: string;
   durationSec: number | null;

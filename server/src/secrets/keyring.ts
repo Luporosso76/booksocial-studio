@@ -46,7 +46,7 @@ function loadKey(): Buffer {
   if (existsSync(kf)) {
     const raw = readFileSync(kf);
     if (raw.length === 32) return raw;
-    // Stored as hex (legacy/manual edits): decode.
+    // Stored as hex (manual edits): decode.
     const asHex = Buffer.from(raw.toString("utf8").trim(), "hex");
     if (asHex.length === 32) return asHex;
     throw new Error("secret.key has an invalid length; remove it to regenerate");

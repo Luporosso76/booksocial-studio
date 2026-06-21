@@ -142,7 +142,7 @@ export function getMediaRegen(): MediaRegenState {
 }
 
 // True se una rigenerazione è in corso o accodata. Con `mediaId`: solo per QUELLA immagine
-// (corrente o in coda) — retrocompat con GET /media/:id/regen-status.
+// (corrente o in coda), come usato da GET /media/:id/regen-status.
 export function isMediaRegenerating(mediaId?: number): boolean {
   if (mediaId === undefined) {
     return state.current !== null || state.queue.length > 0;

@@ -1325,8 +1325,8 @@ export function buildApi(deps: AppDeps): Hono {
     const count = Math.max(1, Math.min(20, Math.floor(Number(body.count)) || 1));
     const aspect: SceneAspect = isSceneAspect(body.aspect) ? body.aspect : "1:1";
     // Capitoli scelti (MULTISELECT): array di indici >= 0. `count` è PER CAPITOLO quando ne scegli.
-    // Vuoto/assente = AUTO (count immagini totali su capitoli vari, anti-spoiler). Retrocompat:
-    // accetta anche `chapterIndex` singolo.
+    // Vuoto/assente = AUTO (count immagini totali su capitoli vari, anti-spoiler). Accetta anche
+    // `chapterIndex` singolo.
     const rawCh: unknown[] = Array.isArray(body.chapters) ? body.chapters : [];
     let chapters = [
       ...new Set(
@@ -1334,11 +1334,11 @@ export function buildApi(deps: AppDeps): Hono {
       ),
     ];
     if (chapters.length === 0) {
-      const legacy = Math.floor(Number(body.chapterIndex));
-      if (Number.isInteger(legacy) && legacy >= 0) chapters = [legacy];
+      const single = Math.floor(Number(body.chapterIndex));
+      if (Number.isInteger(single) && single >= 0) chapters = [single];
     }
     // "Genera per personaggio" (MULTI, opzionale): nomi dal cast del libro. Se valorizzati, il batch
-    // featura quei personaggi sui capitoli dove compaiono. RETROCOMPAT: accetta anche `character`
+    // featura quei personaggi sui capitoli dove compaiono. Accetta anche `character`
     // singolo (stringa) e lo tratta come lista di uno. Validazione: OGNI nome dev'essere nel cast
     // (case-insensitive); 400 se uno non esiste. I nomi vengono normalizzati al canonico del cast.
     const rawNames: string[] = Array.isArray(body.characters)
@@ -2005,7 +2005,7 @@ export function buildApi(deps: AppDeps): Hono {
   });
 
   // GET /media/:id/regen-status — la rigenerazione di questa immagine è in corso/accodata?
-  // (retrocompat: forma { regenerating } per-id).
+  // (risposta { regenerating } per-id).
   api.get("/media/:id/regen-status", (c) => {
     return c.json({ regenerating: isMediaRegenerating(Number(c.req.param("id"))) });
   });
@@ -2090,7 +2090,7 @@ export function buildApi(deps: AppDeps): Hono {
       return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
     };
     // Fascia oraria opzionale: se timeStart+timeEnd validi, lo slot è una FASCIA e
-    // timeOfDay diventa il centro (fallback/legacy). Altrimenti serve timeOfDay singolo.
+    // timeOfDay diventa il centro (fallback). Altrimenti serve timeOfDay singolo.
     const hasStart = typeof body.timeStart === "string" && HHMM.test(body.timeStart);
     const hasEnd = typeof body.timeEnd === "string" && HHMM.test(body.timeEnd);
     let timeStart: string | null = null;
