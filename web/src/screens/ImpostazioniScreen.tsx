@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
+  AlertCircle,
   Check,
   Images,
   KeyRound,
@@ -13,6 +14,7 @@ import {
 } from "lucide-react";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { Badge, ErrorBanner, Skeleton } from "@/components/ui/misc";
 import { Input, Field, selectClass } from "@/components/ui/Input";
 import { useToast } from "@/components/ui/toast";
@@ -47,10 +49,10 @@ export function ImpostazioniScreen() {
   const { t } = useTranslation();
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h2 className="text-lg font-semibold text-content-primary">{t("settings.title")}</h2>
-        <p className="mt-0.5 text-sm text-content-tertiary">{t("settings.subtitle")}</p>
-      </div>
+      <PageHeader
+        title={t("settings.title")}
+        description={t("settings.subtitle")}
+      />
 
       <AiProvidersCard />
       <AiImageModeCard />
@@ -964,7 +966,8 @@ function AiImageModeCard() {
                         {t(opt.descriptionKey)}
                       </span>
                       {disabled && (
-                        <span className="mt-1 block text-xs text-content-faint">
+                        <span className="mt-1 flex items-center gap-1 text-xs text-content-tertiary">
+                          <AlertCircle className="h-3.5 w-3.5 shrink-0 text-content-secondary" />
                           {t("settings.imageMode.engineNotInstalled")}
                         </span>
                       )}
@@ -982,8 +985,8 @@ function AiImageModeCard() {
               })}
             </div>
 
-            <p className="flex items-start gap-2 text-xs leading-relaxed text-content-tertiary">
-              <SlidersHorizontal className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <p className="flex items-start gap-2 rounded-md bg-bg-inset px-3 py-2.5 text-sm leading-relaxed text-content-secondary">
+              <SlidersHorizontal className="mt-0.5 h-3.5 w-3.5 shrink-0 text-content-tertiary" />
               <span>{t("settings.imageMode.slowNote")}</span>
             </p>
           </>
@@ -1046,6 +1049,7 @@ function QaCheckCard() {
             className={cn(
               "flex w-full items-start justify-between gap-3 rounded-lg border px-3.5 py-3 text-left",
               "transition-[background-color,border-color] duration-150 ease-out-strong",
+              "focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-ring",
               "disabled:cursor-not-allowed disabled:opacity-50",
               enabled
                 ? "border-accent/40 bg-accent-soft"

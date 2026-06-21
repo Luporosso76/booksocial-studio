@@ -34,6 +34,38 @@ const SETTINGS: NavItem[] = [
   { to: "/impostazioni", labelKey: "nav.settings", icon: Settings },
 ];
 
+function SidebarLink({ to, labelKey, icon: Icon }: NavItem) {
+  const { t } = useTranslation();
+  return (
+    <NavLink
+      to={to}
+      className={({ isActive }) =>
+        cn(
+          "group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium",
+          "transition-[background-color,color,transform] duration-150 ease-out-strong active:scale-[0.98]",
+          isActive
+            ? "border-l-2 border-accent bg-accent-soft pl-[calc(0.75rem-2px)] text-accent"
+            : "text-content-secondary hover:bg-bg-hover hover:text-content-primary",
+        )
+      }
+    >
+      {({ isActive }) => (
+        <>
+          <Icon
+            className={cn(
+              "h-[1.05rem] w-[1.05rem] shrink-0 transition-colors",
+              isActive
+                ? "text-accent"
+                : "text-content-tertiary group-hover:text-content-secondary",
+            )}
+          />
+          <span aria-current={isActive ? "page" : undefined}>{t(labelKey)}</span>
+        </>
+      )}
+    </NavLink>
+  );
+}
+
 export function Sidebar() {
   const { t } = useTranslation();
   return (
@@ -51,68 +83,16 @@ export function Sidebar() {
       </div>
 
       <nav className="flex flex-1 flex-col gap-1 p-3">
-        {PRIMARY.map(({ to, labelKey, icon: Icon }) => (
-          <NavLink
-            key={to}
-            to={to}
-            className={({ isActive }) =>
-              cn(
-                "group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium",
-                "transition-[background-color,color,transform] duration-150 ease-out-strong active:scale-[0.98]",
-                isActive
-                  ? "bg-accent-soft text-accent"
-                  : "text-content-secondary hover:bg-bg-hover hover:text-content-primary",
-              )
-            }
-          >
-            {({ isActive }) => (
-              <>
-                <Icon
-                  className={cn(
-                    "h-[1.05rem] w-[1.05rem] shrink-0 transition-colors",
-                    isActive
-                      ? "text-accent"
-                      : "text-content-tertiary group-hover:text-content-secondary",
-                  )}
-                />
-                {t(labelKey)}
-              </>
-            )}
-          </NavLink>
+        {PRIMARY.map((item) => (
+          <SidebarLink key={item.to} {...item} />
         ))}
 
         <div className="mt-3 border-t border-border-subtle pt-3">
           <div className="mb-1 px-3 text-2xs font-medium uppercase tracking-wide text-content-faint">
             {t("nav.settingsGroup")}
           </div>
-          {SETTINGS.map(({ to, labelKey, icon: Icon }) => (
-            <NavLink
-              key={to}
-              to={to}
-              className={({ isActive }) =>
-                cn(
-                  "group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium",
-                  "transition-[background-color,color,transform] duration-150 ease-out-strong active:scale-[0.98]",
-                  isActive
-                    ? "bg-accent-soft text-accent"
-                    : "text-content-secondary hover:bg-bg-hover hover:text-content-primary",
-                )
-              }
-            >
-              {({ isActive }) => (
-                <>
-                  <Icon
-                    className={cn(
-                      "h-[1.05rem] w-[1.05rem] shrink-0 transition-colors",
-                      isActive
-                        ? "text-accent"
-                        : "text-content-tertiary group-hover:text-content-secondary",
-                    )}
-                  />
-                  {t(labelKey)}
-                </>
-              )}
-            </NavLink>
+          {SETTINGS.map((item) => (
+            <SidebarLink key={item.to} {...item} />
           ))}
         </div>
       </nav>

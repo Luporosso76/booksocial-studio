@@ -1108,10 +1108,12 @@ export function buildApi(deps: AppDeps): Hono {
     const id = Number(c.req.param("id"));
     const book = await books.get(id);
     if (!book) return c.json(err("Libro non trovato"), 404);
+    const body = await c.req.json().catch(() => ({})) as { language?: string };
+    const language = typeof body.language === "string" ? body.language : undefined;
     setJob(id, "analyzing");
     // Fire-and-forget: la richiesta HTTP non aspetta la fine dell'analisi.
     void deps.content
-      .reanalyzeBook(id)
+      .reanalyzeBook(id, language)
       .then(() => setJob(id, "ready"))
       .catch((e: unknown) => setJob(id, "failed", e instanceof Error ? e.message : String(e)));
     return c.json({ status: "analyzing" });

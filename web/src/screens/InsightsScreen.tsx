@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { Field, selectClass } from "@/components/ui/Input";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { EmptyState, ErrorBanner, Skeleton } from "@/components/ui/misc";
 import { PageTabs } from "@/components/PageTabs";
 import { cn } from "@/lib/cn";
@@ -50,8 +51,6 @@ import type {
   IgAccountResponse,
   IgInsightsResponse,
 } from "@/api/types";
-
-// ─── Period selector ─────────────────────────────────────────────────────────
 
 const PERIODS = [
   { value: "day", labelKey: "insights.periodDay" },
@@ -184,10 +183,10 @@ function FollowerTrendWidget({ trend }: { trend: FollowerTrendPoint[] }) {
                 {/* date label */}
                 <text
                   x={x + barWidth}
-                  y={svgHeight + 14}
+                  y={svgHeight + 15}
                   textAnchor="middle"
-                  fontSize={8}
-                  className="fill-content-faint"
+                  fontSize={10}
+                  className="fill-content-tertiary"
                 >
                   {label}
                 </text>
@@ -216,7 +215,7 @@ function FollowerTrendWidget({ trend }: { trend: FollowerTrendPoint[] }) {
           return (
             <div
               key={point.date}
-              className="flex items-center justify-between gap-2 rounded-md px-2 py-1 text-xs"
+              className="flex items-center justify-between gap-2 rounded-md px-2 py-2 text-xs transition-colors hover:bg-bg-hover"
             >
               <span className="text-content-tertiary">
                 {new Date(point.date).toLocaleDateString("it-IT", {
@@ -277,26 +276,26 @@ function TopPostItem({ post }: { post: TopPost }) {
             {excerpt}
           </p>
         )}
-        <div className="flex flex-wrap items-center gap-3">
-          <span className="flex items-center gap-1 text-2xs text-content-faint">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="flex items-center gap-1 rounded-md bg-bg-hover px-1.5 py-0.5 text-2xs text-content-tertiary">
             <Eye className="h-3 w-3" />
             {t("insights.views", { count: compactNumber(post.impressions) })}
           </span>
           {post.reach > 0 && (
-            <span className="flex items-center gap-1 text-2xs text-content-faint">
+            <span className="flex items-center gap-1 rounded-md bg-bg-hover px-1.5 py-0.5 text-2xs text-content-tertiary">
               <Users className="h-3 w-3" />
               {t("insights.coverage", { count: compactNumber(post.reach) })}
             </span>
           )}
-          <span className="flex items-center gap-1 text-2xs text-content-faint">
+          <span className="flex items-center gap-1 rounded-md bg-bg-hover px-1.5 py-0.5 text-2xs text-content-tertiary">
             <Heart className="h-3 w-3" />
             {t("insights.reactions", { count: compactNumber(post.reactions ?? 0) })}
           </span>
-          <span className="flex items-center gap-1 text-2xs text-content-faint">
+          <span className="flex items-center gap-1 rounded-md bg-bg-hover px-1.5 py-0.5 text-2xs text-content-tertiary">
             <MessageCircle className="h-3 w-3" />
             {t("insights.comments", { count: compactNumber(post.comments ?? 0) })}
           </span>
-          <span className="flex items-center gap-1 text-2xs text-content-faint">
+          <span className="flex items-center gap-1 rounded-md bg-bg-hover px-1.5 py-0.5 text-2xs text-content-tertiary">
             <Share2 className="h-3 w-3" />
             {t("insights.shares", { count: compactNumber(post.shares ?? 0) })}
           </span>
@@ -450,7 +449,7 @@ function HistoryChart({ snapshots }: { snapshots: InsightSnapshot[] }) {
             </span>
           ))}
         </div>
-        <span className="text-2xs text-content-faint">
+        <span className="text-xs text-content-tertiary">
           {new Date(minT).toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit" })}
           {" — "}
           {new Date(maxT).toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit" })}
@@ -518,7 +517,7 @@ function CoverageSparkline({ points }: { points: CoverageTrendPoint[] }) {
           />
         </svg>
       </div>
-      <div className="flex items-center justify-between text-2xs text-content-faint">
+      <div className="flex items-center justify-between text-xs text-content-tertiary">
         <span>
           {new Date(sorted[0].date).toLocaleDateString("it-IT", {
             day: "2-digit",
@@ -552,7 +551,7 @@ function DemographicBars({ entries }: { entries: DemographicEntry[] }) {
               {compactNumber(e.value)}
             </span>
           </div>
-          <div className="h-2 overflow-hidden rounded-full bg-bg-hover">
+          <div className="h-3 overflow-hidden rounded-full bg-bg-hover">
             <div
               className="h-full rounded-full bg-accent/70"
               style={{ width: `${Math.max(2, (e.value / maxV) * 100)}%` }}
@@ -633,7 +632,7 @@ function PageInsightSection({ page, period }: { page: FacebookPage; period: stri
         <h3 className="text-base font-semibold text-content-primary">{page.name}</h3>
         {page.category && <span className="text-xs text-content-tertiary">{page.category}</span>}
         {insights?.fetchedAt && (
-          <span className="ml-auto text-2xs text-content-faint">
+          <span className="ml-auto text-2xs text-content-tertiary">
             {t("insights.updated")}{" "}
             {new Date(insights.fetchedAt).toLocaleString("it-IT", {
               day: "2-digit",
@@ -647,7 +646,6 @@ function PageInsightSection({ page, period }: { page: FacebookPage; period: stri
 
       {/* ── KPI tiles (full-width row) ── */}
       <Card className="min-w-0 xl:col-span-2">
-        <CardHeader title={t("insights.mainMetrics")} />
         <CardBody>
           {insightsState.loading ? (
             <KpiRowSkeleton />
@@ -867,7 +865,7 @@ function PageComparison({ pages, period }: { pages: FacebookPage[]; period: stri
         <div className="overflow-x-auto">
           <table className="w-full min-w-[28rem] border-collapse">
             <thead>
-              <tr className="text-2xs font-medium uppercase tracking-wide text-content-faint">
+              <tr className="text-2xs font-medium uppercase tracking-wide text-content-tertiary">
                 <th className="pb-2 pr-3 text-left">{t("insights.tablePage")}</th>
                 <th className="px-3 pb-2 text-right">
                   <span className="inline-flex items-center gap-1">
@@ -953,7 +951,7 @@ function IgInsightSection({ page, period }: { page: FacebookPage; period: string
               description={t("instagram.accountUnavailableDesc")}
             />
           ) : (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
               <KpiTile
                 icon={<Users className="h-4 w-4" />}
                 label={t("instagram.followers")}
@@ -991,7 +989,7 @@ function IgInsightSection({ page, period }: { page: FacebookPage; period: string
               {t("instagram.noMetrics")}
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
               {metrics.map((m) => (
                 <KpiTile
                   key={m.metric}
@@ -1102,9 +1100,12 @@ export function InsightsScreen() {
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Header card with period selector */}
+      <PageHeader
+        title={t("insights.title")}
+        description={t("insights.description")}
+      />
+
       <Card>
-        <CardHeader title={t("insights.title")} description={t("insights.description")} />
         <CardBody>
           {pagesState.error ? (
             <ErrorBanner message={pagesState.error} onRetry={pagesState.reload} />

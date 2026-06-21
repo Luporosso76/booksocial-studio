@@ -12,13 +12,11 @@ import {
   ImageOff,
   MessageCircle,
   ChevronDown,
-  ChevronRight,
   EyeOff,
   Eye,
   Heart,
   CornerDownRight,
   AlertTriangle,
-  Settings,
   Plus,
   Link2,
   Clock,
@@ -26,6 +24,7 @@ import {
   CalendarClock,
   Facebook,
   Instagram,
+  MoreVertical,
 } from "lucide-react";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -33,6 +32,13 @@ import { Field, Input, Textarea } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
 import { Drawer } from "@/components/ui/Drawer";
 import { Badge, EmptyState, ErrorBanner, Skeleton } from "@/components/ui/misc";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/components/ui/DropdownMenu";
 import { PageSettingsEditor } from "@/components/PageSettingsEditor";
 import { PageTabs } from "@/components/PageTabs";
 import { InstagramPanel } from "@/components/InstagramPanel";
@@ -209,7 +215,7 @@ function CommentRow({
       </div>
 
       {/* Azioni */}
-      <div className="mt-2 flex flex-wrap items-center gap-2">
+      <div className="mt-2 flex items-center gap-3">
         <Button
           size="sm"
           variant="ghost"
@@ -219,45 +225,42 @@ function CommentRow({
           <CornerDownRight className="h-3.5 w-3.5" />
           {t("pageMgmt.reply")}
         </Button>
-        <Button
-          size="sm"
-          variant="ghost"
-          onClick={() => run("hide", () => hideComment(pageId, comment.id, !comment.isHidden))}
-          loading={busy === "hide"}
-          disabled={busy !== null && busy !== "hide"}
-        >
-          {comment.isHidden ? (
-            <>
-              <Eye className="h-3.5 w-3.5" />
-              {t("pageMgmt.show")}
-            </>
-          ) : (
-            <>
-              <EyeOff className="h-3.5 w-3.5" />
-              {t("pageMgmt.hide")}
-            </>
-          )}
-        </Button>
-        <Button
-          size="sm"
-          variant="ghost"
-          onClick={() => run("like", () => likeComment(pageId, comment.id, true))}
-          loading={busy === "like"}
-          disabled={busy !== null && busy !== "like"}
-        >
-          <Heart className="h-3.5 w-3.5" />
-          {t("pageMgmt.like")}
-        </Button>
-        <Button
-          size="sm"
-          variant="ghost"
-          className="text-danger hover:bg-danger-soft hover:text-danger"
-          onClick={() => setConfirmDelete(true)}
-          disabled={busy !== null}
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-          {t("common.delete")}
-        </Button>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button size="sm" variant="ghost" disabled={busy !== null} aria-label={t("pageMgmt.moreActions")}>
+              <MoreVertical className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem
+              onSelect={() => run("hide", () => hideComment(pageId, comment.id, !comment.isHidden))}
+            >
+              {comment.isHidden ? (
+                <>
+                  <Eye className="h-4 w-4" />
+                  {t("pageMgmt.show")}
+                </>
+              ) : (
+                <>
+                  <EyeOff className="h-4 w-4" />
+                  {t("pageMgmt.hide")}
+                </>
+              )}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onSelect={() => run("like", () => likeComment(pageId, comment.id, true))}
+            >
+              <Heart className="h-4 w-4" />
+              {t("pageMgmt.like")}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem danger onSelect={() => setConfirmDelete(true)}>
+              <Trash2 className="h-4 w-4" />
+              {t("common.delete")}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       {/* Form risposta */}
@@ -407,7 +410,7 @@ function PostRow({
   }
 
   return (
-    <div className="min-w-0 rounded-xl border border-border-subtle bg-bg-card p-3">
+    <div className="min-w-0 rounded-xl border border-border-subtle bg-bg-card p-4">
       <div className="flex items-start gap-3">
         {/* Thumbnail */}
         <div className="shrink-0">
@@ -440,6 +443,17 @@ function PostRow({
                 <EyeOff className="h-3 w-3" />
                 {t("pageMgmt.notPublished")}
               </Badge>
+            )}
+            {post.permalinkUrl && (
+              <a
+                href={post.permalinkUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="ml-auto rounded-md p-0.5 text-content-tertiary transition-colors hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-ring"
+                aria-label={t("pageMgmt.openPostAria")}
+              >
+                <ExternalLink className="h-3.5 w-3.5" />
+              </a>
             )}
           </div>
 
@@ -483,78 +497,59 @@ function PostRow({
             </p>
           )}
         </div>
-
-        {/* Link esterno */}
-        {post.permalinkUrl && (
-          <a
-            href={post.permalinkUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="shrink-0 rounded-md p-1 text-content-tertiary transition-colors hover:text-accent"
-            aria-label={t("pageMgmt.openPostAria")}
-          >
-            <ExternalLink className="h-4 w-4" />
-          </a>
-        )}
       </div>
 
       {/* Azioni post */}
       {!editing && (
-        <div className="mt-2 flex flex-wrap items-center gap-2">
+        <div className="mt-2 flex items-center gap-2">
           <Button
             size="sm"
             variant="ghost"
-            onClick={() => {
-              setEditText(post.message ?? "");
-              setEditing(true);
-            }}
-            disabled={busy !== null}
-          >
-            <Pencil className="h-3.5 w-3.5" />
-            {t("pageMgmt.editText")}
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => setConfirmPin(true)}
-            disabled={busy !== null}
-          >
-            {post.pinned ? (
-              <>
-                <PinOff className="h-3.5 w-3.5" />
-                {t("pageMgmt.removePin")}
-              </>
-            ) : (
-              <>
-                <Pin className="h-3.5 w-3.5" />
-                {t("pageMgmt.setPin")}
-              </>
-            )}
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            className="text-danger hover:bg-danger-soft hover:text-danger"
-            onClick={() => setConfirmDelete(true)}
-            disabled={busy !== null}
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-            {t("common.delete")}
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            className="ml-auto"
             onClick={() => setExpanded((v) => !v)}
           >
             <MessageCircle className="h-3.5 w-3.5" />
             {t("pageMgmt.comments")}
-            {expanded ? (
-              <ChevronDown className="h-3.5 w-3.5" />
-            ) : (
-              <ChevronRight className="h-3.5 w-3.5" />
-            )}
+            <ChevronDown
+              className={cn("h-3.5 w-3.5 transition-transform duration-200", expanded ? "rotate-0" : "-rotate-90")}
+            />
           </Button>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" variant="ghost" disabled={busy !== null} aria-label={t("pageMgmt.morePostActions")} className="ml-auto">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onSelect={() => {
+                  setEditText(post.message ?? "");
+                  setEditing(true);
+                }}
+              >
+                <Pencil className="h-4 w-4" />
+                {t("pageMgmt.editText")}
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setConfirmPin(true)}>
+                {post.pinned ? (
+                  <>
+                    <PinOff className="h-4 w-4" />
+                    {t("pageMgmt.removePin")}
+                  </>
+                ) : (
+                  <>
+                    <Pin className="h-4 w-4" />
+                    {t("pageMgmt.setPin")}
+                  </>
+                )}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem danger onSelect={() => setConfirmDelete(true)}>
+                <Trash2 className="h-4 w-4" />
+                {t("common.delete")}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       )}
 
@@ -685,7 +680,7 @@ function PublishedPostsSection({
             }
           />
         ) : (
-          <div className="grid grid-cols-1 items-start gap-3 stagger 2xl:grid-cols-2">
+          <div className="flex flex-col gap-3 stagger">
             {posts.map((post) => (
               <PostRow
                 key={post.id}
@@ -764,7 +759,7 @@ function ScheduledOnFacebookSection({ page }: { page: FacebookPage }) {
                   className="rounded-lg border border-border-subtle bg-bg-inset p-4"
                 >
                   <div className="mb-2 flex flex-wrap items-center gap-2">
-                    <Badge tone="neutral">
+                    <Badge tone="accent">
                       {post.mediaType ? post.mediaType.toUpperCase() : "—"}
                     </Badge>
                     <span className="flex items-center gap-1 text-xs text-content-faint">
@@ -968,7 +963,7 @@ function CreatePostDrawer({
                 setError(null);
               }}
               placeholder={t("pageMgmt.postTextComposePlaceholder")}
-              rows={5}
+              rows={4}
               autoFocus
             />
           </Field>
@@ -1000,16 +995,14 @@ function CreatePostDrawer({
           <PostPreview pageName={page.name} message={message} link={link} />
         </div>
 
-        {scheduleInPast && (
+        {scheduleInPast ? (
           <div className="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/8 px-3 py-2.5">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
             <p className="text-xs leading-snug text-content-secondary">
               {t("pageMgmt.schedulePast")}
             </p>
           </div>
-        )}
-
-        {isScheduled && !scheduleInPast && (
+        ) : isScheduled ? (
           <div className="flex items-start gap-2 rounded-lg border border-border-subtle bg-bg-inset px-3 py-2.5">
             <Clock className="mt-0.5 h-4 w-4 shrink-0 text-content-tertiary" />
             <p className="text-xs leading-snug text-content-secondary">
@@ -1026,15 +1019,14 @@ function CreatePostDrawer({
               .
             </p>
           </div>
+        ) : (
+          <div className="flex items-start gap-2 rounded-lg border border-accent/30 bg-accent-soft px-3 py-2.5">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
+            <p className="text-xs leading-snug text-content-secondary">
+              {t("pageMgmt.publishRealWarning", { pageName: page.name })}
+            </p>
+          </div>
         )}
-
-        {/* Avviso permanente: pubblicazione reale */}
-        <div className="flex items-start gap-2 rounded-lg border border-accent/30 bg-accent-soft px-3 py-2.5">
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
-          <p className="text-xs leading-snug text-content-secondary">
-            {t("pageMgmt.publishRealWarning", { pageName: page.name })}
-          </p>
-        </div>
 
         {/* Errori in-place (mai toast auto-dismiss) */}
         {error && <ErrorBanner message={error} />}
@@ -1091,18 +1083,10 @@ type SubTab = "posts" | "scheduled" | "settings";
 
 function SubTabs({ active, onChange }: { active: SubTab; onChange: (tab: SubTab) => void }) {
   const { t } = useTranslation();
-  const items: { id: SubTab; label: string; icon: ReactNode }[] = [
-    { id: "posts", label: t("pageMgmt.subPosts"), icon: <MessageCircle className="h-3.5 w-3.5" /> },
-    {
-      id: "scheduled",
-      label: t("pageMgmt.subScheduled"),
-      icon: <CalendarClock className="h-3.5 w-3.5" />,
-    },
-    {
-      id: "settings",
-      label: t("pageMgmt.subSettings"),
-      icon: <Settings className="h-3.5 w-3.5" />,
-    },
+  const items: { id: SubTab; label: string }[] = [
+    { id: "posts", label: t("pageMgmt.subPosts") },
+    { id: "scheduled", label: t("pageMgmt.subScheduled") },
+    { id: "settings", label: t("pageMgmt.subSettings") },
   ];
 
   return (
@@ -1121,7 +1105,7 @@ function SubTabs({ active, onChange }: { active: SubTab; onChange: (tab: SubTab)
             aria-selected={isActive}
             onClick={() => onChange(item.id)}
             className={cn(
-              "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[0.8125rem] font-medium",
+              "inline-flex items-center rounded-lg px-3 py-1.5 text-[0.8125rem] font-medium",
               "transition-[background-color,color] duration-150 ease-out-strong",
               "focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-ring",
               isActive
@@ -1129,7 +1113,6 @@ function SubTabs({ active, onChange }: { active: SubTab; onChange: (tab: SubTab)
                 : "text-content-tertiary hover:bg-bg-hover/60 hover:text-content-secondary",
             )}
           >
-            {item.icon}
             {item.label}
           </button>
         );
@@ -1211,7 +1194,7 @@ function PlatformTabs({
               )}
             >
               {item.icon}
-              {item.label}
+              <span className="hidden sm:inline">{item.label}</span>
             </button>
           );
         })}

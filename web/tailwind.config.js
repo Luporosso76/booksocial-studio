@@ -30,6 +30,7 @@ export default {
         accent: {
           DEFAULT: '#6366f1',
           hover: '#5457e0',
+          light: '#a5b4fc',
           soft: 'rgba(99,102,241,0.12)',
           ring: 'rgba(99,102,241,0.45)',
         },

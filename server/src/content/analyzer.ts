@@ -24,8 +24,9 @@ export async function analyzeBook(
   // Nomi reali rilevati dal pre-pass NLP (spaCy): usati SOLO come seeding nel prompt.
   // Opzionale: se assente o vuoto, il prompt resta identico a prima.
   seedCharacters: string[] = [],
+  outputLanguage?: string,
 ): Promise<AnalyzedProfile> {
-  const prompt = buildPrompt(book, fullText, seedCharacters);
+  const prompt = buildPrompt(book, fullText, seedCharacters, outputLanguage);
   const response = await engine.run(prompt);
   const j = parseModelJson(response) as Record<string, unknown>;
 
@@ -41,16 +42,33 @@ export async function analyzeBook(
   };
 }
 
+const ISO_TO_LANG: Record<string, string> = {
+  it: "italiano",
+  en: "inglese",
+  fr: "francese",
+  de: "tedesco",
+  es: "spagnolo",
+  pt: "portoghese",
+};
+
+function resolveLanguageName(code: string): string {
+  const normalized = code.trim().toLowerCase().split(/[-_]/)[0];
+  return ISO_TO_LANG[normalized] ?? "italiano";
+}
+
 function buildPrompt(
   book: { title: string; author: string | null; language: string },
   fullText: string,
   seedCharacters: string[],
+  outputLanguage?: string,
 ): string {
   const author = book.author == null ? "(non indicato)" : book.author;
   const seedBlock =
     seedCharacters.length > 0
       ? `\nPERSONAGGI RILEVATI (nomi reali, da profilare; aggiungi eventuali mancanti): ${seedCharacters.join(", ")}\n`
       : "";
+  const langCode = outputLanguage ?? book.language;
+  const langName = resolveLanguageName(langCode);
   return `Sei un analista editoriale. Analizza il libro seguente e produci una SCHEDA strutturata
 che servira' a generare post social di marketing, SENZA dover rileggere il libro ogni volta.
 ${seedBlock}
@@ -84,8 +102,8 @@ Rispondi ESCLUSIVAMENTE con un oggetto JSON valido, senza testo prima o dopo, co
   }
 }
 
-LINGUA: scrivi TUTTI i valori testuali del JSON nella lingua del libro: ${book.language}. Anche se queste
-istruzioni sono in italiano, l'output (sinossi, generi, tono, temi, descrizioni, ecc.) deve essere in ${book.language}.
+LINGUA: scrivi TUTTI i valori testuali del JSON in ${langName}, indipendentemente dalla lingua del testo originale del libro.
+Anche se queste istruzioni sono in italiano, l'output (sinossi, generi, tono, temi, descrizioni, ecc.) deve essere in ${langName}.
 Le chiavi del JSON restano in inglese come indicato. Sii concreto e specifico, niente frasi promozionali vuote.
 Le citazioni con "is_spoiler": true non saranno mai usate nei post.
 

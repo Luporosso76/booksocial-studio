@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import {
   AlertTriangle,
@@ -14,10 +14,23 @@ import {
   X,
   Check,
   Save,
+  MoreVertical,
+  FileText,
+  Film,
+  Layers,
 } from "lucide-react";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { Modal } from "@/components/ui/Modal";
+import { Collapsible } from "@/components/ui/Collapsible";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/components/ui/DropdownMenu";
 import { Field, Input, Textarea, selectClass } from "@/components/ui/Input";
 import { Badge, EmptyState, ErrorBanner, Skeleton, Spinner } from "@/components/ui/misc";
 import { useToast } from "@/components/ui/toast";
@@ -134,6 +147,7 @@ function PublishControl({
   pageName: string;
   onPublished: () => void;
 }) {
+  const { t } = useTranslation();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -142,7 +156,7 @@ function PublishControl({
 
   // Il visual è atteso ma non ancora pronto: disabilita la pubblicazione.
   const visualPending = expectsVisual(draft) && !draft.hasMedia;
-  const kindLabel = draftKindLabel(draft);
+  const kindLabel = draftKindLabel(draft, t);
 
   function openConfirm() {
     setError(null);
@@ -160,7 +174,7 @@ function PublishControl({
       // La bozza pubblicata passa a PUBLISHED e in genere esce dalla lista.
       onPublished();
     } catch (err) {
-      setError(errorMessage(err) || "Pubblicazione non riuscita.");
+      setError(errorMessage(err) || t("planner.publishFailed"));
     } finally {
       setPublishing(false);
     }
@@ -172,7 +186,7 @@ function PublishControl({
       <div className="mt-3 border-t border-border-subtle pt-3">
         <div className="flex items-start gap-2 rounded-lg border border-success/30 bg-success/8 px-3 py-2.5 text-sm text-success">
           <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
-          <span className="leading-snug">Pubblicato ✓</span>
+          <span className="leading-snug">{t("planner.published")}</span>
         </div>
       </div>
     );
@@ -185,13 +199,13 @@ function PublishControl({
         size="sm"
         onClick={openConfirm}
         disabled={publishing || visualPending}
-        title={visualPending ? "Visual in generazione…" : undefined}
+        title={visualPending ? t("planner.visualGenerating") : undefined}
       >
         <Send className="h-4 w-4" />
-        Pubblica adesso
+        {t("planner.publishNow")}
       </Button>
       {visualPending && (
-        <p className="mt-1.5 text-xs text-content-tertiary">Visual in generazione…</p>
+        <p className="mt-1.5 text-xs text-content-tertiary">{t("planner.visualGenerating")}</p>
       )}
 
       {/* Errore di pubblicazione (fuori dal modale), in-place e persistente. */}
@@ -208,16 +222,16 @@ function PublishControl({
           setConfirmOpen(false);
         }}
         size="sm"
-        title={`Pubblica ${kindLabel}`}
-        description="Pubblicazione reale e immediata su Facebook."
+        title={t("planner.publishKindTitle", { kind: kindLabel })}
+        description={t("planner.publishConfirmDescription")}
         footer={
           <>
             <Button variant="ghost" onClick={() => setConfirmOpen(false)} disabled={publishing}>
-              Annulla
+              {t("common.cancel")}
             </Button>
             <Button variant="primary" onClick={handlePublish} loading={publishing}>
               <Send className="h-4 w-4" />
-              Pubblica adesso
+              {t("planner.publishNow")}
             </Button>
           </>
         }
@@ -226,8 +240,7 @@ function PublishControl({
           <div className="flex items-start gap-2 rounded-lg border border-accent/40 bg-accent-soft px-3 py-2.5">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
             <p className="text-sm leading-snug text-content-primary">
-              Stai per pubblicare DAVVERO su Facebook, sulla pagina «{pageName}». Azione reale e
-              immediata.
+              {t("planner.publishConfirmBody", { pageName })}
             </p>
           </div>
 
@@ -238,8 +251,6 @@ function PublishControl({
   );
 }
 
-// ---------------------------------------------------------------------------
-// Card di una singola bozza con azioni Modifica / Elimina / Rigenera
 // ---------------------------------------------------------------------------
 
 function DraftCard({
@@ -255,6 +266,7 @@ function DraftCard({
   onDeleted: (id: string) => void;
   onRenderDone: () => void;
 }) {
+  const { t } = useTranslation();
   const { onPostRenderDone, refresh: refreshJobs } = useJobs();
   const [editing, setEditing] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
@@ -314,7 +326,7 @@ function DraftCard({
       onUpdated(updated);
       setEditing(false);
     } catch (err) {
-      setError(errorMessage(err) || "Modifica non riuscita.");
+      setError(errorMessage(err) || t("planner.editFailed"));
     } finally {
       setSaving(false);
     }
@@ -327,7 +339,7 @@ function DraftCard({
       await deleteDraft(draft.id);
       onDeleted(draft.id);
     } catch (err) {
-      setError(errorMessage(err) || "Eliminazione non riuscita.");
+      setError(errorMessage(err) || t("planner.draftDeleteFailed"));
       setDeleting(false);
       setConfirmingDelete(false);
     }
@@ -344,7 +356,7 @@ function DraftCard({
       // e onPostRenderDone ricaricherà il media aggiornato quando il render finisce.
       refreshJobs();
     } catch (err) {
-      setError(errorMessage(err) || "Rigenerazione non riuscita.");
+      setError(errorMessage(err) || t("planner.regenerateFailed"));
     } finally {
       setRegenerating(false);
     }
@@ -367,7 +379,7 @@ function DraftCard({
       <div className="mb-2 flex items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2">
           {/* Tipo di pubblicazione: Post / Reel / Storia (badge prominente). */}
-          <Badge tone="accent">{draftKindLabel(draft)}</Badge>
+          <Badge tone="accent">{draftKindLabel(draft, t)}</Badge>
           {draft.angle && <Badge tone="neutral">{draft.angle}</Badge>}
           {/* Formato editoriale scelto dalla generazione (badge leggibili in italiano). */}
           {contentFormatBadges(draft.contentFormat).map((b) => (
@@ -377,7 +389,7 @@ function DraftCard({
           ))}
         </div>
         {draft.status === "SCHEDULED" ? (
-          <Badge tone="success">Programmato</Badge>
+          <Badge tone="success">{t("planner.scheduled")}</Badge>
         ) : (
           <Badge tone="neutral">{draft.status}</Badge>
         )}
@@ -385,22 +397,22 @@ function DraftCard({
 
       {editing ? (
         <div className="flex flex-col gap-3">
-          <Field label="Testo">
+          <Field label={t("planner.textLabel")}>
             <Textarea
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               rows={6}
-              placeholder="Testo della bozza…"
+              placeholder={t("planner.textPlaceholder")}
             />
           </Field>
-          <Field label="Hashtag" hint="Separati da spazio o virgola.">
+          <Field label={t("planner.hashtagsLabel")} hint={t("planner.hashtagsHint")}>
             <Input
               value={hashtags}
               onChange={(e) => setHashtags(e.target.value)}
-              placeholder="#esempio #libro"
+              placeholder={t("planner.hashtagsPlaceholder")}
             />
           </Field>
-          <Field label="Data e ora" hint="Opzionale.">
+          <Field label={t("planner.dateTimeLabel")} hint={t("planner.optional")}>
             <Input
               type="datetime-local"
               value={scheduledAt}
@@ -421,11 +433,11 @@ function DraftCard({
               disabled={saving}
             >
               <X className="h-4 w-4" />
-              Annulla
+              {t("common.cancel")}
             </Button>
             <Button variant="primary" size="sm" loading={saving} onClick={handleSave}>
               <Check className="h-4 w-4" />
-              Salva
+              {t("common.save")}
             </Button>
           </div>
         </div>
@@ -436,7 +448,7 @@ function DraftCard({
           {regenerating && (
             <div className="mt-2 flex items-center gap-2 text-xs text-content-tertiary">
               <Spinner className="h-3.5 w-3.5" />
-              Rigenerazione in corso…
+              {t("planner.regenerating")}
             </div>
           )}
           <HashtagBreakdown
@@ -451,56 +463,67 @@ function DraftCard({
             </div>
           )}
 
-          {confirmingDelete ? (
-            <div className="mt-3 flex flex-col gap-2 rounded-lg border border-danger/30 bg-danger-soft px-3 py-2.5">
-              <p className="text-xs text-content-secondary">
-                Eliminare definitivamente questa bozza?
-              </p>
-              <div className="flex items-center justify-end gap-2">
+          <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border-subtle pt-3">
+            <Button variant="secondary" size="sm" onClick={openEditor} disabled={busy}>
+              <Pencil className="h-4 w-4" />
+              {t("planner.edit")}
+            </Button>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" aria-label={t("common.moreActions")} disabled={busy}>
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onSelect={handleRegenerate}>
+                  <RefreshCw className="h-4 w-4" />
+                  {t("common.regenerate")}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  danger
+                  onSelect={() => {
+                    setError(null);
+                    setConfirmingDelete(true);
+                  }}
+                >
+                  <Trash2 className="h-4 w-4" />
+                  {t("common.delete")}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+
+          <Modal
+            open={confirmingDelete}
+            onClose={() => {
+              if (deleting) return;
+              setConfirmingDelete(false);
+            }}
+            size="sm"
+            title={t("planner.deleteDraftTitle")}
+            description={t("planner.deleteDraftDescription")}
+            footer={
+              <>
                 <Button
                   variant="ghost"
-                  size="sm"
                   onClick={() => setConfirmingDelete(false)}
                   disabled={deleting}
                 >
-                  Annulla
+                  {t("common.cancel")}
                 </Button>
-                <Button variant="danger" size="sm" loading={deleting} onClick={handleDelete}>
+                <Button variant="danger" loading={deleting} onClick={handleDelete}>
                   <Trash2 className="h-4 w-4" />
-                  Elimina
+                  {t("common.delete")}
                 </Button>
-              </div>
-            </div>
-          ) : (
-            <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border-subtle pt-3">
-              <Button variant="secondary" size="sm" onClick={openEditor} disabled={busy}>
-                <Pencil className="h-4 w-4" />
-                Modifica
-              </Button>
-              <Button
-                variant="secondary"
-                size="sm"
-                loading={regenerating}
-                disabled={busy}
-                onClick={handleRegenerate}
-              >
-                <RefreshCw className="h-4 w-4" />
-                Rigenera
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                disabled={busy}
-                onClick={() => {
-                  setError(null);
-                  setConfirmingDelete(true);
-                }}
-              >
-                <Trash2 className="h-4 w-4" />
-                Elimina
-              </Button>
-            </div>
-          )}
+              </>
+            }
+          >
+            <p className="text-sm leading-snug text-content-secondary">
+              {t("planner.confirmDeleteDraft")}
+            </p>
+          </Modal>
 
           {/* Pubblica / Programma: pubblicazione unificata REALE della bozza CON il
               suo media (ingloba la vecchia "Pubblica come Storia"). */}
@@ -512,11 +535,14 @@ function DraftCard({
 }
 
 // Tipo di pubblicazione leggibile: Reel / Storia / Post (in base a mediaType e visualKind).
-function draftKindLabel(d: ScheduledPost): string {
+function draftKindLabel(
+  d: ScheduledPost,
+  t: (key: string) => string,
+): string {
   const vk = d.contentFormat?.visualKind;
-  if (d.mediaType === "REEL" || vk === "reel") return "Reel";
-  if (d.mediaType === "STORY" || vk === "story") return "Storia";
-  return "Post";
+  if (d.mediaType === "REEL" || vk === "reel") return t("planner.kindReel");
+  if (d.mediaType === "STORY" || vk === "story") return t("planner.kindStory");
+  return t("planner.kindPost");
 }
 
 // ---------------------------------------------------------------------------
@@ -524,10 +550,10 @@ function draftKindLabel(d: ScheduledPost): string {
 // settimana (post/reel/storie); il motore backend decide giorni, orari e formati.
 // ---------------------------------------------------------------------------
 
-const QUOTA_FIELDS: { key: keyof WeeklyPlan; labelKey: string }[] = [
-  { key: "postsPerWeek", labelKey: "planner.quotaPosts" },
-  { key: "reelsPerWeek", labelKey: "planner.quotaReels" },
-  { key: "storiesPerWeek", labelKey: "planner.quotaStories" },
+const QUOTA_FIELDS: { key: keyof WeeklyPlan; labelKey: string; icon: ReactNode }[] = [
+  { key: "postsPerWeek", labelKey: "planner.quotaPosts", icon: <FileText className="h-4 w-4 text-content-tertiary" /> },
+  { key: "reelsPerWeek", labelKey: "planner.quotaReels", icon: <Film className="h-4 w-4 text-content-tertiary" /> },
+  { key: "storiesPerWeek", labelKey: "planner.quotaStories", icon: <Layers className="h-4 w-4 text-content-tertiary" /> },
 ];
 
 function WeeklyPlanEditor({ pageId }: { pageId: string }) {
@@ -555,7 +581,7 @@ function WeeklyPlanEditor({ pageId }: { pageId: string }) {
       const saved = await saveWeeklyPlan(pageId, plan);
       setPlan(saved);
     } catch (err) {
-      setError(errorMessage(err) || "Salvataggio non riuscito.");
+      setError(errorMessage(err) || t("common.saveFailed"));
     } finally {
       setSaving(false);
     }
@@ -564,12 +590,12 @@ function WeeklyPlanEditor({ pageId }: { pageId: string }) {
   return (
     <Card>
       <CardHeader
-        title="Quote settimanali"
-        description="Imposta quante pubblicazioni vuoi: il motore decide automaticamente giorni, orari e formati."
+        title={t("planner.quotasTitle")}
+        description={t("planner.quotasDescription")}
         action={
           <Button variant="secondary" size="sm" loading={saving} disabled={!plan} onClick={persist}>
             <Save className="h-4 w-4" />
-            Salva
+            {t("common.save")}
           </Button>
         }
       />
@@ -582,7 +608,15 @@ function WeeklyPlanEditor({ pageId }: { pageId: string }) {
           <>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               {QUOTA_FIELDS.map((f) => (
-                <Field key={f.key} label={t("planner.quotaPerWeek", { label: t(f.labelKey) })}>
+                <Field
+                  key={f.key}
+                  label={
+                    <span className="inline-flex items-center gap-1.5">
+                      {f.icon}
+                      {t("planner.quotaPerWeek", { label: t(f.labelKey) })}
+                    </span>
+                  }
+                >
                   <Input
                     type="number"
                     min={0}
@@ -619,6 +653,7 @@ function ScheduleAllControl({
   pageName: string;
   onScheduled: () => void;
 }) {
+  const { t } = useTranslation();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [scheduling, setScheduling] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -640,7 +675,7 @@ function ScheduleAllControl({
       // Le bozze programmate passano a SCHEDULED: ricarica la lista.
       onScheduled();
     } catch (err) {
-      setError(errorMessage(err) || "Programmazione non riuscita.");
+      setError(errorMessage(err) || t("planner.scheduleFailed"));
     } finally {
       setScheduling(false);
     }
@@ -650,7 +685,7 @@ function ScheduleAllControl({
     <div className="flex flex-col items-end gap-1.5">
       <Button variant="secondary" size="sm" onClick={openConfirm} disabled={scheduling}>
         <CalendarClock className="h-4 w-4" />
-        Programma pubblicazione
+        {t("planner.scheduleAll")}
       </Button>
 
       {/* Esito in-place dell'ultima programmazione. */}
@@ -658,14 +693,15 @@ function ScheduleAllControl({
         <div className="flex items-start gap-2 rounded-lg border border-success/30 bg-success/8 px-3 py-2 text-sm text-success">
           <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
           <span className="leading-snug">
-            {result.scheduled} contenuti programmati
+            {t("planner.scheduleResult", { count: result.scheduled })}
             {typeof result.fbScheduled === "number" &&
               result.fbScheduled > 0 &&
-              ` · ${result.fbScheduled} su Facebook`}
+              t("planner.scheduleResultFb", { count: result.fbScheduled })}
             {typeof result.jobScheduled === "number" &&
               result.jobScheduled > 0 &&
-              ` · ${result.jobScheduled} via job interno (reel/storie)`}
-            {result.skipped > 0 && ` · ${result.skipped} saltati: orario già passato`}
+              t("planner.scheduleResultJob", { count: result.jobScheduled })}
+            {result.skipped > 0 &&
+              t("planner.scheduleResultSkipped", { count: result.skipped })}
           </span>
         </div>
       )}
@@ -680,33 +716,28 @@ function ScheduleAllControl({
           setConfirmOpen(false);
         }}
         size="sm"
-        title="Programma pubblicazione"
-        description="Programmazione in blocco di tutte le bozze."
+        title={t("planner.scheduleAll")}
+        description={t("planner.scheduleAllDescription")}
         footer={
           <>
             <Button variant="ghost" onClick={() => setConfirmOpen(false)} disabled={scheduling}>
-              Annulla
+              {t("common.cancel")}
             </Button>
             <Button variant="primary" onClick={handleSchedule} loading={scheduling}>
               <CalendarClock className="h-4 w-4" />
-              Programma tutto
+              {t("planner.scheduleAllConfirm")}
             </Button>
           </>
         }
       >
         <div className="flex flex-col gap-3">
           <p className="text-sm leading-snug text-content-primary">
-            Stai per PROGRAMMARE la pubblicazione di tutte le bozze della pagina «{pageName}
-            », alle date e agli orari generati. I <strong>post (testo/foto)</strong> vengono
-            programmati <strong>direttamente su Facebook</strong> (li pubblica Facebook, anche ad
-            app spenta). I <strong>reel</strong> e le <strong>storie</strong> li pubblica un
-            <strong> job interno</strong> al loro orario (Facebook non li può programmare).
+            {t("planner.scheduleAllBody", { pageName })}
           </p>
           <div className="flex items-start gap-2 rounded-lg border border-accent/40 bg-accent-soft px-3 py-2.5">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
             <p className="text-sm leading-snug text-content-primary">
-              ⚠️ Solo per <strong>reel e storie</strong>: l'app/il server deve restare in esecuzione
-              al loro orario, altrimenti non partono. I post su Facebook partono comunque.
+              {t("planner.scheduleAllWarning")}
             </p>
           </div>
 
@@ -883,16 +914,16 @@ export function PlannerScreen() {
 
   // Nome della pagina selezionata, per l'header dell'anteprima Facebook.
   // Fallback generico se non disponibile (nessuna pagina scelta / non trovata).
-  const pageName = pages.find((p) => p.id === pageId)?.name ?? "La tua Pagina";
+  const pageName = pages.find((p) => p.id === pageId)?.name ?? t("planner.defaultPageName");
 
   async function handleAddSlot() {
     if (!pageId) {
-      setSlotError("Seleziona prima una pagina.");
+      setSlotError(t("planner.selectPageFirst"));
       return;
     }
     // Validazione fascia: la fine deve essere successiva all'inizio.
     if (slotMode === "range" && timeStart >= timeEnd) {
-      setSlotError("L'orario di fine deve essere successivo a quello di inizio.");
+      setSlotError(t("planner.endAfterStart"));
       return;
     }
     setSlotError(null);
@@ -904,9 +935,9 @@ export function PlannerScreen() {
           : { dayOfWeek: day, timeOfDay: time };
       await addSlot(pageId, body);
       slotsState.reload();
-      toast.success("Finestra aggiunta.");
+      toast.success(t("planner.windowAdded"));
     } catch (err) {
-      setSlotError(errorMessage(err) || "Operazione non riuscita.");
+      setSlotError(errorMessage(err) || t("common.operationFailed"));
     } finally {
       setAddingSlot(false);
     }
@@ -916,19 +947,19 @@ export function PlannerScreen() {
     try {
       await deleteSlot(slotId);
       slotsState.reload();
-      toast.success("Finestra rimossa.");
+      toast.success(t("planner.windowRemoved"));
     } catch (err) {
-      toast.error(errorMessage(err) || "Rimozione non riuscita.");
+      toast.error(errorMessage(err) || t("planner.windowRemoveFailed"));
     }
   }
 
   async function handleGenerate() {
     if (!pageId || !bookId) {
-      toast.error("Seleziona pagina e libro.");
+      toast.error(t("planner.selectPageAndBook"));
       return;
     }
     if (customRangeInvalid) {
-      toast.error("La data di fine non può precedere quella di inizio.");
+      toast.error(t("planner.endDateBeforeStart"));
       return;
     }
     setStarting(true);
@@ -966,11 +997,11 @@ export function PlannerScreen() {
         );
         setPollActive(true);
         postsState.reload();
-        toast.success("Generazione avviata.");
+        toast.success(t("planner.generationStarted"));
       }
     } catch (err) {
-      setWeekGenError(errorMessage(err) || "Generazione non riuscita.");
-      toast.error(errorMessage(err) || "Generazione non riuscita.");
+      setWeekGenError(errorMessage(err) || t("planner.generationFailed"));
+      toast.error(errorMessage(err) || t("planner.generationFailed"));
     } finally {
       setStarting(false);
     }
@@ -985,21 +1016,32 @@ export function PlannerScreen() {
     setWeekGenError(null);
     try {
       await cancelWeekGen(pageId);
-      toast.info("Annullamento in corso…");
+      toast.info(t("planner.cancelInProgress"));
     } catch (err) {
       setCancellingWeek(false);
-      toast.error(errorMessage(err) || "Annullamento non riuscito.");
+      toast.error(errorMessage(err) || t("planner.cancelFailed"));
     }
   }
 
   const hasPages = !pagesState.loading && pages.length > 0;
 
+  const slotsSummary = slotsState.loading
+    ? "Caricamento…"
+    : slots.length === 0
+      ? t("planner.noSlots")
+      : `${slots.length} ${slots.length === 1 ? "finestra" : "finestre"} configurate`;
+
   return (
     <div className="flex flex-col gap-6">
+      <PageHeader
+        title={t("nav.planner")}
+        description={t("planner.generateDescription")}
+      />
+
       <Card>
         <CardHeader
-          title="Pianifica la settimana"
-          description="Scegli pagina e libro, imposta le quote, poi genera le bozze."
+          title={t("planner.planTitle")}
+          description={t("planner.planDescription")}
         />
         <CardBody className="flex flex-col gap-4">
           {pagesState.error ? (
@@ -1007,12 +1049,12 @@ export function PlannerScreen() {
           ) : !hasPages && !pagesState.loading ? (
             <EmptyState
               icon={<CalendarClock className="h-5 w-5" />}
-              title="Nessuna pagina connessa"
-              description="Connetti almeno una pagina per pianificare i post."
+              title={t("planner.noPagesTitle")}
+              description={t("planner.noPagesPlanDescription")}
             />
           ) : (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Field label="Pagina">
+              <Field label={t("planner.pageField")}>
                 <select
                   className={selectClass}
                   value={pageId}
@@ -1020,7 +1062,7 @@ export function PlannerScreen() {
                     setPageId(e.target.value);
                   }}
                 >
-                  <option value="">Seleziona pagina</option>
+                  <option value="">{t("planner.selectPage")}</option>
                   {pages.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.name}
@@ -1028,7 +1070,7 @@ export function PlannerScreen() {
                   ))}
                 </select>
               </Field>
-              <Field label="Libro">
+              <Field label={t("planner.bookField")}>
                 <select
                   className={selectClass}
                   value={bookId}
@@ -1036,7 +1078,7 @@ export function PlannerScreen() {
                     setBookId(e.target.value);
                   }}
                 >
-                  <option value="">Seleziona libro</option>
+                  <option value="">{t("planner.selectBook")}</option>
                   {books.map((b) => (
                     <option key={b.id} value={b.id}>
                       {b.title}
@@ -1052,55 +1094,55 @@ export function PlannerScreen() {
       {pageId && <WeeklyPlanEditor pageId={pageId} />}
 
       {pageId && (
-        <Card>
-          <CardHeader
-            title="Finestre orarie"
-            description="Quando è ok pubblicare. Il motore sceglie gli orari dentro queste fasce (se vuote, usa default)."
-          />
-          <CardBody className="flex flex-col gap-3">
+        <div className="flex flex-col gap-2">
+          <Collapsible
+            title={t("planner.slotsTitle")}
+            summary={slotsSummary}
+            defaultOpen={false}
+          >
             {slotsState.loading ? (
               <Skeleton className="h-12 w-full" />
             ) : slots.length === 0 ? (
-              <p className="text-sm text-content-tertiary">
-                Nessuna finestra. Aggiungine una qui sotto.
-              </p>
+              <p className="text-sm text-content-tertiary">{t("planner.noSlots")}</p>
             ) : (
-              <div className="flex flex-col gap-2 stagger">
+              <div className="flex flex-col gap-2">
                 {slots.map((s) => (
                   <div
                     key={s.id}
-                    className="flex items-center justify-between gap-3 rounded-lg border border-border-subtle bg-bg-inset px-3 py-2.5"
+                    className="flex items-center justify-between gap-3 rounded-lg border border-border-subtle bg-bg-inset px-3 py-2"
                   >
-                    <div className="flex items-center gap-3">
-                      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-bg-hover text-content-tertiary">
-                        <Clock className="h-4 w-4" />
+                    <div className="flex items-center gap-2.5">
+                      <Clock className="h-4 w-4 shrink-0 text-content-tertiary" />
+                      <span className="text-sm font-medium text-content-primary">
+                        {DAY_SHORT_KEY[s.dayOfWeek] ? t(DAY_SHORT_KEY[s.dayOfWeek]) : s.dayOfWeek}{" "}
+                        {slotTimeLabel(s, t)}
                       </span>
-                      <div>
-                        <span className="text-sm font-medium text-content-primary">
-                          {DAY_SHORT_KEY[s.dayOfWeek] ? t(DAY_SHORT_KEY[s.dayOfWeek]) : s.dayOfWeek}{" "}
-                          {slotTimeLabel(s, t)}
-                        </span>
-                        {s.timeStart && s.timeEnd && (
-                          <div className="mt-0.5 flex items-center gap-1.5">
-                            <Badge tone="accent">Fascia</Badge>
-                          </div>
-                        )}
-                      </div>
+                      {s.timeStart && s.timeEnd && (
+                        <Badge tone="accent">{t("planner.band")}</Badge>
+                      )}
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDeleteSlot(s.id)}
-                      aria-label="Rimuovi finestra"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm" aria-label={t("planner.removeWindowAria")}>
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem danger onSelect={() => handleDeleteSlot(s.id)}>
+                          <Trash2 className="h-4 w-4" />
+                          {t("planner.removeWindowAria")}
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 ))}
               </div>
             )}
+          </Collapsible>
 
-            <div className="flex flex-col gap-2 border-t border-border-subtle pt-3">
+          <Collapsible title={t("planner.addWindowTitle")} defaultOpen={false}>
+            <div className="flex flex-col gap-3">
+              <p className="text-xs text-content-tertiary">{t("planner.slotsDescription")}</p>
               {/* Modalità orario: singolo oppure fascia (inizio + fine). */}
               <div className="inline-flex w-fit rounded-lg border border-border bg-bg-inset p-0.5">
                 {(["single", "range"] as const).map((mode) => (
@@ -1119,7 +1161,7 @@ export function PlannerScreen() {
                         : "text-content-tertiary hover:text-content-secondary")
                     }
                   >
-                    {mode === "single" ? "Orario singolo" : "Fascia oraria"}
+                    {mode === "single" ? t("planner.singleTime") : t("planner.timeBand")}
                   </button>
                 ))}
               </div>
@@ -1142,7 +1184,7 @@ export function PlannerScreen() {
                     type="time"
                     value={time}
                     onChange={(e) => setTime(e.target.value)}
-                    aria-label="Orario"
+                    aria-label={t("planner.timeAria")}
                   />
                 ) : (
                   <div className="grid grid-cols-2 gap-2">
@@ -1153,7 +1195,7 @@ export function PlannerScreen() {
                         setTimeStart(e.target.value);
                         setSlotError(null);
                       }}
-                      aria-label="Inizio fascia"
+                      aria-label={t("planner.bandStartAria")}
                     />
                     <Input
                       type="time"
@@ -1162,27 +1204,34 @@ export function PlannerScreen() {
                         setTimeEnd(e.target.value);
                         setSlotError(null);
                       }}
-                      aria-label="Fine fascia"
+                      aria-label={t("planner.bandEndAria")}
                     />
                   </div>
                 )}
 
                 <Button variant="secondary" loading={addingSlot} onClick={handleAddSlot}>
                   <Plus className="h-4 w-4" />
-                  Finestra
+                  {t("planner.addWindowShort")}
                 </Button>
               </div>
 
               {slotError && <ErrorBanner message={slotError} />}
             </div>
-          </CardBody>
-        </Card>
+          </Collapsible>
+        </div>
       )}
 
       <Card>
         <CardHeader
-          title="Genera i contenuti"
-          description="Crea il palinsesto: il motore decide giorni, orari e formati ed evita duplicati."
+          title={
+            <span className="inline-flex items-center gap-2">
+              {t("planner.generateTitle")}
+              {drafts.length > 0 && (
+                <Badge tone="neutral">{drafts.length} {t("planner.draftsCountSuffix")}</Badge>
+              )}
+            </span>
+          }
+          description={t("planner.generateDescription")}
           action={
             <div className="flex flex-wrap items-start justify-end gap-2">
               {/* Programma in blocco tutte le bozze generate (post/reel/storie). */}
@@ -1202,7 +1251,7 @@ export function PlannerScreen() {
                 onClick={handleGenerate}
               >
                 <Sparkles className="h-4 w-4" />
-                Genera
+                {t("common.generate")}
               </Button>
             </div>
           }
@@ -1213,9 +1262,9 @@ export function PlannerScreen() {
             <div className="inline-flex w-fit rounded-lg border border-border bg-bg-inset p-0.5">
               {(
                 [
-                  { kind: "week", label: "Settimana" },
-                  { kind: "month", label: "Mese" },
-                  { kind: "custom", label: "Personalizzato" },
+                  { kind: "week", labelKey: "planner.periodWeek" },
+                  { kind: "month", labelKey: "planner.periodMonth" },
+                  { kind: "custom", labelKey: "planner.periodCustom" },
                 ] as const
               ).map((opt) => (
                 <button
@@ -1230,7 +1279,7 @@ export function PlannerScreen() {
                       : "text-content-tertiary hover:text-content-secondary")
                   }
                 >
-                  {opt.label}
+                  {t(opt.labelKey)}
                 </button>
               ))}
             </div>
@@ -1238,20 +1287,20 @@ export function PlannerScreen() {
             {periodKind === "custom" && (
               <div className="flex flex-col gap-2">
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_1fr_auto]">
-                  <Field label="Da">
+                  <Field label={t("planner.fromDate")}>
                     <Input
                       type="date"
                       value={customStart}
                       onChange={(e) => setCustomStart(e.target.value)}
-                      aria-label="Data di inizio"
+                      aria-label={t("planner.startDateAria")}
                     />
                   </Field>
-                  <Field label="A">
+                  <Field label={t("planner.toDate")}>
                     <Input
                       type="date"
                       value={customEnd}
                       onChange={(e) => setCustomEnd(e.target.value)}
-                      aria-label="Data di fine"
+                      aria-label={t("planner.endDateAria")}
                     />
                   </Field>
                   <div className="flex items-end">
@@ -1260,17 +1309,17 @@ export function PlannerScreen() {
                       size="sm"
                       type="button"
                       onClick={() => {
-                        const t = todayISO();
-                        setCustomStart(t);
-                        setCustomEnd(t);
+                        const today = todayISO();
+                        setCustomStart(today);
+                        setCustomEnd(today);
                       }}
                     >
-                      Oggi
+                      {t("planner.todayShort")}
                     </Button>
                   </div>
                 </div>
                 {customRangeInvalid && (
-                  <ErrorBanner message="La data di fine non può precedere quella di inizio." />
+                  <ErrorBanner message={t("planner.endDateBeforeStart")} />
                 )}
               </div>
             )}
@@ -1288,7 +1337,7 @@ export function PlannerScreen() {
               {/* Avviso: una generazione è già in corso per questa pagina. */}
               {alreadyRunning && (
                 <div className="rounded-lg border border-border-subtle bg-bg-inset px-3 py-2.5 text-sm text-content-secondary">
-                  Una generazione è già in corso per questa pagina.
+                  {t("planner.alreadyRunning")}
                 </div>
               )}
 
@@ -1301,8 +1350,11 @@ export function PlannerScreen() {
                   <Spinner className="h-4 w-4" />
                   <span className="flex-1">
                     {weekGen.planned > 0
-                      ? `Generazione in corso… ${weekGen.created}/${weekGen.planned}`
-                      : "Generazione in corso…"}
+                      ? t("planner.generatingProgress", {
+                          created: weekGen.created,
+                          planned: weekGen.planned,
+                        })
+                      : t("planner.generating")}
                   </span>
                   <Button
                     variant="ghost"
@@ -1312,7 +1364,7 @@ export function PlannerScreen() {
                     onClick={handleCancelWeek}
                   >
                     {!cancellingWeek && <X className="h-4 w-4" />}
-                    Annulla
+                    {t("common.cancel")}
                   </Button>
                 </div>
               )}
@@ -1320,7 +1372,9 @@ export function PlannerScreen() {
               {/* Esito della generazione (a 'ready'): create/saltate o nessuna bozza. */}
               {weekGen?.status === "ready" && weekGen.created > 0 && (
                 <div className="flex items-center gap-2 text-sm text-content-tertiary">
-                  <Badge tone="success">{weekGen.created} create</Badge>
+                  <Badge tone="success">
+                    {t("planner.createdCount", { count: weekGen.created })}
+                  </Badge>
                   {weekGen.reason && (
                     <span className="text-content-tertiary">{weekGen.reason}</span>
                   )}
@@ -1329,9 +1383,9 @@ export function PlannerScreen() {
               {weekGen?.status === "ready" && weekGen.created === 0 && (
                 <div className="flex flex-col gap-2">
                   <EmptyState
-                    title="Nessuna bozza creata"
+                    title={t("planner.noDraftsCreatedTitle")}
                     description={
-                      weekGen.reason || "Imposta le quote o verifica le associazioni del libro."
+                      weekGen.reason || t("planner.noDraftsCreatedDescription")
                     }
                   />
                   {weekGen.messages && weekGen.messages.length > 0 && (
@@ -1346,7 +1400,7 @@ export function PlannerScreen() {
 
               {/* Generazione fallita: mostra l'errore in-place. */}
               {weekGen?.status === "failed" && (
-                <ErrorBanner message={weekGen.error || "Generazione non riuscita."} />
+                <ErrorBanner message={weekGen.error || t("planner.generationFailed")} />
               )}
 
               {/* Tutte le bozze della pagina (esistenti + appena generate) */}
@@ -1367,11 +1421,11 @@ export function PlannerScreen() {
                 !weekGen && (
                   <EmptyState
                     icon={<Sparkles className="h-5 w-5" />}
-                    title="Nessuna bozza"
+                    title={t("planner.noDraftsTitle")}
                     description={
                       pageId
-                        ? "Imposta le quote, scegli il periodo e premi Genera."
-                        : "Seleziona pagina e libro, imposta le quote e premi Genera."
+                        ? t("planner.noDraftsWithPage")
+                        : t("planner.noDraftsWithoutPage")
                     }
                   />
                 )

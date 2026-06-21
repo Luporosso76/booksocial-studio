@@ -1,4 +1,5 @@
 import { Hash } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/cn";
 
 function TagRow({
@@ -46,6 +47,7 @@ export function HashtagBreakdown({
   specific?: string[];
   final?: string[];
 }) {
+  const { t } = useTranslation();
   const b = base ?? [];
   const s = specific ?? [];
   const f = final ?? [];
@@ -55,11 +57,11 @@ export function HashtagBreakdown({
     <div className="mt-3 flex flex-col gap-2 border-t border-border-subtle pt-3">
       <div className="flex items-center gap-1.5 text-2xs font-medium text-content-tertiary">
         <Hash className="h-3 w-3" />
-        Hashtag
+        {t("dashboard.hashtagsTitle")}
       </div>
-      <TagRow label="Base" tags={b} tone="base" />
-      <TagRow label="Specifici" tags={s} tone="specific" />
-      {f.length > 0 && <TagRow label="Finali" tags={f} tone="final" />}
+      <TagRow label={t("dashboard.hashtagsBase")} tags={b} tone="base" />
+      <TagRow label={t("dashboard.hashtagsSpecific")} tags={s} tone="specific" />
+      {f.length > 0 && <TagRow label={t("dashboard.hashtagsFinal")} tags={f} tone="final" />}
     </div>
   );
 }

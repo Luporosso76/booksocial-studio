@@ -424,8 +424,11 @@ export const recomputeCharacterChapters = (bookId: string) =>
   apiPost<{ characters: BookCharacter[] }>(`/books/${bookId}/recompute-character-chapters`);
 
 // --- Ri-analisi AI (rigenera scheda + personaggi) ---
-export const reanalyzeBook = (bookId: string) =>
-  apiPost<{ status: AnalysisStatus }>(`/books/${bookId}/reanalyze`);
+export const reanalyzeBook = (bookId: string, language?: string) =>
+  apiPost<{ status: AnalysisStatus }>(
+    `/books/${bookId}/reanalyze`,
+    language != null ? { language } : undefined,
+  );
 
 // --- Attività in background (job in corso, es. analisi AI) ---
 export const getActiveJobs = (signal?: AbortSignal) =>

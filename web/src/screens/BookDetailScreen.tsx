@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { useTranslation } from "react-i18next";
+import { Trans, useTranslation } from "react-i18next";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -9,20 +9,32 @@ import {
   ChevronDown,
   Eye,
   EyeOff,
+  FileText,
   ImagePlus,
   Link as LinkIcon,
+  MoreVertical,
+  Palette,
   Pencil,
   Plus,
   Sparkles,
   ShieldCheck,
   Trash2,
+  User,
   Users,
   Wand2,
   X,
 } from "lucide-react";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
+import { Collapsible } from "@/components/ui/Collapsible";
 import { Button } from "@/components/ui/Button";
 import { Badge, EmptyState, ErrorBanner, Skeleton, Spinner } from "@/components/ui/misc";
+import { Tooltip } from "@/components/ui/Tooltip";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/DropdownMenu";
 import { Input, Textarea, Field, selectClass } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
 import { MusicLibrary } from "@/components/MusicLibrary";
@@ -91,10 +103,14 @@ import { linkChannelLabel, linkUsageLabel } from "@/lib/labels";
 
 type BookTab = "scheda" | "link" | "immagini" | "musica" | "capitoli" | "personaggi";
 
+type SchedaSubTab = "profilo" | "visivo" | "pagine";
+
+type VisivoTab = "direttive" | "props" | "minors";
+
 export function BookDetailScreen() {
   const { id = "" } = useParams();
   const navigate = useNavigate();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const toast = useToast();
   const { refresh: refreshStatus } = useStatus();
 
@@ -106,7 +122,27 @@ export function BookDetailScreen() {
   const { isBookAnalyzing, refresh: refreshJobs, onBookAnalysisDone } = useJobs();
   const reanalyzing = isBookAnalyzing(id);
 
+  const [vbStarting, setVbStarting] = useState(false);
+  const visualBible = useVisualBibleStatus(id, (s) => {
+    if (s.status === "done") toast.success(t("book.visualBible.updated"));
+    else toast.error(s.error || t("book.visualBible.buildFailed"));
+    detail.reload();
+    setReloadKey((k) => k + 1);
+  });
+  async function buildVisualBibleNow() {
+    setVbStarting(true);
+    try {
+      await visualBible.start();
+    } catch (err) {
+      toast.error(errorMessage(err) || t("book.visualBible.startFailed"));
+    } finally {
+      setVbStarting(false);
+    }
+  }
+
   const [tab, setTab] = useState<BookTab>("scheda");
+  const [schedaSubTab, setSchedaSubTab] = useState<SchedaSubTab>("profilo");
+  const [visivoTab, setVisivoTab] = useState<VisivoTab>("direttive");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [confirmReanalyze, setConfirmReanalyze] = useState(false);
 
@@ -122,7 +158,7 @@ export function BookDetailScreen() {
     const off = onBookAnalysisDone(id, () => {
       detail.reload();
       setReloadKey((k) => k + 1);
-      toast.success("Analisi completata.");
+      toast.success(t("book.analysisDone"));
     });
     return off;
     // detail/toast sono stabili nel ciclo di vita di questa schermata.
@@ -133,11 +169,11 @@ export function BookDetailScreen() {
     setConfirmReanalyze(false);
     setReanalyzeError(null);
     try {
-      await reanalyzeBook(id);
+      await reanalyzeBook(id, i18n.language);
       // Poll immediato: il contesto globale rileverà subito il job in corso.
       refreshJobs();
     } catch (err) {
-      setReanalyzeError(errorMessage(err) || "Avvio analisi non riuscito.");
+      setReanalyzeError(errorMessage(err) || t("book.analysisStartFailed"));
     }
   }
 
@@ -168,26 +204,52 @@ export function BookDetailScreen() {
   async function handleDelete() {
     try {
       await deleteBook(id);
-      toast.success("Libro eliminato.");
+      toast.success(t("book.bookDeleted"));
       refreshStatus();
       navigate("/libri");
     } catch (err) {
-      toast.error(errorMessage(err) || "Eliminazione non riuscita.");
+      toast.error(errorMessage(err) || t("common.deleteFailed"));
     }
   }
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
-        <button
-          type="button"
-          onClick={() => navigate("/libri")}
-          className="inline-flex items-center gap-1.5 text-sm text-content-tertiary transition-colors hover:text-content-primary"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          {t("book.library")}
-        </button>
-        <div className="flex items-center gap-2">
+      <button
+        type="button"
+        onClick={() => navigate("/libri")}
+        className="inline-flex items-center gap-1.5 self-start text-sm text-content-tertiary transition-colors hover:text-content-primary"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        {t("book.library")}
+      </button>
+
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <TitleEditor
+          title={book.title}
+          author={book.author ?? null}
+          onSave={async (title) => {
+            const updated = await renameBook(id, { title });
+            detail.setData((prev) =>
+              prev ? { ...prev, book: { ...prev.book, ...updated, title } } : prev,
+            );
+            toast.success(t("book.titleUpdated"));
+          }}
+        />
+        <div className="flex shrink-0 items-center gap-2">
+          <Tooltip content={t("book.visualBible.buildTooltip")}>
+            <Button
+              variant="primary"
+              size="sm"
+              loading={vbStarting || visualBible.running}
+              disabled={vbStarting || visualBible.running}
+              onClick={buildVisualBibleNow}
+            >
+              {!vbStarting && !visualBible.running && <Wand2 className="h-4 w-4" />}
+              {visualBible.running
+                ? t("book.visualBible.buildingShort")
+                : t("book.visualBible.buildShort")}
+            </Button>
+          </Tooltip>
           <Button
             variant="secondary"
             size="sm"
@@ -197,24 +259,25 @@ export function BookDetailScreen() {
             {!reanalyzing && <Sparkles className="h-4 w-4" />}
             {reanalyzing ? t("book.analysisInProgress") : t("book.regenerateAnalysis")}
           </Button>
-          <Button variant="danger" size="sm" onClick={() => setConfirmDelete(true)}>
-            <Trash2 className="h-4 w-4" />
-            {t("book.deleteBook")}
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                aria-label={t("book.actions.more")}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-bg-card text-content-secondary transition-colors duration-150 ease-out-strong hover:bg-bg-hover hover:text-content-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-ring"
+              >
+                <MoreVertical className="h-4 w-4" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem danger onSelect={() => setConfirmDelete(true)}>
+                <Trash2 className="h-4 w-4" />
+                {t("book.deleteBook")}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
-
-      <TitleEditor
-        title={book.title}
-        author={book.author ?? null}
-        onSave={async (title) => {
-          const updated = await renameBook(id, { title });
-          detail.setData((prev) =>
-            prev ? { ...prev, book: { ...prev.book, ...updated, title } } : prev,
-          );
-          toast.success("Titolo aggiornato.");
-        }}
-      />
 
       {reanalyzeError && (
         <ErrorBanner message={reanalyzeError} onRetry={() => setConfirmReanalyze(true)} />
@@ -222,89 +285,106 @@ export function BookDetailScreen() {
       {reanalyzing && (
         <div className="flex items-center gap-2.5 rounded-lg border border-accent/20 bg-accent-soft px-4 py-3 text-sm text-content-secondary animate-fade-in">
           <Spinner className="h-4 w-4" />
-          <span>
-            Analisi del libro in corso. Puo richiedere qualche minuto: scheda e personaggi si
-            aggiorneranno automaticamente al termine.
-          </span>
+          <span>{t("book.analysisRunningNote")}</span>
         </div>
       )}
 
-      {/* Pannello "Bibbia visiva" resumable: sopra le tab così resta visibile cambiando tab
-          interna e sopravvive ai cambi pagina. A fine build ricarica scheda + tab. */}
-      <VisualBibleProgress
-        bookId={id}
-        onChange={() => {
-          detail.reload();
-          setReloadKey((k) => k + 1);
-        }}
-      />
+      <VisualBiblePanel status={visualBible.status} />
 
       <BookTabBar active={tab} onChange={setTab} />
 
       {tab === "scheda" && (
         <div className="flex flex-col gap-6 animate-fade-in">
-          <ProfileCard profile={profile} />
+          <SchedaSubTabBar active={schedaSubTab} onChange={setSchedaSubTab} />
 
-          <BaseHashtagsCard
-            value={book.baseHashtags ?? []}
-            onSave={async (tags) => {
-              await renameBook(id, { baseHashtags: tags });
-              detail.setData((prev) =>
-                prev ? { ...prev, book: { ...prev.book, baseHashtags: tags } } : prev,
-              );
-              toast.success("Hashtag di base salvati.");
-            }}
-          />
+          {schedaSubTab === "profilo" && (
+            <div className="flex flex-col gap-6 animate-fade-in">
+              <ProfileCard profile={profile} />
 
-          <VisualDirectivesCard
-            bookId={id}
-            domains={book.visualDomains ?? []}
-            directives={book.visualDirectives ?? ""}
-            directivesEn={book.visualDirectivesEn ?? ""}
-            onSave={async (next) => {
-              const updated = await renameBook(id, next);
-              detail.setData((prev) =>
-                prev
-                  ? {
-                      ...prev,
-                      book: {
-                        ...prev.book,
-                        visualDomains: updated.visualDomains,
-                        visualDirectives: updated.visualDirectives,
-                        visualDirectivesEn: updated.visualDirectivesEn,
-                      },
+              <BaseHashtagsCard
+                value={book.baseHashtags ?? []}
+                onSave={async (tags) => {
+                  await renameBook(id, { baseHashtags: tags });
+                  detail.setData((prev) =>
+                    prev ? { ...prev, book: { ...prev.book, baseHashtags: tags } } : prev,
+                  );
+                  toast.success(t("book.baseHashtags.saved"));
+                }}
+              />
+            </div>
+          )}
+
+          {schedaSubTab === "visivo" && (
+            <div className="flex flex-col gap-5 animate-fade-in">
+              <VisivoTabBar active={visivoTab} onChange={setVisivoTab} />
+
+              {visivoTab === "direttive" && (
+                <div className="animate-fade-in">
+                  <VisualDirectivesCard
+                    bookId={id}
+                    domains={book.visualDomains ?? []}
+                    directives={book.visualDirectives ?? ""}
+                    directivesEn={book.visualDirectivesEn ?? ""}
+                    onSave={async (next) => {
+                      const updated = await renameBook(id, next);
+                      detail.setData((prev) =>
+                        prev
+                          ? {
+                              ...prev,
+                              book: {
+                                ...prev.book,
+                                visualDomains: updated.visualDomains,
+                                visualDirectives: updated.visualDirectives,
+                                visualDirectivesEn: updated.visualDirectivesEn,
+                              },
+                            }
+                          : prev,
+                      );
+                      toast.success(t("book.directives.saved"));
+                    }}
+                  />
+                </div>
+              )}
+
+              {visivoTab === "props" && (
+                <div className="animate-fade-in">
+                  <VisualPropsCard
+                    book={book}
+                    onUpdated={(visualProps) =>
+                      detail.setData((prev) =>
+                        prev ? { ...prev, book: { ...prev.book, visualProps } } : prev,
+                      )
                     }
-                  : prev,
-              );
-              toast.success("Direttive visive salvate.");
-            }}
-          />
+                  />
+                </div>
+              )}
 
-          <VisualPropsCard
-            book={book}
-            onUpdated={(visualProps) =>
-              detail.setData((prev) =>
-                prev ? { ...prev, book: { ...prev.book, visualProps } } : prev,
-              )
-            }
-          />
+              {visivoTab === "minors" && (
+                <div className="animate-fade-in">
+                  <VisualExtrasCard
+                    book={book}
+                    onUpdated={(visualExtras) =>
+                      detail.setData((prev) =>
+                        prev ? { ...prev, book: { ...prev.book, visualExtras } } : prev,
+                      )
+                    }
+                  />
+                </div>
+              )}
+            </div>
+          )}
 
-          <VisualExtrasCard
-            book={book}
-            onUpdated={(visualExtras) =>
-              detail.setData((prev) =>
-                prev ? { ...prev, book: { ...prev.book, visualExtras } } : prev,
-              )
-            }
-          />
-
-          <PagesCard
-            bookId={id}
-            pages={pages}
-            loading={pagesState.loading}
-            error={pagesState.error}
-            onRetry={pagesState.reload}
-          />
+          {schedaSubTab === "pagine" && (
+            <div className="flex flex-col gap-6 animate-fade-in">
+              <PagesCard
+                bookId={id}
+                pages={pages}
+                loading={pagesState.loading}
+                error={pagesState.error}
+                onRetry={pagesState.reload}
+              />
+            </div>
+          )}
         </div>
       )}
 
@@ -344,16 +424,16 @@ export function BookDetailScreen() {
       <Modal
         open={confirmDelete}
         onClose={() => setConfirmDelete(false)}
-        title="Eliminare questo libro?"
-        description="Verranno rimossi scheda, link, immagini e bozze collegate. Azione non reversibile."
+        title={t("book.confirmDeleteTitle")}
+        description={t("book.confirmDeleteDescription")}
         size="sm"
         footer={
           <>
             <Button variant="ghost" onClick={() => setConfirmDelete(false)}>
-              Annulla
+              {t("common.cancel")}
             </Button>
             <Button variant="danger" onClick={handleDelete}>
-              Elimina
+              {t("common.delete")}
             </Button>
           </>
         }
@@ -366,25 +446,114 @@ export function BookDetailScreen() {
       <Modal
         open={confirmReanalyze}
         onClose={() => setConfirmReanalyze(false)}
-        title="Rigenerare l'analisi?"
+        title={t("book.confirmReanalyzeTitle")}
         size="sm"
         footer={
           <>
             <Button variant="ghost" onClick={() => setConfirmReanalyze(false)}>
-              Annulla
+              {t("common.cancel")}
             </Button>
             <Button variant="primary" onClick={startReanalyze}>
               <Sparkles className="h-4 w-4" />
-              Rigenera analisi
+              {t("book.regenerateAnalysis")}
             </Button>
           </>
         }
       >
-        <p className="text-sm text-content-secondary">
-          Ri-analizza il libro con l'AI per (ri)estrarre scheda e personaggi. Puo richiedere qualche
-          minuto.
-        </p>
+        <p className="text-sm text-content-secondary">{t("book.confirmReanalyzeBody")}</p>
       </Modal>
+    </div>
+  );
+}
+
+function SchedaSubTabBar({
+  active,
+  onChange,
+}: {
+  active: SchedaSubTab;
+  onChange: (sub: SchedaSubTab) => void;
+}) {
+  const { t } = useTranslation();
+  const subs: { id: SchedaSubTab; label: string; icon: typeof User }[] = [
+    { id: "profilo", label: t("book.schedaSub.profilo"), icon: User },
+    { id: "visivo", label: t("book.schedaSub.visivo"), icon: Palette },
+    { id: "pagine", label: t("book.schedaSub.pagine"), icon: FileText },
+  ];
+  return (
+    <div
+      role="tablist"
+      aria-label={t("book.schedaSub.aria")}
+      className="inline-flex items-center gap-1 self-start rounded-lg border border-border-subtle bg-bg-card p-1"
+    >
+      {subs.map((s) => {
+        const isActive = s.id === active;
+        const Icon = s.icon;
+        return (
+          <button
+            key={s.id}
+            type="button"
+            role="tab"
+            aria-selected={isActive}
+            onClick={() => onChange(s.id)}
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium",
+              "transition-colors duration-150 ease-out-strong",
+              "focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-ring",
+              isActive
+                ? "bg-accent-soft text-accent"
+                : "text-content-tertiary hover:bg-bg-hover hover:text-content-primary",
+            )}
+          >
+            <Icon className="h-4 w-4" />
+            {s.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function VisivoTabBar({
+  active,
+  onChange,
+}: {
+  active: VisivoTab;
+  onChange: (tab: VisivoTab) => void;
+}) {
+  const { t } = useTranslation();
+  const tabs: { id: VisivoTab; label: string }[] = [
+    { id: "direttive", label: t("book.visivo.direttive") },
+    { id: "props", label: t("book.visivo.props") },
+    { id: "minors", label: t("book.visivo.minors") },
+  ];
+  return (
+    <div
+      role="tablist"
+      aria-label={t("book.visivo.aria")}
+      className="flex items-center gap-4 border-b border-border-subtle"
+    >
+      {tabs.map((t) => {
+        const isActive = t.id === active;
+        return (
+          <button
+            key={t.id}
+            type="button"
+            role="tab"
+            aria-selected={isActive}
+            onClick={() => onChange(t.id)}
+            className={cn(
+              "-mb-px border-b-2 px-0.5 pb-2.5 text-sm font-medium",
+              "transition-colors duration-150 ease-out-strong",
+              "focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-ring",
+              isActive
+                ? "border-accent text-content-primary"
+                : "border-transparent text-content-tertiary hover:text-content-primary",
+            )}
+          >
+            {t.label}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -445,6 +614,7 @@ function TitleEditor({
   onSave: (title: string) => Promise<void>;
 }) {
   const toast = useToast();
+  const { t } = useTranslation();
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(title);
   const [saving, setSaving] = useState(false);
@@ -452,7 +622,7 @@ function TitleEditor({
   async function commit() {
     const next = value.trim();
     if (!next) {
-      toast.error("Il titolo non puo essere vuoto.");
+      toast.error(t("book.titleEmpty"));
       return;
     }
     if (next === title) {
@@ -464,7 +634,7 @@ function TitleEditor({
       await onSave(next);
       setEditing(false);
     } catch (err) {
-      toast.error(errorMessage(err) || "Rinomina non riuscita.");
+      toast.error(errorMessage(err) || t("book.renameFailed"));
     } finally {
       setSaving(false);
     }
@@ -516,7 +686,7 @@ function TitleEditor({
           setEditing(true);
         }}
         className="rounded-md p-1.5 text-content-faint opacity-0 transition-[opacity,transform,color] duration-150 ease-out-strong hover:text-content-primary group-hover:opacity-100 active:scale-90"
-        aria-label="Rinomina libro"
+        aria-label={t("book.renameBook")}
       >
         <Pencil className="h-4 w-4" />
       </button>
@@ -525,55 +695,56 @@ function TitleEditor({
 }
 
 function ProfileCard({ profile }: { profile: BookDetail["profile"] }) {
+  const { t } = useTranslation();
   return (
     <Card>
       <CardHeader
-        title="Scheda del libro"
-        description="Generata dal modello dall'import."
+        title={t("book.profile.title")}
+        description={t("book.profile.description")}
         action={
-          <Badge tone="success">
-            <ShieldCheck className="h-3 w-3" />
-            Anti-spoiler attiva
-          </Badge>
+          <Tooltip content={t("book.profile.antiSpoilerNote")}>
+            <span className="inline-flex">
+              <Badge tone="success">
+                <ShieldCheck className="h-3 w-3" />
+                {t("book.profile.antiSpoilerBadge")}
+              </Badge>
+            </span>
+          </Tooltip>
         }
       />
-      <CardBody className="flex flex-col gap-4">
+      <CardBody className="flex flex-col gap-5">
         {!profile ? (
-          <p className="text-sm text-content-tertiary">
-            Scheda non ancora disponibile per questo libro.
-          </p>
+          <p className="text-sm text-content-tertiary">{t("book.profile.notAvailable")}</p>
         ) : (
           <>
             {profile.synopsis && (
               <div>
-                <h4 className="mb-1 text-2xs font-semibold uppercase tracking-wide text-content-faint">
-                  Sinossi
+                <h4 className="mb-1.5 text-2xs font-semibold uppercase tracking-wide text-content-secondary">
+                  {t("book.profile.synopsis")}
                 </h4>
                 <p className="max-w-prose text-sm leading-relaxed text-content-secondary">
                   {profile.synopsis}
                 </p>
               </div>
             )}
-            <div className="flex flex-wrap gap-6">
+            <div className="flex flex-wrap gap-x-8 gap-y-5">
               {profile.genres && profile.genres.length > 0 && (
-                <MetaList label="Generi" items={profile.genres} tone="accent" />
+                <MetaList label={t("book.profile.genres")} items={profile.genres} tone="accent" />
               )}
               {profile.themes && profile.themes.length > 0 && (
-                <MetaList label="Temi" items={profile.themes} />
-              )}
-              {profile.tone && (
-                <div>
-                  <h4 className="mb-1.5 text-2xs font-semibold uppercase tracking-wide text-content-faint">
-                    Tono
-                  </h4>
-                  <Badge>{profile.tone}</Badge>
-                </div>
+                <MetaList label={t("book.profile.themes")} items={profile.themes} />
               )}
             </div>
-            <p className="rounded-lg border border-success/20 bg-success/[0.06] px-3 py-2 text-xs leading-relaxed text-content-secondary">
-              La policy anti-spoiler e attiva: il modello non rivela gli eventi chiave protetti
-              quando genera i post.
-            </p>
+            {profile.tone && (
+              <div>
+                <h4 className="mb-1.5 text-2xs font-semibold uppercase tracking-wide text-content-secondary">
+                  {t("book.profile.tone")}
+                </h4>
+                <p className="max-w-prose text-sm leading-relaxed text-content-secondary">
+                  {profile.tone}
+                </p>
+              </div>
+            )}
           </>
         )}
       </CardBody>
@@ -592,7 +763,7 @@ function MetaList({
 }) {
   return (
     <div>
-      <h4 className="mb-1.5 text-2xs font-semibold uppercase tracking-wide text-content-faint">
+      <h4 className="mb-1.5 text-2xs font-semibold uppercase tracking-wide text-content-secondary">
         {label}
       </h4>
       <div className="flex flex-wrap gap-1.5">
@@ -626,13 +797,13 @@ function BaseHashtagsCard({
   const dirty = JSON.stringify(tags) !== JSON.stringify(value);
 
   function add() {
-    const t = normalizeTag(draft);
-    if (!t) return;
-    if (tags.includes(t)) {
+    const tag = normalizeTag(draft);
+    if (!tag) return;
+    if (tags.includes(tag)) {
       setDraft("");
       return;
     }
-    setTags((prev) => [...prev, t]);
+    setTags((prev) => [...prev, tag]);
     setDraft("");
   }
 
@@ -641,7 +812,7 @@ function BaseHashtagsCard({
     try {
       await onSave(tags);
     } catch (err) {
-      toast.error(errorMessage(err) || "Salvataggio non riuscito.");
+      toast.error(errorMessage(err) || t("common.saveFailed"));
     } finally {
       setSaving(false);
     }
@@ -650,12 +821,12 @@ function BaseHashtagsCard({
   return (
     <Card>
       <CardHeader
-        title="Hashtag di base"
-        description="Applicati a ogni post di questo libro, oltre a quelli specifici generati di volta in volta."
+        title={t("book.baseHashtags.title")}
+        description={t("book.baseHashtags.description")}
         action={
           dirty ? (
             <Button variant="primary" size="sm" loading={saving} onClick={save}>
-              Salva
+              {t("common.save")}
             </Button>
           ) : undefined
         }
@@ -665,17 +836,17 @@ function BaseHashtagsCard({
           {tags.length === 0 && (
             <span className="text-sm text-content-tertiary">{t("book.baseHashtags.empty")}</span>
           )}
-          {tags.map((t) => (
+          {tags.map((tag) => (
             <span
-              key={t}
+              key={tag}
               className="inline-flex items-center gap-1 rounded-md border border-accent/30 bg-accent-soft px-2 py-0.5 text-xs font-medium text-accent"
             >
-              {t}
+              {tag}
               <button
                 type="button"
-                onClick={() => setTags((prev) => prev.filter((x) => x !== t))}
+                onClick={() => setTags((prev) => prev.filter((x) => x !== tag))}
                 className="rounded transition-transform duration-150 ease-out-strong hover:text-accent-hover active:scale-90"
-                aria-label={`Rimuovi ${t}`}
+                aria-label={t("book.baseHashtags.removeAria", { tag })}
               >
                 <X className="h-3 w-3" />
               </button>
@@ -684,7 +855,7 @@ function BaseHashtagsCard({
         </div>
         <div className="flex gap-2">
           <Input
-            placeholder="aggiungi un hashtag"
+            placeholder={t("book.baseHashtags.placeholder")}
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={(e) => {
@@ -696,7 +867,7 @@ function BaseHashtagsCard({
           />
           <Button variant="secondary" onClick={add}>
             <Plus className="h-4 w-4" />
-            Aggiungi
+            {t("common.add")}
           </Button>
         </div>
       </CardBody>
@@ -750,7 +921,7 @@ function VisualDirectivesCard({
       })
       .catch((err) => {
         if (err instanceof DOMException && err.name === "AbortError") return;
-        setDomainsError(errorMessage(err) || "Caricamento domini non riuscito.");
+        setDomainsError(errorMessage(err) || t("book.directives.loadFailed"));
         setLoadingDomains(false);
       });
     return () => ctrl.abort();
@@ -773,7 +944,7 @@ function VisualDirectivesCard({
         visualDirectives: text.trim() === "" ? null : text.trim(),
       });
     } catch (err) {
-      toast.error(errorMessage(err) || "Salvataggio non riuscito.");
+      toast.error(errorMessage(err) || t("common.saveFailed"));
     } finally {
       setSaving(false);
     }
@@ -782,14 +953,11 @@ function VisualDirectivesCard({
   return (
     <Card>
       <CardHeader
-        title="Direttive visive"
-        description="Set di regole e istruzioni che guidano la generazione delle immagini per questo libro."
+        title={t("book.directives.title")}
+        description={t("book.directives.description")}
       />
       <CardBody className="flex flex-col gap-4">
-        <p className="text-sm text-content-secondary">
-          Scegli quali set di regole visive valgono per questo libro (es. mare/windsurf, porta
-          rossa). Si attivano solo nelle scene pertinenti.
-        </p>
+        <p className="text-sm text-content-secondary">{t("book.directives.intro")}</p>
         {loadingDomains && <Spinner className="h-4 w-4" />}
         {domainsError && <ErrorBanner message={domainsError} />}
         {!loadingDomains && !domainsError && availableDomains.length === 0 && (
@@ -824,25 +992,25 @@ function VisualDirectivesCard({
             ))}
           </div>
         )}
-        <Field label="Direttive d'arte (testo libero)">
+        <Field label={t("book.directives.freeText")}>
           <Textarea
             value={text}
             onChange={(e) => setText(e.target.value)}
             rows={4}
-            placeholder="Es. dettagli ricorrenti, palette, luoghi specifici di questo libro…"
+            placeholder={t("book.directives.freeTextPlaceholder")}
           />
         </Field>
         {enPreview.trim() !== "" && enPreview.trim() !== text.trim() && (
           <div className="rounded-lg border border-border-subtle bg-bg-inset px-3 py-2.5">
-            <p className="mb-1 text-2xs font-semibold uppercase tracking-wide text-content-faint">
-              Tradotto in inglese (usato per le immagini):
+            <p className="mb-1 text-2xs font-semibold uppercase tracking-wide text-content-secondary">
+              {t("book.directives.translatedLabel")}
             </p>
             <p className="text-sm leading-relaxed text-content-tertiary">{enPreview}</p>
           </div>
         )}
         <div className="flex justify-end">
           <Button variant="primary" loading={saving} onClick={save}>
-            Salva
+            {t("common.save")}
           </Button>
         </div>
       </CardBody>
@@ -907,7 +1075,7 @@ function LinksCard({
 
   async function add() {
     if (!url.trim() || !channel.trim()) {
-      toast.error("Tipo e URL sono obbligatori.");
+      toast.error(t("book.links.typeUrlRequired"));
       return;
     }
     setAdding(true);
@@ -923,9 +1091,9 @@ function LinksCard({
       setLabel("");
       setUrl("");
       onChange();
-      toast.success("Link aggiunto.");
+      toast.success(t("book.links.added"));
     } catch (err) {
-      toast.error(errorMessage(err) || "Operazione non riuscita.");
+      toast.error(errorMessage(err) || t("common.operationFailed"));
     } finally {
       setAdding(false);
     }
@@ -935,18 +1103,15 @@ function LinksCard({
     try {
       await deleteBookLink(bookId, linkId);
       onChange();
-      toast.success("Link rimosso.");
+      toast.success(t("book.links.removed"));
     } catch (err) {
-      toast.error(errorMessage(err) || "Rimozione non riuscita.");
+      toast.error(errorMessage(err) || t("common.removeFailed"));
     }
   }
 
   return (
     <Card>
-      <CardHeader
-        title="Link"
-        description="Link del libro e dell'autore: possono comparire nei post secondo la regola d'uso."
-      />
+      <CardHeader title={t("book.links.title")} description={t("book.links.description")} />
       <CardBody className="flex flex-col gap-3">
         {links.length === 0 ? (
           <p className="text-sm text-content-tertiary">{t("book.links.empty")}</p>
@@ -968,7 +1133,7 @@ function LinksCard({
                         </span>
                         <Badge>{linkChannelLabel(l.channel)}</Badge>
                         {usage && <Badge tone="accent">{usage}</Badge>}
-                        {l.isDefault && <Badge tone="accent">default</Badge>}
+                        {l.isDefault && <Badge tone="accent">{t("book.links.default")}</Badge>}
                       </div>
                       <a
                         href={l.url}
@@ -985,7 +1150,7 @@ function LinksCard({
                       variant="ghost"
                       size="sm"
                       onClick={() => setEditingLink(l)}
-                      aria-label="Modifica link"
+                      aria-label={t("book.links.editAria")}
                     >
                       <Pencil className="h-4 w-4" />
                     </Button>
@@ -993,7 +1158,7 @@ function LinksCard({
                       variant="ghost"
                       size="sm"
                       onClick={() => remove(l.id)}
-                      aria-label="Rimuovi link"
+                      aria-label={t("book.links.removeAria")}
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
@@ -1004,7 +1169,7 @@ function LinksCard({
           </div>
         )}
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Field label="Tipo">
+          <Field label={t("book.links.type")}>
             <select
               className={selectClass}
               value={channel}
@@ -1017,7 +1182,7 @@ function LinksCard({
               ))}
             </select>
           </Field>
-          <Field label="Uso nei post">
+          <Field label={t("book.links.usage")}>
             <select
               className={selectClass}
               value={usagePolicy}
@@ -1035,11 +1200,11 @@ function LinksCard({
           <Input placeholder="https://..." value={url} onChange={(e) => setUrl(e.target.value)} />
           <Button variant="secondary" loading={adding} onClick={add}>
             <Plus className="h-4 w-4" />
-            Aggiungi
+            {t("common.add")}
           </Button>
         </div>
         <Input
-          placeholder="etichetta (opzionale)"
+          placeholder={t("book.links.labelPlaceholder")}
           value={label}
           onChange={(e) => setLabel(e.target.value)}
         />
@@ -1071,6 +1236,7 @@ function LinkEditorModal({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const { t } = useTranslation();
   const [channel, setChannel] = useState<string>(link.channel);
   const [label, setLabel] = useState(link.label ?? "");
   const [url, setUrl] = useState(link.url);
@@ -1085,7 +1251,7 @@ function LinkEditorModal({
     const trimmedUrl = url.trim();
     const trimmedChannel = channel.trim();
     if (!trimmedUrl || !trimmedChannel) {
-      setError("Tipo e URL sono obbligatori.");
+      setError(t("book.links.typeUrlRequired"));
       return;
     }
     setSaving(true);
@@ -1100,7 +1266,7 @@ function LinkEditorModal({
       });
       onSaved();
     } catch (err) {
-      setError(errorMessage(err) || "Salvataggio non riuscito.");
+      setError(errorMessage(err) || t("common.saveFailed"));
       setSaving(false);
     }
   }
@@ -1109,15 +1275,15 @@ function LinkEditorModal({
     <Modal
       open
       onClose={onClose}
-      title="Modifica link"
+      title={t("book.links.editTitle")}
       size="md"
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>
-            Annulla
+            {t("common.cancel")}
           </Button>
           <Button variant="primary" loading={saving} onClick={save}>
-            Salva
+            {t("common.save")}
           </Button>
         </>
       }
@@ -1125,7 +1291,7 @@ function LinkEditorModal({
       <div className="flex flex-col gap-3">
         {error && <ErrorBanner message={error} />}
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Field label="Tipo">
+          <Field label={t("book.links.type")}>
             <select
               className={selectClass}
               value={channel}
@@ -1138,7 +1304,7 @@ function LinkEditorModal({
               ))}
             </select>
           </Field>
-          <Field label="Uso nei post">
+          <Field label={t("book.links.usage")}>
             <select
               className={selectClass}
               value={usagePolicy}
@@ -1152,14 +1318,14 @@ function LinkEditorModal({
             </select>
           </Field>
         </div>
-        <Field label="Etichetta">
+        <Field label={t("book.links.labelField")}>
           <Input
             value={label}
             onChange={(e) => setLabel(e.target.value)}
-            placeholder="etichetta (opzionale)"
+            placeholder={t("book.links.labelPlaceholder")}
           />
         </Field>
-        <Field label="URL">
+        <Field label={t("book.links.urlField")}>
           <Input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://..." />
         </Field>
         <label className="flex items-center gap-2 text-sm text-content-secondary">
@@ -1168,7 +1334,7 @@ function LinkEditorModal({
             checked={isDefault}
             onChange={(e) => setIsDefault(e.target.checked)}
           />
-          Predefinito
+          {t("book.links.isDefault")}
         </label>
       </div>
     </Modal>
@@ -1305,10 +1471,10 @@ function MediaCard({
         mediaIds: ids,
         ...(batchChanges.trim() ? { changes: batchChanges.trim() } : {}),
       });
-      toast.success(`${queued} immagini in coda di rigenerazione.`);
+      toast.success(t("book.media.batchQueued", { count: queued }));
       exitSelectMode();
     } catch (err) {
-      toast.error(errorMessage(err) || "Accodamento non riuscito.");
+      toast.error(errorMessage(err) || t("book.media.queueFailed"));
     } finally {
       setBatchBusy(false);
     }
@@ -1335,38 +1501,38 @@ function MediaCard({
     setUploading(false);
     setProgress(null);
     if (inputRef.current) inputRef.current.value = "";
-    if (failed === 0) toast.success(`${ok} immagini caricate.`);
-    else if (ok === 0) toast.error("Nessuna immagine caricata.");
-    else toast.success(`${ok} caricate, ${failed} non riuscite.`);
+    if (failed === 0) toast.success(t("book.media.uploaded", { count: ok }));
+    else if (ok === 0) toast.error(t("book.media.noneUploaded"));
+    else toast.success(t("book.media.uploadPartial", { ok, failed }));
   }
 
   async function remove(mediaId: string) {
     try {
       await deleteBookMedia(bookId, mediaId);
       onChange();
-      toast.success("Immagine rimossa.");
+      toast.success(t("book.media.removed"));
     } catch (err) {
-      toast.error(errorMessage(err) || "Rimozione non riuscita.");
+      toast.error(errorMessage(err) || t("common.removeFailed"));
     }
   }
 
   return (
     <Card>
       <CardHeader
-        title="Immagini"
-        description="Copertine o illustrazioni da usare nei post."
+        title={t("book.media.title")}
+        description={t("book.media.description")}
         action={
           <div className="flex items-center gap-2">
             {media.length > 0 &&
               (selectMode ? (
                 <Button variant="ghost" size="sm" onClick={exitSelectMode}>
                   <X className="h-4 w-4" />
-                  Annulla selezione
+                  {t("book.media.cancelSelection")}
                 </Button>
               ) : (
                 <Button variant="ghost" size="sm" onClick={() => setSelectMode(true)}>
                   <Check className="h-4 w-4" />
-                  Seleziona
+                  {t("book.media.select")}
                 </Button>
               ))}
             <Button
@@ -1376,7 +1542,9 @@ function MediaCard({
               onClick={() => inputRef.current?.click()}
             >
               <ImagePlus className="h-4 w-4" />
-              {progress ? `Carico ${progress.done}/${progress.total}...` : "Carica immagini"}
+              {progress
+                ? t("book.media.uploading", { done: progress.done, total: progress.total })
+                : t("book.media.uploadImages")}
             </Button>
           </div>
         }
@@ -1394,7 +1562,7 @@ function MediaCard({
         {selectMode && (
           <div className="flex flex-col gap-2 rounded-lg border border-accent/20 bg-accent-soft/40 p-3">
             <div className="flex flex-wrap items-center gap-2 text-sm text-content-secondary">
-              <span>{selected.size} selezionate</span>
+              <span>{t("book.media.selectedCount", { count: selected.size })}</span>
               <Button
                 variant="primary"
                 size="sm"
@@ -1403,16 +1571,16 @@ function MediaCard({
                 onClick={regenerateSelected}
               >
                 <Wand2 className="h-4 w-4" />
-                Rigenera selezionate
+                {t("book.media.regenerateSelected")}
               </Button>
             </div>
-            <Field label="Modifiche (in italiano) — applicate a tutte le selezionate">
+            <Field label={t("book.media.batchChangesLabel")}>
               <Textarea
                 value={batchChanges}
                 onChange={(e) => setBatchChanges(e.target.value)}
                 rows={2}
                 disabled={batchBusy}
-                placeholder="Opzionale. Es. «più luce», «togli le persone». Lasciare vuoto per rigenerare col prompt salvato di ciascuna."
+                placeholder={t("book.media.batchChangesPlaceholder")}
               />
             </Field>
           </div>
@@ -1439,7 +1607,7 @@ function MediaCard({
                   {imgSrc ? (
                     <img
                       src={imgSrc}
-                      alt={m.caption ?? m.filename ?? "immagine"}
+                      alt={m.caption ?? m.filename ?? t("book.media.imageAlt")}
                       onClick={() => (selectMode ? toggleSelected(m.id) : setLightbox(m))}
                       className={cn(
                         "aspect-square w-full object-cover",
@@ -1464,7 +1632,7 @@ function MediaCard({
                   )}
                   {!selectMode && m.chapterIdx != null && (
                     <span className="absolute left-1.5 top-1.5 rounded-md bg-black/60 px-1.5 py-0.5 text-2xs font-medium text-white backdrop-blur">
-                      cap. {m.chapterIdx}
+                      {t("book.media.chapterBadge", { index: m.chapterIdx })}
                     </span>
                   )}
                   {(isCurrent || isQueued) && (
@@ -1472,10 +1640,10 @@ function MediaCard({
                       {isCurrent ? (
                         <>
                           <Spinner className="h-3 w-3" />
-                          rigenerazione…
+                          {t("book.media.regenerating")}
                         </>
                       ) : (
-                        "in coda"
+                        t("book.media.queued")
                       )}
                     </span>
                   )}
@@ -1485,11 +1653,11 @@ function MediaCard({
                     !isQueued &&
                     (m.qa.ok ? (
                       <span
-                        title="Controllo qualità: nessun problema rilevato"
+                        title={t("book.media.qaOkTitle")}
                         className="absolute bottom-1.5 right-1.5 inline-flex items-center gap-1 rounded-md bg-black/60 px-1.5 py-0.5 text-2xs font-medium text-emerald-400 backdrop-blur"
                       >
                         <CheckCircle2 className="h-3 w-3" />
-                        ok
+                        {t("book.media.qaOk")}
                       </span>
                     ) : (
                       <span
@@ -1497,7 +1665,7 @@ function MediaCard({
                         className="absolute bottom-1.5 right-1.5 inline-flex items-center gap-1 rounded-md bg-amber-500/90 px-1.5 py-0.5 text-2xs font-medium text-white backdrop-blur"
                       >
                         <AlertTriangle className="h-3 w-3" />
-                        {m.qa.issues.length > 0 ? m.qa.issues.length : ""} problemi
+                        {t("book.media.qaIssues", { count: m.qa.issues.length })}
                       </span>
                     ))}
                   {!selectMode && (
@@ -1505,15 +1673,15 @@ function MediaCard({
                       type="button"
                       onClick={() => remove(m.id)}
                       className="absolute right-1.5 top-1.5 rounded-md bg-black/60 p-1.5 text-white opacity-0 backdrop-blur transition-[opacity,transform] duration-150 ease-out-strong hover:bg-danger/80 group-hover:opacity-100 active:scale-90"
-                      aria-label="Rimuovi immagine"
+                      aria-label={t("book.media.removeAria")}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
                   )}
                   {m.tags.length > 0 && (
                     <div className="flex flex-wrap gap-1 px-2 pt-1.5">
-                      {m.tags.slice(0, 4).map((t) => (
-                        <Badge key={t}>{t}</Badge>
+                      {m.tags.slice(0, 4).map((tag) => (
+                        <Badge key={tag}>{tag}</Badge>
                       ))}
                     </div>
                   )}
@@ -1628,7 +1796,7 @@ function MediaLightbox({
     if (wasActiveRef.current) {
       wasActiveRef.current = false;
       setImgVersion((v) => v + 1); // forza il reload dell'immagine (stesso id, nuovo file)
-      toast.success("Immagine rigenerata.");
+      toast.success(t("book.lightbox.regenImageDone"));
       setCancelling(false);
       onChange();
     }
@@ -1700,10 +1868,10 @@ function MediaLightbox({
     setSavingCatalog(true);
     try {
       await updateMediaCatalog(media.id, { tags, chapterIdx });
-      toast.success("Catalogazione salvata.");
+      toast.success(t("book.lightbox.catalogSaved"));
       onChange();
     } catch (err) {
-      toast.error(errorMessage(err) || "Salvataggio non riuscito.");
+      toast.error(errorMessage(err) || t("common.saveFailed"));
     } finally {
       setSavingCatalog(false);
     }
@@ -1725,16 +1893,16 @@ function MediaLightbox({
         ...(verify ? { verify: true } : {}),
       });
       wasActiveRef.current = true; // segna come attiva: la prop `regen` confermerà al prossimo poll
-      toast.info("Rigenerazione avviata.");
+      toast.info(t("book.lightbox.regenStarted"));
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
-        setError("Una rigenerazione è già in corso per questa immagine.");
+        setError(t("book.lightbox.alreadyRegenerating"));
       } else if (err instanceof ApiError && err.status === 503) {
-        setError("Il motore di generazione non è disponibile su questo ambiente.");
+        setError(t("book.lightbox.engineUnavailable"));
       } else if (err instanceof ApiError && err.status === 400) {
-        setError("Immagine non rigenerabile: nessun prompt disponibile.");
+        setError(t("book.lightbox.noPromptAvailable"));
       } else {
-        setError(errorMessage(err) || "Avvio rigenerazione non riuscito.");
+        setError(errorMessage(err) || t("book.lightbox.regenStartFailed"));
       }
     }
   }
@@ -1761,16 +1929,18 @@ function MediaLightbox({
         ...(verify ? { verify: true } : {}),
       });
       wasActiveRef.current = true;
-      toast.info(fbOn ? "Rigenerazione (ricordo) avviata." : "Rigenerazione dal capitolo avviata.");
+      toast.info(
+        fbOn ? t("book.lightbox.regenMemoryStarted") : t("book.lightbox.regenFromChapterStarted"),
+      );
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
-        setError("Una rigenerazione è già in corso per questa immagine.");
+        setError(t("book.lightbox.alreadyRegenerating"));
       } else if (err instanceof ApiError && err.status === 503) {
-        setError("Il motore di generazione non è disponibile su questo ambiente.");
+        setError(t("book.lightbox.engineUnavailable"));
       } else if (err instanceof ApiError && err.status === 400) {
-        setError("Immagine non rigenerabile: nessun prompt disponibile.");
+        setError(t("book.lightbox.noPromptAvailable"));
       } else {
-        setError(errorMessage(err) || "Avvio rigenerazione non riuscito.");
+        setError(errorMessage(err) || t("book.lightbox.regenStartFailed"));
       }
     }
   }
@@ -1780,10 +1950,10 @@ function MediaLightbox({
     setError(null);
     try {
       await cancelMediaRegen(media.id);
-      toast.info("Annullamento in corso…");
+      toast.info(t("book.lightbox.cancelling"));
     } catch (err) {
       setCancelling(false);
-      setError(errorMessage(err) || "Annullamento non riuscito.");
+      setError(errorMessage(err) || t("book.lightbox.cancelFailed"));
     }
   }
 
@@ -1798,7 +1968,7 @@ function MediaLightbox({
           <img
             // imgVersion cambia a fine rigenerazione → cache-busting per l'aggiornamento in-place.
             src={`${media.url}${media.url.includes("?") ? "&" : "?"}t=${imgVersion}`}
-            alt={media.caption ?? media.filename ?? "immagine"}
+            alt={media.caption ?? media.filename ?? t("book.media.imageAlt")}
             className="max-h-[60vh] w-full rounded-lg object-contain shadow-card md:max-h-[92vh] md:flex-1"
           />
         )}
@@ -1806,18 +1976,18 @@ function MediaLightbox({
           <div className="flex flex-col gap-3">
             <div className="flex items-center justify-between">
               <h4 className="text-2xs font-semibold uppercase tracking-wide text-content-faint">
-                Catalogazione
+                {t("book.lightbox.catalog")}
               </h4>
               {catalogDirty && (
                 <Button variant="primary" size="sm" loading={savingCatalog} onClick={saveCatalog}>
-                  Salva
+                  {t("common.save")}
                 </Button>
               )}
             </div>
 
             <div>
               <label className="mb-1 block text-2xs font-medium text-content-tertiary">
-                Capitolo
+                {t("book.lightbox.chapter")}
               </label>
               <select
                 className={selectClass}
@@ -1826,34 +1996,36 @@ function MediaLightbox({
                   setChapterIdx(e.target.value === "" ? null : Number(e.target.value))
                 }
               >
-                <option value="">— nessuno —</option>
+                <option value="">{t("book.lightbox.chapterNone")}</option>
                 {chapters
                   .filter((ch) => ch.index != null)
                   .map((ch) => (
                     <option key={ch.id} value={ch.index}>
-                      {ch.index}. {ch.title?.trim() || "Senza titolo"}
+                      {ch.index}. {ch.title?.trim() || t("book.lightbox.untitled")}
                     </option>
                   ))}
               </select>
             </div>
 
             <div>
-              <label className="mb-1 block text-2xs font-medium text-content-tertiary">Tag</label>
+              <label className="mb-1 block text-2xs font-medium text-content-tertiary">
+                {t("book.lightbox.tags")}
+              </label>
               <div className="mb-1.5 flex flex-wrap gap-1.5">
                 {tags.length === 0 && (
                   <span className="text-xs text-content-tertiary">{t("book.lightbox.noTags")}</span>
                 )}
-                {tags.map((t) => (
+                {tags.map((tag) => (
                   <span
-                    key={t}
+                    key={tag}
                     className="inline-flex items-center gap-1 rounded-md border border-border-subtle bg-bg-inset px-2 py-0.5 text-xs text-content-secondary"
                   >
-                    {t}
+                    {tag}
                     <button
                       type="button"
-                      onClick={() => setTags((prev) => prev.filter((x) => x !== t))}
+                      onClick={() => setTags((prev) => prev.filter((x) => x !== tag))}
                       className="rounded transition-transform hover:text-content-primary active:scale-90"
-                      aria-label={`Rimuovi ${t}`}
+                      aria-label={t("book.lightbox.removeTagAria", { tag })}
                     >
                       <X className="h-3 w-3" />
                     </button>
@@ -1870,10 +2042,10 @@ function MediaLightbox({
                       addTag();
                     }
                   }}
-                  placeholder="Aggiungi tag…"
+                  placeholder={t("book.lightbox.addTagPlaceholder")}
                 />
                 <Button variant="secondary" size="sm" onClick={addTag} disabled={!tagDraft.trim()}>
-                  Aggiungi
+                  {t("common.add")}
                 </Button>
               </div>
             </div>
@@ -1882,7 +2054,7 @@ function MediaLightbox({
           {media.genPrompt && (
             <div>
               <h4 className="mb-1.5 text-2xs font-semibold uppercase tracking-wide text-content-faint">
-                Prompt
+                {t("book.lightbox.prompt")}
               </h4>
               <p className="max-h-40 select-text overflow-y-auto whitespace-pre-wrap rounded-lg border border-border-subtle bg-bg-inset px-3 py-2 text-xs leading-relaxed text-content-secondary">
                 {media.genPrompt}
@@ -1912,7 +2084,7 @@ function MediaLightbox({
                     media.qa.ok ? "text-emerald-600" : "text-amber-600",
                   )}
                 >
-                  {media.qa.ok ? "Qualità ok" : "Problemi rilevati"}
+                  {media.qa.ok ? t("book.lightbox.qaOk") : t("book.lightbox.qaProblems")}
                 </span>
               </div>
               {!media.qa.ok && media.qa.issues.length > 0 && (
@@ -1930,13 +2102,13 @@ function MediaLightbox({
           {isAi && (
             <div className="flex flex-col gap-2 border-t border-border-subtle pt-3">
               <h4 className="text-2xs font-semibold uppercase tracking-wide text-content-faint">
-                Rigenera immagine
+                {t("book.lightbox.regenerateImage")}
               </h4>
               {error && <ErrorBanner message={error} />}
               <div>
                 <div className="mb-1 flex items-center justify-between">
                   <label className="block text-2xs font-medium text-content-tertiary">
-                    Modifiche (in italiano)
+                    {t("book.lightbox.changesLabel")}
                   </label>
                   {changes && (
                     <button
@@ -1944,7 +2116,7 @@ function MediaLightbox({
                       onClick={() => setChanges("")}
                       className="text-2xs text-content-faint transition-colors hover:text-content-secondary"
                     >
-                      pulisci
+                      {t("book.lightbox.clear")}
                     </button>
                   )}
                 </div>
@@ -1952,19 +2124,19 @@ function MediaLightbox({
                   value={changes}
                   onChange={(e) => setChanges(e.target.value)}
                   rows={3}
-                  placeholder="Scrivi cosa cambiare, es. «togli la persona», «cielo al tramonto», «porta rossa più accesa». L'IA aggiorna il prompt mantenendo lo stile."
+                  placeholder={t("book.lightbox.changesPlaceholder")}
                 />
               </div>
               <details>
                 <summary className="cursor-pointer text-2xs font-semibold uppercase tracking-wide text-content-faint hover:text-content-secondary">
-                  Prompt completo (avanzato)
+                  {t("book.lightbox.fullPrompt")}
                 </summary>
                 <Textarea
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
                   rows={4}
                   disabled={regenerating}
-                  placeholder="Prompt per la rigenerazione"
+                  placeholder={t("book.lightbox.fullPromptPlaceholder")}
                   className="mt-2"
                 />
               </details>
@@ -1972,9 +2144,11 @@ function MediaLightbox({
                 <div className="flex flex-wrap items-center gap-2.5 text-sm text-content-secondary">
                   <Spinner className="h-4 w-4" />
                   {isCurrent ? (
-                    <span className="tabular-nums">rigenerazione… {mmss(elapsed)}</span>
+                    <span className="tabular-nums">
+                      {t("book.lightbox.regeneratingElapsed", { time: mmss(elapsed) })}
+                    </span>
                   ) : (
-                    <span>in coda…</span>
+                    <span>{t("book.lightbox.queuedShort")}</span>
                   )}
                   <Button
                     variant="ghost"
@@ -1984,7 +2158,7 @@ function MediaLightbox({
                     onClick={cancel}
                   >
                     {!cancelling && <X className="h-4 w-4" />}
-                    Annulla
+                    {t("common.cancel")}
                   </Button>
                 </div>
               ) : (
@@ -1999,17 +2173,16 @@ function MediaLightbox({
                     />
                     <span>
                       <span className="font-medium text-content-primary">
-                        Verifica qualità e ritenta (più lento)
+                        {t("book.lightbox.verifyLabel")}
                       </span>
                       <span className="mt-0.5 block text-content-faint">
-                        Dopo la generazione, un modello controlla l'immagine e, se rileva problemi,
-                        la rigenera una volta.
+                        {t("book.lightbox.verifyNote")}
                       </span>
                     </span>
                   </label>
                   <Button variant="primary" size="sm" onClick={regenerate}>
                     <Wand2 className="h-4 w-4" />
-                    Rigenera
+                    {t("common.regenerate")}
                   </Button>
                   {/* Solo con un capitolo di riferimento: senza, non c'è testo da cui ricostruire. */}
                   {media.chapterIdx != null && (
@@ -2020,8 +2193,10 @@ function MediaLightbox({
                         <div className="mb-1">
                           <label className="mb-1 block text-2xs font-medium text-content-tertiary">
                             {selectedCharacters.length === 0
-                              ? "Personaggi del capitolo (opzionale)"
-                              : `Personaggi — ${selectedCharacters.length} selezionati`}
+                              ? t("book.lightbox.chapterCharactersOptional")
+                              : t("book.lightbox.charactersSelected", {
+                                  count: selectedCharacters.length,
+                                })}
                           </label>
                           <div className="flex max-h-32 flex-col gap-1 overflow-y-auto rounded-md border border-border-subtle bg-bg-inset p-2">
                             {chapterCast.map((c) => {
@@ -2043,8 +2218,10 @@ function MediaLightbox({
                                   <span className="truncate">
                                     {c.name} (
                                     {c.chapters.length
-                                      ? `cap. ${c.chapters.join(", ")}`
-                                      : "nessun cap."}
+                                      ? t("book.lightbox.charChapters", {
+                                          chapters: c.chapters.join(", "),
+                                        })
+                                      : t("book.lightbox.charNoChapter")}
                                     )
                                   </span>
                                 </label>
@@ -2062,9 +2239,7 @@ function MediaLightbox({
                             checked={fbOn}
                             onChange={(e) => setFbOn(e.target.checked)}
                           />
-                          <span className="font-medium">
-                            Ricordo / flashback (scena del passato)
-                          </span>
+                          <span className="font-medium">{t("book.lightbox.flashbackToggle")}</span>
                         </label>
                         {fbOn && (
                           <div className="mt-2 flex flex-col gap-2">
@@ -2087,7 +2262,7 @@ function MediaLightbox({
                             <Input
                               type="text"
                               value={fbSetting}
-                              placeholder="Ambientazione/epoca: es. «spiaggia al mare, gioventù»"
+                              placeholder={t("book.lightbox.flashbackSettingPlaceholder")}
                               onChange={(e) => setFbSetting(e.target.value)}
                             />
                           </div>
@@ -2097,16 +2272,15 @@ function MediaLightbox({
                         variant="secondary"
                         size="sm"
                         onClick={regenerateFromChapter}
-                        title="Ricostruisce il prompt dal testo del capitolo applicando le regole attuali (fisica, windsurf, ecc.)"
+                        title={t("book.lightbox.regenerateFromChapterTitle")}
                       >
                         <Wand2 className="h-4 w-4" />
                         {fbOn
-                          ? "Rigenera come ricordo (più giovane, vestiti d’epoca)"
-                          : "Rigenera dal capitolo (applica regole aggiornate)"}
+                          ? t("book.lightbox.regenerateAsMemory")
+                          : t("book.lightbox.regenerateFromChapter")}
                       </Button>
                       <p className="text-2xs leading-snug text-content-faint">
-                        Ricostruisce il prompt dal testo del capitolo applicando le regole attuali
-                        (fisica, windsurf, ecc.).
+                        {t("book.lightbox.regenerateFromChapterHint")}
                       </p>
                     </div>
                   )}
@@ -2119,7 +2293,7 @@ function MediaLightbox({
       <button
         type="button"
         onClick={onClose}
-        aria-label="Chiudi"
+        aria-label={t("common.close")}
         className="absolute right-4 top-4 rounded-md bg-black/60 p-2 text-white backdrop-blur transition-colors hover:bg-black/80"
       >
         <X className="h-5 w-5" />
@@ -2244,57 +2418,26 @@ function useVisualBibleStatus(bookId: string, onDone?: (s: VisualBibleStatus) =>
 }
 
 /**
- * Pannello di avanzamento della "Bibbia visiva", montato sopra le tab così resta visibile cambiando
- * tab e sopravvive ai cambi pagina (resumable via useVisualBibleStatus). Mostra sempre il pannello
- * con gli step quando un build è in corso (o quando c'è un esito recente), altrimenti solo il
- * bottone per costruire/aggiornare la bibbia.
+ * Pannello di avanzamento della "Bibbia visiva". Presentazionale: riceve lo `status` (lo stato è
+ * sollevato in BookDetailScreen e il trigger vive nell'header). Compare SOLO quando c'è progresso
+ * reale — build in corso o esito recente con step — così sotto le tab non resta un banner fisso.
  */
-function VisualBibleProgress({ bookId, onChange }: { bookId: string; onChange: () => void }) {
-  const toast = useToast();
+function VisualBiblePanel({ status }: { status: VisualBibleStatus | null }) {
   const { t } = useTranslation();
-  const { status, running, start } = useVisualBibleStatus(bookId, (s) => {
-    if (s.status === "done") toast.success(t("book.visualBible.updated"));
-    else toast.error(s.error || t("book.visualBible.buildFailed"));
-    onChange();
-  });
-  const [starting, setStarting] = useState(false);
-
-  async function build() {
-    setStarting(true);
-    try {
-      await start();
-    } catch (err) {
-      toast.error(errorMessage(err) || t("book.visualBible.startFailed"));
-    } finally {
-      setStarting(false);
-    }
-  }
-
-  // Mostra il pannello esteso se c'è un build in corso o un esito recente con step da elencare.
-  const hasPanel = status != null && status.status !== "idle" && status.steps.length > 0;
+  const hasSteps = status != null && status.status !== "idle" && status.steps.length > 0;
+  const isFailed = status?.status === "failed" && !!status.error;
+  if (!hasSteps && !isFailed) return null;
 
   return (
     <div className="flex flex-col gap-3 rounded-lg border border-accent/20 bg-accent-soft/40 p-4 animate-fade-in">
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-accent" />
-          <h4 className="text-sm font-semibold text-content-primary">
-            {t("book.visualBible.title")}
-          </h4>
-        </div>
-        <Button
-          variant="secondary"
-          size="sm"
-          loading={starting || running}
-          disabled={starting || running}
-          onClick={build}
-        >
-          {!starting && !running && <Wand2 className="h-4 w-4" />}
-          {running ? t("book.actions.buildingVisualBible") : t("book.actions.buildVisualBible")}
-        </Button>
+      <div className="flex items-center gap-2">
+        <Sparkles className="h-4 w-4 text-accent" />
+        <h4 className="text-sm font-semibold text-content-primary">
+          {t("book.visualBible.buildPanelTitle")}
+        </h4>
       </div>
 
-      {hasPanel && (
+      {hasSteps && (
         <ul className="flex flex-col gap-1.5">
           {status!.steps.map((step) => {
             const isRunning = step.status === "running";
@@ -2317,9 +2460,7 @@ function VisualBibleProgress({ bookId, onChange }: { bookId: string; onChange: (
                     <span className="h-2 w-2 rounded-full bg-content-faint" />
                   )}
                 </span>
-                <span className="flex-1 truncate">
-                  {t("visualBible.step." + step.key, { defaultValue: step.label })}
-                </span>
+                <span className="flex-1 truncate">{t("visualBible.step." + step.key)}</span>
                 {step.total > 1 && (
                   <span className="text-xs tabular-nums text-content-tertiary">
                     {step.done}/{step.total}
@@ -2509,9 +2650,9 @@ function SceneGenSection({
           setQueued([]);
           setCancelling(false);
           if (s.status === "ready") {
-            toast.success("Immagini di scena generate.");
+            toast.success(t("book.sceneGen.scenesGenerated"));
           } else {
-            toast.error(s.error || "Generazione immagini non riuscita.");
+            toast.error(s.error || t("book.sceneGen.generationFailed"));
           }
           onGenerated();
         }
@@ -2528,9 +2669,9 @@ function SceneGenSection({
     try {
       const { characters } = await recomputeCharacterChapters(bookId);
       setCast(characters);
-      toast.success("Presenza personaggi ricalcolata.");
+      toast.success(t("book.sceneGen.presenceRecomputed"));
     } catch {
-      toast.error("Ricalcolo presenza personaggi non riuscito.");
+      toast.error(t("book.sceneGen.presenceRecomputeFailed"));
     } finally {
       setRecomputing(false);
     }
@@ -2567,10 +2708,10 @@ function SceneGenSection({
       beginPolling();
     } catch (err) {
       if (err instanceof ApiError && err.status === 503) {
-        setError("Il motore di generazione non è disponibile su questo ambiente.");
+        setError(t("book.sceneGen.engineUnavailable"));
         setAvailable(false);
       } else {
-        setError(errorMessage(err) || "Accodamento non riuscito.");
+        setError(errorMessage(err) || t("book.sceneGen.queueFailed"));
       }
     } finally {
       setStarting(false);
@@ -2585,10 +2726,10 @@ function SceneGenSection({
     setError(null);
     try {
       await cancelBookImages(bookId);
-      toast.info("Annullamento in corso…");
+      toast.info(t("book.sceneGen.cancelling"));
     } catch (err) {
       setCancelling(false);
-      setError(errorMessage(err) || "Annullamento non riuscito.");
+      setError(errorMessage(err) || t("book.sceneGen.cancelFailed"));
     }
   }
 
@@ -2598,7 +2739,7 @@ function SceneGenSection({
   if (!available) {
     return (
       <div className="rounded-lg border border-border-subtle bg-bg-inset px-3 py-2.5 text-sm text-content-tertiary">
-        Generazione AI non disponibile su questo ambiente.
+        {t("book.sceneGen.unavailable")}
       </div>
     );
   }
@@ -2615,7 +2756,7 @@ function SceneGenSection({
       {error && <ErrorBanner message={error} />}
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-[8rem_8rem_auto] sm:items-end">
-        <Field label="Quantità (per capitolo)">
+        <Field label={t("book.sceneGen.quantityLabel")}>
           <Input
             type="number"
             min={1}
@@ -2630,7 +2771,7 @@ function SceneGenSection({
             }}
           />
         </Field>
-        <Field label="Formato">
+        <Field label={t("book.sceneGen.format")}>
           <select
             className={selectClass}
             value={aspect}
@@ -2653,8 +2794,8 @@ function SceneGenSection({
       <Field
         label={
           selectedChapters.length === 0
-            ? "Capitoli — nessuno selezionato = Auto (capitoli vari)"
-            : `Capitoli — ${selectedChapters.length} selezionati (${count} immagini ciascuno)`
+            ? t("book.sceneGen.chaptersAuto")
+            : t("book.sceneGen.chaptersSelected", { count: selectedChapters.length, each: count })
         }
       >
         <div className="flex max-h-40 flex-col gap-1 overflow-y-auto rounded-md border border-border-subtle bg-bg-card p-2">
@@ -2683,9 +2824,9 @@ function SceneGenSection({
                     }
                   />
                   <span className="truncate">
-                    {idx}. {ch.title?.trim() || "Senza titolo"}
+                    {idx}. {ch.title?.trim() || t("book.sceneGen.untitled")}
                   </span>
-                  {isExcluded && <Badge tone="neutral">escluso</Badge>}
+                  {isExcluded && <Badge tone="neutral">{t("book.sceneGen.excluded")}</Badge>}
                 </label>
               );
             })}
@@ -2696,8 +2837,8 @@ function SceneGenSection({
         <Field
           label={
             selectedCharacters.length === 0
-              ? "Personaggi (opzionale) — nessuno selezionato = nessuno specifico"
-              : `Personaggi — ${selectedCharacters.length} selezionati`
+              ? t("book.sceneGen.charactersAuto")
+              : t("book.sceneGen.charactersSelected", { count: selectedCharacters.length })
           }
         >
           <div className="flex max-h-40 flex-col gap-1 overflow-y-auto rounded-md border border-border-subtle bg-bg-card p-2">
@@ -2719,7 +2860,11 @@ function SceneGenSection({
                     }
                   />
                   <span className="truncate">
-                    {c.name} ({c.chapters.length ? `cap. ${c.chapters.join(", ")}` : "nessun cap."})
+                    {c.name} (
+                    {c.chapters.length
+                      ? t("book.sceneGen.charChapters", { chapters: c.chapters.join(", ") })
+                      : t("book.sceneGen.charNoChapter")}
+                    )
                   </span>
                 </label>
               );
@@ -2727,9 +2872,11 @@ function SceneGenSection({
           </div>
           {selectedCharacters.length > 0 && (
             <p className="mt-1 text-xs text-content-tertiary">
-              Verranno generate immagini che featurano{" "}
-              <strong>{selectedCharacters.join(", ")}</strong> nei capitoli dove compaiono (se
-              selezioni anche dei capitoli, valgono quelli).
+              <Trans
+                i18nKey="book.sceneGen.charactersFeatureNote"
+                values={{ names: selectedCharacters.join(", ") }}
+                components={{ 1: <strong /> }}
+              />
             </p>
           )}
           <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -2740,9 +2887,9 @@ function SceneGenSection({
               disabled={recomputing}
               onClick={recomputeChapters}
             >
-              Ricalcola presenza personaggi
+              {t("book.sceneGen.recomputePresence")}
             </Button>
-            <span className="text-xs text-content-tertiary">può richiedere un minuto</span>
+            <span className="text-xs text-content-tertiary">{t("book.sceneGen.recomputeHint")}</span>
           </div>
         </Field>
       )}
@@ -2775,19 +2922,17 @@ function SceneGenSection({
                 }}
               />
             </Field>
-            <Field label="Ambientazione / epoca del ricordo (opzionale)">
+            <Field label={t("book.sceneGen.flashbackSettingLabel")}>
               <Input
                 type="text"
                 value={flashbackSetting}
                 disabled={starting}
-                placeholder="Es. «spiaggia al mare, estate, gioventù»"
+                placeholder={t("book.sceneGen.flashbackSettingPlaceholder")}
                 onChange={(e) => setFlashbackSetting(e.target.value)}
               />
             </Field>
             <p className="text-xs text-content-tertiary sm:col-span-2">
-              I personaggi presenti verranno resi più giovani (stessa identità: viso, capelli,
-              occhi) e vestiti per l'epoca/luogo indicati, ignorando l'abbigliamento canonico del
-              presente.
+              {t("book.sceneGen.flashbackNote")}
             </p>
           </div>
         )}
@@ -2798,17 +2943,25 @@ function SceneGenSection({
           <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-sm text-content-secondary">
             <Spinner className="h-4 w-4" />
             <span>
-              Totale {progress.created}/{progress.planned}
+              {t("book.sceneGen.totalProgress", {
+                created: progress.created,
+                planned: progress.planned,
+              })}
             </span>
             {current && (
               <span className="text-content-tertiary">
-                · in corso: {current.aspect}{" "}
-                {current.chapters.length ? `cap ${current.chapters.join(",")}` : "Auto"} (
-                {current.created}/{current.planned})
+                {t("book.sceneGen.currentBatch", {
+                  aspect: current.aspect,
+                  scope: current.chapters.length
+                    ? t("book.sceneGen.chapterScope", { chapters: current.chapters.join(",") })
+                    : t("book.sceneGen.auto"),
+                  created: current.created,
+                  planned: current.planned,
+                })}
               </span>
             )}
             <span className="tabular-nums text-content-tertiary">
-              · immagine {mmss(elapsedImg)} · totale {mmss(elapsedTotal)}
+              {t("book.sceneGen.timers", { img: mmss(elapsedImg), total: mmss(elapsedTotal) })}
             </span>
             <Button
               variant="ghost"
@@ -2818,29 +2971,33 @@ function SceneGenSection({
               onClick={cancel}
             >
               {!cancelling && <X className="h-4 w-4" />}
-              Annulla
+              {t("common.cancel")}
             </Button>
           </div>
           {queued.length > 0 && (
             <div className="text-xs text-content-tertiary">
-              In coda:{" "}
-              {queued
-                .map(
-                  (b) =>
-                    `${b.count}× ${b.aspect} ${b.chapters.length ? `cap ${b.chapters.join(",")}` : "Auto"}`,
-                )
-                .join("  ·  ")}
+              {t("book.sceneGen.queuedList", {
+                list: queued
+                  .map(
+                    (b) =>
+                      `${b.count}× ${b.aspect} ${
+                        b.chapters.length
+                          ? t("book.sceneGen.chapterScope", { chapters: b.chapters.join(",") })
+                          : t("book.sceneGen.auto")
+                      }`,
+                  )
+                  .join("  ·  "),
+              })}
             </div>
           )}
         </div>
       )}
 
       <p className="text-xs leading-relaxed text-content-tertiary">
-        Seleziona i capitoli e scegli quante immagini fare <strong>per ciascun capitolo</strong>;
-        senza selezione è «Auto» (capitoli vari). Puoi <strong>accodare</strong> più richieste (es.
-        prima in 9:16, poi cambi formato in 1:1 e aggiungi di nuovo): la coda gira in sequenza senza
-        fermarsi finché non premi <strong>Annulla</strong>. La generazione è lenta (qualche minuto
-        per immagine) e gira in locale: il server deve restare acceso.
+        <Trans
+          i18nKey="book.sceneGen.footerNote"
+          components={{ 1: <strong />, 3: <strong />, 5: <strong /> }}
+        />
       </p>
     </div>
   );
@@ -2860,6 +3017,7 @@ function PagesCard({
   onRetry: () => void;
 }) {
   const toast = useToast();
+  const { t } = useTranslation();
   const [linked, setLinked] = useState<Set<string>>(new Set());
   const [pending, setPending] = useState<string | null>(null);
 
@@ -2879,9 +3037,9 @@ function PagesCard({
         else next.delete(pageId);
         return next;
       });
-      toast.success(willLink ? "Libro associato alla pagina." : "Associazione rimossa.");
+      toast.success(willLink ? t("book.pages.linked") : t("book.pages.unlinked"));
     } catch (err) {
-      toast.error(errorMessage(err) || "Operazione non riuscita.");
+      toast.error(errorMessage(err) || t("common.operationFailed"));
     } finally {
       setPending(null);
     }
@@ -2889,19 +3047,14 @@ function PagesCard({
 
   return (
     <Card>
-      <CardHeader
-        title="Pagine associate"
-        description="Scegli su quali pagine questo libro puo essere pubblicato."
-      />
+      <CardHeader title={t("book.pages.title")} description={t("book.pages.description")} />
       <CardBody>
         {loading ? (
           <Skeleton className="h-12 w-full" />
         ) : error ? (
           <ErrorBanner message={error} onRetry={onRetry} />
         ) : pages.length === 0 ? (
-          <p className="text-sm text-content-tertiary">
-            Nessuna pagina connessa. Vai alla sezione Connessione per aggiungerne.
-          </p>
+          <p className="text-sm text-content-tertiary">{t("book.pages.noPages")}</p>
         ) : (
           <div className="flex flex-col gap-2">
             {pages.map((p) => {
@@ -2938,6 +3091,7 @@ function PagesCard({
 // --- Tab Capitoli: accordion con il testo completo di ogni capitolo. ---
 
 function ChaptersTab({ bookId }: { bookId: string }) {
+  const { t } = useTranslation();
   const chapters = useAsync<BookChapterFull[]>((s) => getChapters(bookId, s), [bookId]);
 
   if (chapters.loading) {
@@ -2956,8 +3110,8 @@ function ChaptersTab({ bookId }: { bookId: string }) {
   if (list.length === 0) {
     return (
       <EmptyState
-        title="Nessun capitolo"
-        description="Questo libro non ha ancora capitoli estratti dal testo."
+        title={t("book.chapters.noChaptersTitle")}
+        description={t("book.chapters.noChaptersDescription")}
       />
     );
   }
@@ -2991,10 +3145,10 @@ function ChapterRow({
     setToggling(true);
     try {
       await setChapterExcluded(bookId, chapter.index, !excluded);
-      toast.success(!excluded ? "Capitolo escluso." : "Capitolo incluso.");
+      toast.success(!excluded ? t("book.chapters.chapterExcluded") : t("book.chapters.chapterIncluded"));
       onChanged();
     } catch (err) {
-      toast.error(errorMessage(err) || "Operazione non riuscita.");
+      toast.error(errorMessage(err) || t("common.operationFailed"));
     } finally {
       setToggling(false);
     }
@@ -3016,7 +3170,7 @@ function ChapterRow({
         >
           <span className="flex min-w-0 items-baseline gap-2">
             <span className="text-sm font-semibold text-content-primary">
-              Capitolo {chapter.index}
+              {t("book.chapters.chapterLabel", { index: chapter.index })}
             </span>
             {title && (
               <>
@@ -3026,11 +3180,11 @@ function ChapterRow({
                 <span className="truncate text-sm text-content-secondary">{title}</span>
               </>
             )}
-            {excluded && <Badge tone="neutral">escluso</Badge>}
+            {excluded && <Badge tone="neutral">{t("book.chapters.excludedBadge")}</Badge>}
           </span>
           <span className="flex shrink-0 items-center gap-3">
             <span className="text-2xs tabular-nums text-content-faint">
-              {chapter.charCount.toLocaleString("it-IT")} caratteri
+              {t("book.chapters.charCount", { count: chapter.charCount })}
             </span>
             <ChevronDown
               className={cn(
@@ -3046,10 +3200,10 @@ function ChapterRow({
           loading={toggling}
           disabled={toggling}
           onClick={toggleExcluded}
-          title={excluded ? t("book.characters.includeTitle") : t("book.characters.excludeTitle")}
+          title={excluded ? t("book.chapters.includeTitle") : t("book.chapters.excludeTitle")}
         >
           {!toggling && (excluded ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />)}
-          {excluded ? t("book.characters.include") : t("book.characters.exclude")}
+          {excluded ? t("book.chapters.include") : t("book.chapters.exclude")}
         </Button>
       </div>
       {open && (
@@ -3061,7 +3215,7 @@ function ChapterRow({
           />
           <details className="group">
             <summary className="cursor-pointer text-2xs font-semibold uppercase tracking-wide text-content-faint hover:text-content-secondary">
-              Testo del capitolo
+              {t("book.chapters.chapterText")}
             </summary>
             <p className="mt-2 max-h-[28rem] overflow-y-auto whitespace-pre-wrap text-sm leading-relaxed text-content-secondary">
               {chapter.text}
@@ -3088,6 +3242,7 @@ function ChapterSceneEditor({
   initial: ChapterScene | null;
 }) {
   const toast = useToast();
+  const { t } = useTranslation();
   const [scene, setScene] = useState<ChapterScene | null>(initial);
   const [sub, setSub] = useState<SceneSubTab>("ambiente");
   const [busy, setBusy] = useState(false);
@@ -3143,9 +3298,9 @@ function ChapterSceneEditor({
     try {
       const { scene: s } = await generateChapterScene(bookId, chapterIndex);
       applyScene(s);
-      toast.success("Scheda generata.");
+      toast.success(t("book.scene.cardGenerated"));
     } catch (e) {
-      toast.error(errorMessage(e) || "Generazione scheda non riuscita.");
+      toast.error(errorMessage(e) || t("book.scene.generateFailed"));
     } finally {
       setBusy(false);
     }
@@ -3164,9 +3319,9 @@ function ChapterSceneEditor({
         physicsRules: parseLines(physicsRules),
       });
       applyScene(s);
-      toast.success("Scheda salvata.");
+      toast.success(t("book.scene.cardSaved"));
     } catch (e) {
-      toast.error(errorMessage(e) || "Salvataggio scheda non riuscito.");
+      toast.error(errorMessage(e) || t("book.scene.saveFailed"));
     } finally {
       setBusy(false);
     }
@@ -3175,10 +3330,7 @@ function ChapterSceneEditor({
   if (!scene) {
     return (
       <div className="rounded-lg border border-dashed border-border-subtle bg-bg-card px-4 py-4 flex flex-col items-start gap-2">
-        <span className="text-xs text-content-tertiary">
-          Nessuna scheda visiva per questo capitolo. Viene usata per generare immagini più coerenti
-          (ambiente, oggetti, personaggi presenti).
-        </span>
+        <span className="text-xs text-content-tertiary">{t("book.scene.emptyHint")}</span>
         <Button
           size="sm"
           variant="secondary"
@@ -3186,17 +3338,17 @@ function ChapterSceneEditor({
           disabled={busy || running || !bookId}
         >
           <Sparkles className="h-4 w-4" />
-          {busy ? "Genero…" : "Genera scheda"}
+          {busy ? t("book.scene.generating") : t("book.scene.generateCard")}
         </Button>
       </div>
     );
   }
 
   const subs: { id: SceneSubTab; label: string }[] = [
-    { id: "ambiente", label: "Ambiente" },
-    { id: "oggetti", label: "Oggetti" },
-    { id: "personaggi", label: "Personaggi" },
-    { id: "fisica", label: "Fisica/Realismo" },
+    { id: "ambiente", label: t("book.scene.subEnvironment") },
+    { id: "oggetti", label: t("book.scene.subObjects") },
+    { id: "personaggi", label: t("book.scene.subCharacters") },
+    { id: "fisica", label: t("book.scene.subPhysics") },
   ];
 
   return (
@@ -3222,69 +3374,66 @@ function ChapterSceneEditor({
           ))}
         </div>
         <span className="text-2xs text-content-faint">
-          {scene.source === "USER" ? "modificata a mano" : "generata"}
+          {scene.source === "USER" ? t("book.scene.sourceUser") : t("book.scene.sourceGenerated")}
         </span>
       </div>
 
       <div className="px-3 py-3 flex flex-col gap-3">
         {sub === "ambiente" && (
           <>
-            <Field label="Luogo">
+            <Field label={t("book.scene.place")}>
               <Input
                 value={location}
                 onChange={(e) => editField(setLocation)(e.target.value)}
-                placeholder="es. spiaggia di Cabarete"
+                placeholder={t("book.scene.placePlaceholder")}
               />
             </Field>
-            <Field label="Ambiente (interno/esterno, ora, atmosfera)">
+            <Field label={t("book.scene.environment")}>
               <Input
                 value={environment}
                 onChange={(e) => editField(setEnvironment)(e.target.value)}
-                placeholder="es. esterno, tramonto, mare calmo"
+                placeholder={t("book.scene.environmentPlaceholder")}
               />
             </Field>
           </>
         )}
         {sub === "oggetti" && (
           <>
-            <Field label="Oggetti principali (separati da virgola)">
+            <Field label={t("book.scene.mainObjects")}>
               <Input
                 value={mainObjects}
                 onChange={(e) => editField(setMainObjects)(e.target.value)}
-                placeholder="es. tavola da windsurf, tartaruga marina"
+                placeholder={t("book.scene.mainObjectsPlaceholder")}
               />
             </Field>
-            <Field label="Oggetti secondari (separati da virgola)">
+            <Field label={t("book.scene.secondaryObjects")}>
               <Input
                 value={secondaryObjects}
                 onChange={(e) => editField(setSecondaryObjects)(e.target.value)}
-                placeholder="es. sedie a sdraio, tazza di caffè"
+                placeholder={t("book.scene.secondaryObjectsPlaceholder")}
               />
             </Field>
           </>
         )}
         {sub === "personaggi" && (
-          <Field label="Personaggi presenti (separati da virgola)">
+          <Field label={t("book.scene.presentCharacters")}>
             <Input
               value={characters}
               onChange={(e) => editField(setCharacters)(e.target.value)}
-              placeholder="es. Marco, Valerio, Eloise"
+              placeholder={t("book.scene.presentCharactersPlaceholder")}
             />
           </Field>
         )}
         {sub === "fisica" && (
-          <Field label="Regole di fisica/realismo (una per riga)">
+          <Field label={t("book.scene.physicsRules")}>
             <Textarea
               value={physicsRules}
               onChange={(e) => editField(setPhysicsRules)(e.target.value)}
               rows={6}
-              placeholder={
-                "Vincoli che l'immagine deve rispettare, uno per riga. Es.:\nla vela del windsurf è sul lato opposto al vento\nle mani del rider sono sul boma, i piedi negli strap\nl'onda si forma al largo, non sulla battigia"
-              }
+              placeholder={t("book.scene.physicsRulesPlaceholder")}
             />
             <p className="mt-1.5 text-2xs leading-relaxed text-content-tertiary">
-              Si aggiungono alle regole di base universali. Salvando, la scheda passa a «modificata
-              a mano»; «Rigenera scheda» le riestrae dall'AI.
+              {t("book.scene.physicsRulesNote")}
             </p>
           </Field>
         )}
@@ -3292,11 +3441,11 @@ function ChapterSceneEditor({
         <div className="flex items-center gap-2 pt-1">
           <Button size="sm" onClick={save} disabled={busy || !dirty}>
             <Check className="h-4 w-4" />
-            {dirty ? "Salva" : "Salvato"}
+            {dirty ? t("book.scene.save") : t("book.scene.saved")}
           </Button>
           <Button size="sm" variant="ghost" onClick={generate} disabled={busy || running}>
             <Sparkles className="h-4 w-4" />
-            {busy ? "Lavoro…" : "Rigenera scheda"}
+            {busy ? t("book.scene.working") : t("book.scene.regenerateCard")}
           </Button>
         </div>
       </div>
@@ -3327,9 +3476,9 @@ function CharactersTab({
     setGenAppearance(true);
     try {
       await start(["appearance"]);
-      toast.info("Generazione aspetti avviata.");
+      toast.info(t("book.characters.appearanceStarted"));
     } catch (err) {
-      toast.error(errorMessage(err) || "Generazione aspetti non riuscita.");
+      toast.error(errorMessage(err) || t("book.characters.appearanceFailed"));
     } finally {
       setGenAppearance(false);
     }
@@ -3339,9 +3488,9 @@ function CharactersTab({
     setGenOutfits(true);
     try {
       await start(["outfits"]);
-      toast.info("Generazione abiti avviata.");
+      toast.info(t("book.characters.outfitsStarted"));
     } catch (err) {
-      toast.error(errorMessage(err) || "Generazione abiti non riuscita.");
+      toast.error(errorMessage(err) || t("book.characters.outfitsFailed"));
     } finally {
       setGenOutfits(false);
     }
@@ -3364,7 +3513,7 @@ function CharactersTab({
     <div className="flex flex-col gap-4 animate-fade-in">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-content-primary">
-          Personaggi
+          {t("book.characters.title")}
           {list.length > 0 && <span className="ml-2 text-content-faint">{list.length}</span>}
         </h3>
         <div className="flex flex-wrap items-center gap-2">
@@ -3398,8 +3547,8 @@ function CharactersTab({
       {list.length === 0 ? (
         <EmptyState
           icon={<Users className="h-6 w-6" />}
-          title={t("book.characters.emptyTitle")}
-          description={t("book.characters.emptyDescription")}
+          title={t("book.chapters.emptyTitle")}
+          description={t("book.chapters.emptyDescription")}
           action={
             <Button variant="primary" size="sm" onClick={onRequestReanalyze}>
               <Sparkles className="h-4 w-4" />
@@ -3430,12 +3579,11 @@ function CharactersTab({
   );
 }
 
-const CHARACTER_FIELDS: { key: keyof BookCharacter; label: string }[] = [
-  { key: "role", label: "Ruolo" },
-  { key: "occupation", label: "Lavoro" },
-  { key: "personality", label: "Carattere" },
-  { key: "physical", label: "Aspetto fisico" },
-  { key: "notes", label: "Note" },
+const CHARACTER_FIELDS: { key: keyof BookCharacter; labelKey: string }[] = [
+  { key: "occupation", labelKey: "book.characters.fieldOccupation" },
+  { key: "personality", labelKey: "book.characters.fieldPersonality" },
+  { key: "physical", labelKey: "book.characters.fieldPhysical" },
+  { key: "notes", labelKey: "book.characters.fieldNotes" },
 ];
 
 function CharacterCard({
@@ -3446,6 +3594,7 @@ function CharacterCard({
   onChanged: () => void;
 }) {
   const toast = useToast();
+  const { t } = useTranslation();
   const [editing, setEditing] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -3454,11 +3603,11 @@ function CharacterCard({
     setDeleting(true);
     try {
       await deleteCharacter(character.id);
-      toast.success("Personaggio eliminato.");
+      toast.success(t("book.characters.deleted"));
       setConfirmDelete(false);
       onChanged();
     } catch (err) {
-      toast.error(errorMessage(err) || "Eliminazione non riuscita.");
+      toast.error(errorMessage(err) || t("common.deleteFailed"));
       setDeleting(false);
     }
   }
@@ -3471,8 +3620,14 @@ function CharacterCard({
   return (
     <Card className="flex flex-col">
       <CardBody className="flex flex-1 flex-col gap-3">
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
+        <div className="flex items-start gap-3">
+          <div
+            aria-hidden
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-bg-hover text-sm font-semibold uppercase text-content-secondary"
+          >
+            {character.name.trim().charAt(0) || "?"}
+          </div>
+          <div className="min-w-0 flex-1">
             <h4 className="truncate text-sm font-semibold text-content-primary">
               {character.name}
             </h4>
@@ -3480,43 +3635,62 @@ function CharacterCard({
               <p className="truncate text-xs text-content-tertiary">{character.role}</p>
             )}
           </div>
-          <Badge tone={character.source === "AI" ? "accent" : "neutral"}>
-            {character.source === "AI" ? "AI" : "Modificato"}
-          </Badge>
+          <Tooltip
+            content={
+              character.source === "AI"
+                ? t("book.characters.sourceAiTooltip")
+                : t("book.characters.sourceEditedTooltip")
+            }
+          >
+            <span className="inline-flex shrink-0">
+              <Badge tone={character.source === "AI" ? "accent" : "neutral"}>
+                {character.source === "AI"
+                  ? t("book.characters.sourceAi")
+                  : t("book.characters.sourceEdited")}
+              </Badge>
+            </span>
+          </Tooltip>
         </div>
 
         {filled.length > 0 ? (
-          <dl className="flex flex-col gap-2">
+          <dl className="flex flex-col gap-4">
             {filled.map((f) => (
               <div key={String(f.key)}>
-                <dt className="text-2xs font-semibold uppercase tracking-wide text-content-faint">
-                  {f.label}
+                <dt className="mb-0.5 text-2xs font-semibold uppercase tracking-wide text-content-secondary">
+                  {t(f.labelKey)}
                 </dt>
-                <dd className="whitespace-pre-wrap text-[0.8125rem] leading-relaxed text-content-secondary">
+                <dd className="line-clamp-3 whitespace-pre-wrap text-[0.8125rem] leading-relaxed text-content-secondary">
                   {String(character[f.key])}
                 </dd>
               </div>
             ))}
           </dl>
         ) : (
-          <p className="text-xs text-content-faint">
-            Nessun dettaglio. Usa Modifica per aggiungerne.
-          </p>
+          <p className="text-xs text-content-tertiary">{t("book.characters.noDetails")}</p>
         )}
 
-        <div className="mt-auto flex items-center justify-end gap-1.5 pt-1">
+        <div className="mt-auto flex items-center justify-end gap-1.5 border-t border-border-subtle pt-3">
           <Button variant="ghost" size="sm" onClick={() => setEditing(true)}>
             <Pencil className="h-3.5 w-3.5" />
-            Modifica
+            {t("book.characters.edit")}
           </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setConfirmDelete(true)}
-            aria-label={`Elimina ${character.name}`}
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                aria-label={t("book.characters.moreActionsAria", { name: character.name })}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-content-tertiary transition-colors duration-150 ease-out-strong hover:bg-bg-hover hover:text-content-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-ring"
+              >
+                <MoreVertical className="h-4 w-4" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem danger onSelect={() => setConfirmDelete(true)}>
+                <Trash2 className="h-4 w-4" />
+                {t("book.characters.delete")}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </CardBody>
 
@@ -3535,21 +3709,21 @@ function CharacterCard({
       <Modal
         open={confirmDelete}
         onClose={() => setConfirmDelete(false)}
-        title="Eliminare il personaggio?"
+        title={t("book.characters.confirmDeleteTitle")}
         size="sm"
         footer={
           <>
             <Button variant="ghost" onClick={() => setConfirmDelete(false)}>
-              Annulla
+              {t("common.cancel")}
             </Button>
             <Button variant="danger" loading={deleting} onClick={handleDelete}>
-              Elimina
+              {t("common.delete")}
             </Button>
           </>
         }
       >
         <p className="text-sm text-content-secondary">
-          Stai per eliminare "{character.name}". Azione non reversibile.
+          {t("book.characters.confirmDeleteBody", { name: character.name })}
         </p>
       </Modal>
     </Card>
@@ -3567,6 +3741,7 @@ function CharacterEditorModal({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const { t } = useTranslation();
   const [name, setName] = useState(character?.name ?? "");
   const [role, setRole] = useState(character?.role ?? "");
   const [occupation, setOccupation] = useState(character?.occupation ?? "");
@@ -3597,7 +3772,7 @@ function CharacterEditorModal({
   async function save() {
     const trimmedName = name.trim();
     if (!trimmedName) {
-      setError("Il nome è obbligatorio.");
+      setError(t("book.characters.nameRequired"));
       return;
     }
     setSaving(true);
@@ -3628,7 +3803,7 @@ function CharacterEditorModal({
       }
       onSaved();
     } catch (err) {
-      setError(errorMessage(err) || "Salvataggio non riuscito.");
+      setError(errorMessage(err) || t("common.saveFailed"));
       setSaving(false);
     }
   }
@@ -3637,61 +3812,61 @@ function CharacterEditorModal({
     <Modal
       open
       onClose={onClose}
-      title={isNew ? "Nuovo personaggio" : "Modifica personaggio"}
+      title={isNew ? t("book.characters.newCharacter") : t("book.characters.editCharacter")}
       size="md"
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>
-            Annulla
+            {t("common.cancel")}
           </Button>
           <Button variant="primary" loading={saving} onClick={save}>
-            Salva
+            {t("common.save")}
           </Button>
         </>
       }
     >
       <div className="flex flex-col gap-3">
         {error && <ErrorBanner message={error} />}
-        <Field label="Nome">
+        <Field label={t("book.characters.nameLabel")}>
           <Input
             autoFocus
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Nome del personaggio"
+            placeholder={t("book.characters.namePlaceholder")}
           />
         </Field>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Field label="Ruolo">
+          <Field label={t("book.characters.roleLabel")}>
             <Input
               value={role}
               onChange={(e) => setRole(e.target.value)}
-              placeholder="es. protagonista"
+              placeholder={t("book.characters.rolePlaceholder")}
             />
           </Field>
-          <Field label="Lavoro / Occupazione">
+          <Field label={t("book.characters.occupationLabel")}>
             <Input
               value={occupation}
               onChange={(e) => setOccupation(e.target.value)}
-              placeholder="es. detective"
+              placeholder={t("book.characters.occupationPlaceholder")}
             />
           </Field>
         </div>
-        <Field label="Carattere / Comportamento">
+        <Field label={t("book.characters.personalityLabel")}>
           <Textarea value={personality} onChange={(e) => setPersonality(e.target.value)} rows={3} />
         </Field>
-        <Field label="Aspetto fisico (canonico)">
+        <Field label={t("book.characters.physicalLabel")}>
           <Textarea value={physical} onChange={(e) => setPhysical(e.target.value)} rows={3} />
         </Field>
         {!isNew && (
           <div className="flex flex-col gap-3 rounded-lg border border-border-subtle bg-bg-inset p-3">
             <h4 className="text-2xs font-semibold uppercase tracking-wide text-content-faint">
-              Abiti
+              {t("book.characters.outfits")}
             </h4>
-            <Field label="Abito di default">
+            <Field label={t("book.characters.outfitDefault")}>
               <Input
                 value={outfitDefault}
                 onChange={(e) => setOutfitDefault(e.target.value)}
-                placeholder="es. giacca di pelle e jeans"
+                placeholder={t("book.characters.outfitDefaultPlaceholder")}
               />
             </Field>
             {outfitContexts.length > 0 && (
@@ -3701,18 +3876,18 @@ function CharacterEditorModal({
                     <Input
                       value={c.when}
                       onChange={(e) => updateContext(idx, { when: e.target.value })}
-                      placeholder="contesto (es. festa)"
+                      placeholder={t("book.characters.contextPlaceholder")}
                     />
                     <Input
                       value={c.outfit}
                       onChange={(e) => updateContext(idx, { outfit: e.target.value })}
-                      placeholder="abito per quel contesto"
+                      placeholder={t("book.characters.outfitContextPlaceholder")}
                     />
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => removeContext(idx)}
-                      aria-label="Rimuovi contesto"
+                      aria-label={t("book.characters.removeContextAria")}
                     >
                       <X className="h-4 w-4" />
                     </Button>
@@ -3723,12 +3898,12 @@ function CharacterEditorModal({
             <div>
               <Button variant="secondary" size="sm" onClick={addContext}>
                 <Plus className="h-4 w-4" />
-                Aggiungi contesto
+                {t("book.characters.addContext")}
               </Button>
             </div>
           </div>
         )}
-        <Field label="Note">
+        <Field label={t("book.characters.notesLabel")}>
           <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} />
         </Field>
       </div>
@@ -3783,9 +3958,9 @@ function VisualPropsCard({
     setGenerating(true);
     try {
       await start(["props"]);
-      toast.info("Generazione oggetti avviata.");
+      toast.info(t("book.visualProps.generateStarted"));
     } catch (err) {
-      toast.error(errorMessage(err) || "Generazione oggetti non riuscita.");
+      toast.error(errorMessage(err) || t("book.visualProps.generateFailed"));
     } finally {
       setGenerating(false);
     }
@@ -3808,9 +3983,9 @@ function VisualPropsCard({
       };
       await renameBook(book.id, { visualProps: next });
       onUpdated(next);
-      toast.success("Oggetti & mondo salvati.");
+      toast.success(t("book.visualProps.saved"));
     } catch (err) {
-      toast.error(errorMessage(err) || "Salvataggio non riuscito.");
+      toast.error(errorMessage(err) || t("common.saveFailed"));
     } finally {
       setSaving(false);
     }
@@ -3819,8 +3994,8 @@ function VisualPropsCard({
   return (
     <Card>
       <CardHeader
-        title="Oggetti & mondo"
-        description="Oggetti/veicoli ricorrenti resi sempre uguali, e lato di guida del paese."
+        title={t("book.visualProps.title")}
+        description={t("book.visualProps.description")}
         action={
           <Button
             variant="secondary"
@@ -3836,59 +4011,64 @@ function VisualPropsCard({
       />
       <CardBody className="flex flex-col gap-4">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Field label="Paese">
+          <Field label={t("book.visualProps.country")}>
             <Input
               value={country}
               onChange={(e) => setCountry(e.target.value)}
-              placeholder="es. Italia"
+              placeholder={t("book.visualProps.countryPlaceholder")}
             />
           </Field>
-          <Field label="Lato di guida">
+          <Field label={t("book.visualProps.drivingSide")}>
             <select
               className={selectClass}
               value={drivingSide}
               onChange={(e) => setDrivingSide(e.target.value as DrivingSide | "")}
             >
               <option value="">—</option>
-              <option value="right">Destra</option>
-              <option value="left">Sinistra</option>
+              <option value="right">{t("book.visualProps.drivingRight")}</option>
+              <option value="left">{t("book.visualProps.drivingLeft")}</option>
             </select>
           </Field>
         </div>
         {props.length === 0 ? (
           <p className="text-sm text-content-tertiary">{t("book.visualProps.empty")}</p>
         ) : (
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-2">
             {props.map((p, idx) => (
-              <div
+              <Collapsible
                 key={idx}
-                className="flex flex-col gap-2 rounded-lg border border-border-subtle bg-bg-inset p-3"
-              >
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-[2fr_1fr_auto]">
-                  <Input
-                    value={p.name}
-                    onChange={(e) => updateProp(idx, { name: e.target.value })}
-                    placeholder="nome (es. moto di Marco)"
-                  />
-                  <Input
-                    value={p.when}
-                    onChange={(e) => updateProp(idx, { when: e.target.value })}
-                    placeholder="quando"
-                  />
+                defaultOpen={p.name.trim() === ""}
+                title={p.name.trim() || t("book.visualProps.newObject")}
+                summary={p.description.trim() || p.when.trim() || t("book.visualProps.noDescription")}
+                actions={
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => removeProp(idx)}
-                    aria-label="Rimuovi oggetto"
+                    aria-label={t("book.visualProps.removeAria")}
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
+                }
+                bodyClassName="flex flex-col gap-2"
+              >
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <Input
+                    value={p.name}
+                    onChange={(e) => updateProp(idx, { name: e.target.value })}
+                    placeholder={t("book.visualProps.namePlaceholder")}
+                  />
+                  <Input
+                    value={p.when}
+                    onChange={(e) => updateProp(idx, { when: e.target.value })}
+                    placeholder={t("book.visualProps.whenPlaceholder")}
+                  />
                 </div>
                 <Textarea
                   value={p.description}
                   onChange={(e) => updateProp(idx, { description: e.target.value })}
                   rows={2}
-                  placeholder="descrizione fissa dell'oggetto"
+                  placeholder={t("book.visualProps.descriptionPlaceholder")}
                 />
                 <Input
                   value={p.owner ?? ""}
@@ -3897,19 +4077,19 @@ function VisualPropsCard({
                       owner: e.target.value === "" ? null : e.target.value,
                     })
                   }
-                  placeholder="proprietario (opzionale)"
+                  placeholder={t("book.visualProps.ownerPlaceholder")}
                 />
-              </div>
+              </Collapsible>
             ))}
           </div>
         )}
         <div className="flex items-center justify-between">
           <Button variant="secondary" size="sm" onClick={addProp}>
             <Plus className="h-4 w-4" />
-            Aggiungi oggetto
+            {t("book.visualProps.addObject")}
           </Button>
           <Button variant="primary" loading={saving} onClick={save}>
-            Salva
+            {t("common.save")}
           </Button>
         </div>
       </CardBody>
@@ -3958,9 +4138,9 @@ function VisualExtrasCard({
     setGenerating(true);
     try {
       await start(["minors"]);
-      toast.info("Generazione minori avviata.");
+      toast.info(t("book.visualExtras.generateStarted"));
     } catch (err) {
-      toast.error(errorMessage(err) || "Generazione minori non riuscita.");
+      toast.error(errorMessage(err) || t("book.visualExtras.generateFailed"));
     } finally {
       setGenerating(false);
     }
@@ -3981,9 +4161,9 @@ function VisualExtrasCard({
       };
       await renameBook(book.id, { visualExtras: next });
       onUpdated(next);
-      toast.success("Personaggi minori salvati.");
+      toast.success(t("book.visualExtras.saved"));
     } catch (err) {
-      toast.error(errorMessage(err) || "Salvataggio non riuscito.");
+      toast.error(errorMessage(err) || t("common.saveFailed"));
     } finally {
       setSaving(false);
     }
@@ -3992,8 +4172,8 @@ function VisualExtrasCard({
   return (
     <Card>
       <CardHeader
-        title="Personaggi minori"
-        description="Figure incidentali (non nel cast) con un look fisso per le scene dove compaiono."
+        title={t("book.visualExtras.title")}
+        description={t("book.visualExtras.description")}
         action={
           <Button
             variant="secondary"
@@ -4019,37 +4199,42 @@ function VisualExtrasCard({
         {minors.length === 0 ? (
           <p className="text-sm text-content-tertiary">{t("book.visualExtras.empty")}</p>
         ) : (
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-2">
             {minors.map((m, idx) => (
-              <div
+              <Collapsible
                 key={idx}
-                className="flex flex-col gap-2 rounded-lg border border-border-subtle bg-bg-inset p-3"
-              >
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-[2fr_1fr_auto]">
-                  <Input
-                    value={m.label}
-                    onChange={(e) => updateMinor(idx, { label: e.target.value })}
-                    placeholder="etichetta (es. il barista)"
-                  />
-                  <Input
-                    value={m.when}
-                    onChange={(e) => updateMinor(idx, { when: e.target.value })}
-                    placeholder="quando"
-                  />
+                defaultOpen={m.label.trim() === ""}
+                title={m.label.trim() || t("book.visualExtras.newMinor")}
+                summary={m.appearance.trim() || m.when.trim() || t("book.visualExtras.noAppearance")}
+                actions={
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => removeMinor(idx)}
-                    aria-label="Rimuovi personaggio minore"
+                    aria-label={t("book.visualExtras.removeAria")}
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
+                }
+                bodyClassName="flex flex-col gap-2"
+              >
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <Input
+                    value={m.label}
+                    onChange={(e) => updateMinor(idx, { label: e.target.value })}
+                    placeholder={t("book.visualExtras.labelPlaceholder")}
+                  />
+                  <Input
+                    value={m.when}
+                    onChange={(e) => updateMinor(idx, { when: e.target.value })}
+                    placeholder={t("book.visualExtras.whenPlaceholder")}
+                  />
                 </div>
                 <Textarea
                   value={m.appearance}
                   onChange={(e) => updateMinor(idx, { appearance: e.target.value })}
                   rows={2}
-                  placeholder="aspetto fisico fisso"
+                  placeholder={t("book.visualExtras.appearancePlaceholder")}
                 />
                 <Input
                   value={m.outfit ?? ""}
@@ -4058,19 +4243,19 @@ function VisualExtrasCard({
                       outfit: e.target.value === "" ? null : e.target.value,
                     })
                   }
-                  placeholder="abito (opzionale)"
+                  placeholder={t("book.visualExtras.outfitPlaceholder")}
                 />
-              </div>
+              </Collapsible>
             ))}
           </div>
         )}
         <div className="flex items-center justify-between">
           <Button variant="secondary" size="sm" onClick={addMinor}>
             <Plus className="h-4 w-4" />
-            Aggiungi
+            {t("book.visualExtras.add")}
           </Button>
           <Button variant="primary" loading={saving} onClick={save}>
-            Salva
+            {t("common.save")}
           </Button>
         </div>
       </CardBody>

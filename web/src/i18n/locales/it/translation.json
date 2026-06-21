@@ -21,7 +21,8 @@
     "removeFailed": "Rimozione non riuscita.",
     "deleteFailed": "Eliminazione non riuscita.",
     "genericError": "Si è verificato un errore.",
-    "noText": "(nessun testo)"
+    "noText": "(nessun testo)",
+    "moreActions": "Altre azioni"
   },
   "nav": {
     "brand": "BookSocial",
@@ -73,7 +74,8 @@
     "sampleImported": "Libro di esempio importato. Analisi in corso…",
     "sampleFailed": "Importazione del libro di esempio non riuscita.",
     "baseHashtags": "{{count}} hashtag base",
-    "noBaseHashtags": "nessun hashtag base"
+    "noBaseHashtags": "nessun hashtag base",
+    "modifiedDate": "Mod. {{date}}"
   },
   "import": {
     "title": "Carica un libro",
@@ -95,7 +97,9 @@
     "errorSelectFile": "Seleziona prima un file .md.",
     "errorImportFailed": "Import non riuscito.",
     "cardReady": "Scheda pronta per \"{{title}}\".",
-    "analysisFailed": "Analisi non riuscita: {{error}}"
+    "analysisFailed": "Analisi non riuscita: {{error}}",
+    "authorHint": "Es. Mario Rossi",
+    "languageHint": "Codice ISO, es. it, en"
   },
   "book": {
     "library": "Libreria",
@@ -136,7 +140,8 @@
       "buildVisualBible": "Costruisci/Aggiorna bibbia visiva",
       "buildingVisualBible": "Costruzione in corso…",
       "generateSceneImages": "Genera immagini scena",
-      "queueSceneImages": "Aggiungi alla coda"
+      "queueSceneImages": "Aggiungi alla coda",
+      "more": "Altre azioni"
     },
     "profile": {
       "title": "Scheda del libro",
@@ -387,7 +392,11 @@
       "outfitContextPlaceholder": "abito per quel contesto",
       "removeContextAria": "Rimuovi contesto",
       "addContext": "Aggiungi contesto",
-      "notesLabel": "Note"
+      "notesLabel": "Note",
+      "sourceAiTooltip": "Estratto automaticamente dall'AI durante l'analisi del libro.",
+      "sourceEditedTooltip": "Creato o modificato a mano.",
+      "moreActionsAria": "Altre azioni per {{name}}",
+      "delete": "Elimina"
     },
     "visualBible": {
       "title": "Analisi / Bibbia visiva",
@@ -401,7 +410,11 @@
         "props": "Oggetti & mondo",
         "minors": "Personaggi minori",
         "presence": "Presenza personaggi"
-      }
+      },
+      "buildTooltip": "Costruisci o aggiorna la bibbia visiva del libro",
+      "buildShort": "Bibbia visiva",
+      "buildingShort": "Bibbia visiva…",
+      "buildPanelTitle": "Costruzione bibbia visiva"
     },
     "visualProps": {
       "title": "Oggetti & mondo",
@@ -420,7 +433,9 @@
       "addObject": "Aggiungi oggetto",
       "saved": "Oggetti & mondo salvati.",
       "generateStarted": "Generazione oggetti avviata.",
-      "generateFailed": "Generazione oggetti non riuscita."
+      "generateFailed": "Generazione oggetti non riuscita.",
+      "newObject": "Nuovo oggetto",
+      "noDescription": "Senza descrizione"
     },
     "visualExtras": {
       "title": "Personaggi minori",
@@ -435,7 +450,21 @@
       "add": "Aggiungi",
       "saved": "Personaggi minori salvati.",
       "generateStarted": "Generazione minori avviata.",
-      "generateFailed": "Generazione minori non riuscita."
+      "generateFailed": "Generazione minori non riuscita.",
+      "newMinor": "Nuovo personaggio minore",
+      "noAppearance": "Senza aspetto"
+    },
+    "schedaSub": {
+      "profilo": "Profilo",
+      "visivo": "Visivo",
+      "pagine": "Pagine",
+      "aria": "Sezioni della scheda"
+    },
+    "visivo": {
+      "direttive": "Direttive",
+      "props": "Oggetti & mondo",
+      "minors": "Personaggi minori",
+      "aria": "Sezioni del canone visivo"
     }
   },
   "dashboard": {
@@ -469,7 +498,31 @@
     "bestHoursNote": "Euristica basata su medie Facebook; i tuoi dati potrebbero variare.",
     "bestHour1": "Alta apertura mattutina",
     "bestHour2": "Pausa pranzo",
-    "bestHour3": "Picco serale"
+    "bestHour3": "Picco serale",
+    "headerDescription": "Quadro generale delle pagine connesse: metriche, post e attività.",
+    "sectionPost": "Post",
+    "sectionUsage": "Statistiche d'uso",
+    "sectionInsight": "Visibilità e insight",
+    "sectionsAria": "Sezioni della dashboard",
+    "platformAria": "Piattaforma",
+    "selectPageTitle": "Seleziona pagina",
+    "selectPageDescription": "La pagina attiva guida Post e Statistiche d'uso.",
+    "postsFbTitle": "Post Facebook",
+    "postsIgTitle": "Post Instagram",
+    "postsFbDescription": "Bozze e pubblicazioni su Facebook.",
+    "postsIgDescription": "Post programmati e pubblicati su Instagram.",
+    "noPostsFbTitle": "Nessun post Facebook",
+    "noPostsIgTitle": "Nessun post Instagram",
+    "noPostsFbDescription": "Genera una settimana dal Pianificatore per popolare questa pagina.",
+    "noPostsIgDescription": "I post Instagram nascono dai Reel/Storie programmati nel Pianificatore.",
+    "selectPageForPosts": "Seleziona una pagina per vedere i suoi post.",
+    "selectPageForUsage": "Seleziona una pagina per vedere le statistiche d'uso.",
+    "noIgMetrics": "Nessuna metrica Instagram disponibile.",
+    "noIgPages": "Nessuna pagina con Instagram collegato.",
+    "hashtagsTitle": "Hashtag",
+    "hashtagsBase": "Base",
+    "hashtagsSpecific": "Specifici",
+    "hashtagsFinal": "Finali"
   },
   "planner": {
     "publishFailed": "Pubblicazione non riuscita.",
@@ -575,7 +628,13 @@
     "noDraftsCreatedDescription": "Imposta le quote o verifica le associazioni del libro.",
     "noDraftsTitle": "Nessuna bozza",
     "noDraftsWithPage": "Imposta le quote, scegli il periodo e premi Genera.",
-    "noDraftsWithoutPage": "Seleziona pagina e libro, imposta le quote e premi Genera."
+    "noDraftsWithoutPage": "Seleziona pagina e libro, imposta le quote e premi Genera.",
+    "addWindowTitle": "Aggiungi finestra oraria",
+    "addWindowShort": "Aggiungi",
+    "deleteDraftTitle": "Elimina bozza",
+    "deleteDraftDescription": "L'azione non è reversibile.",
+    "draftsCountSuffix": "bozze",
+    "todayShort": "Oggi"
   },
   "programmati": {
     "kindContent": "Contenuto",
@@ -598,7 +657,12 @@
     "noPagesDescription": "Connetti almeno una pagina Facebook per vedere i contenuti programmati.",
     "goToConnection": "Vai a Connessione",
     "pageField": "Pagina",
-    "serverWarning": "Questi contenuti (reel/storie) vengono pubblicati dal job interno all'orario previsto: il server deve restare acceso."
+    "serverWarning": "Questi contenuti (reel/storie) vengono pubblicati dal job interno all'orario previsto: il server deve restare acceso.",
+    "publishConfirmDescription": "Pubblicazione reale e immediata su Facebook.",
+    "publishConfirmBody": "Stai per pubblicare DAVVERO su Facebook, sulla pagina «{{pageName}}». Azione reale e immediata.",
+    "removeFromQueue": "Rimuovi dalla coda",
+    "removeConfirmDescription": "Il contenuto verrà eliminato e non sarà più pubblicato.",
+    "removeConfirmBody": "Vuoi rimuovere questo contenuto dalla coda? L'azione non è reversibile."
   },
   "insights": {
     "periodDay": "Oggi",
@@ -740,7 +804,9 @@
     "description": "Gestisci post, commenti, campi e pubblicazione nativa delle tue pagine Facebook.",
     "noPagesTitle": "Nessuna pagina connessa",
     "noPagesDescription": "Connetti almeno una pagina Facebook per gestirla.",
-    "goToConnection": "Vai a Connessione"
+    "goToConnection": "Vai a Connessione",
+    "moreActions": "Altre azioni",
+    "morePostActions": "Altre azioni post"
   },
   "connection": {
     "tokenRequired": "Incolla prima il System User token.",
@@ -774,7 +840,13 @@
     "disconnectTitle": "Disconnettere tutte le pagine?",
     "disconnectDescription": "I token verranno rimossi dal keyring. Potrai riconnetterti in qualsiasi momento.",
     "disconnectBody": "Questa azione scollega ogni pagina da BookSocial Studio. I libri e le bozze restano salvati.",
-    "settingsTitle": "Impostazioni pagina"
+    "settingsTitle": "Impostazioni pagina",
+    "showToken": "Mostra token",
+    "hideToken": "Nascondi token",
+    "selectAll": "Seleziona tutto",
+    "deselectAll": "Deseleziona tutto",
+    "actionsAria": "Azioni per {{name}}",
+    "removePage": "Rimuovi pagina"
   },
   "settings": {
     "title": "Impostazioni",
@@ -1146,7 +1218,10 @@
     "addFailed": "Aggiunta su Instagram non riuscita.",
     "removeFailed": "Rimozione da Instagram non riuscita.",
     "badge": "Instagram",
-    "linkedToFb": "legato al post Facebook"
+    "linkedToFb": "legato al post Facebook",
+    "alsoPublishTooltip": "Pubblica questo Reel/Storia anche su Instagram allo stesso orario.",
+    "alsoPublishedTooltip": "Questo contenuto verrà pubblicato anche su Instagram al medesimo orario.",
+    "removeShort": "Rimuovi IG"
   },
   "visualBible": {
     "step": {

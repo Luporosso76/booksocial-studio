@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { NavLink } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
@@ -7,7 +7,6 @@ import {
   BarChart3,
   Calendar,
   AlertCircle,
-  Clock,
   ExternalLink,
   Users,
   Eye,
@@ -16,15 +15,34 @@ import {
   Link2,
   Sparkles,
   Clapperboard,
+  TrendingUp,
+  Facebook,
+  Instagram,
 } from "lucide-react";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
+import { Collapsible } from "@/components/ui/Collapsible";
 import { Badge, EmptyState, ErrorBanner, Skeleton, Spinner } from "@/components/ui/misc";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { PageTabs } from "@/components/PageTabs";
 import { UsageStatsCard } from "@/components/UsageStatsCard";
+import { cn } from "@/lib/cn";
 import { useAsync } from "@/lib/useAsync";
 import { useJobs } from "@/lib/jobs";
-import { getPages, getPagePosts, getPageInsights } from "@/api/endpoints";
-import type { FacebookPage, PageInsights, PostStatus, ScheduledPost } from "@/api/types";
+import {
+  getPages,
+  getPagePosts,
+  getPageInsights,
+  getIgInsights,
+  getIgAccount,
+} from "@/api/endpoints";
+import type {
+  FacebookPage,
+  PageInsights,
+  IgInsightsResponse,
+  IgAccountResponse,
+  PostStatus,
+  ScheduledPost,
+} from "@/api/types";
 import { metricLabel, statusLabel, mediaTypeLabel, visualKindLabel } from "@/lib/labels";
 import { HashtagBreakdown } from "./HashtagBreakdown";
 
@@ -40,116 +58,157 @@ function metricValue(metrics: PageInsights["metrics"], name: string): number {
   return metrics.find((m) => m.metric === name)?.value ?? 0;
 }
 
-// ─── KPI top bar (aggregata su tutte le pagine) ─────────────────────────────────
+type KpiColor = "indigo" | "sky" | "rose" | "amber";
 
-interface AggregatedKpis {
-  followers: number;
-  coverage: number;
-  engagements: number;
-  scheduled: number;
-}
-
-/**
- * Carica tutte le pagine e, per ciascuna, insight e post; somma i valori.
- * I singoli errori per-pagina vengono ignorati silenziosamente (fallback 0):
- * la barra mostra il totale parziale anziché fallire del tutto.
- */
-async function loadAggregatedKpis(signal: AbortSignal): Promise<AggregatedKpis> {
-  const pages = await getPages(signal);
-
-  const perPage = await Promise.all(
-    pages.map(async (page) => {
-      const [insights, posts] = await Promise.all([
-        getPageInsights(page.id, "day", signal).catch(() => null),
-        getPagePosts(page.id, signal).catch(() => [] as ScheduledPost[]),
-      ]);
-
-      const followers = insights?.totals?.followersCount ?? 0;
-      const metrics = insights?.metrics ?? [];
-      const coverage = metricValue(metrics, "page_total_media_view_unique");
-      const engagements = metricValue(metrics, "page_post_engagements");
-      const scheduled = posts.filter((p) => p.status === "SCHEDULED").length;
-
-      return { followers, coverage, engagements, scheduled };
-    }),
-  );
-
-  return perPage.reduce<AggregatedKpis>(
-    (acc, p) => ({
-      followers: acc.followers + p.followers,
-      coverage: acc.coverage + p.coverage,
-      engagements: acc.engagements + p.engagements,
-      scheduled: acc.scheduled + p.scheduled,
-    }),
-    { followers: 0, coverage: 0, engagements: 0, scheduled: 0 },
-  );
-}
+const KPI_COLORS: Record<KpiColor, { chip: string; glow: string }> = {
+  indigo: { chip: "bg-indigo-500/15 text-indigo-300", glow: "hover:shadow-[0_0_36px_-12px_rgba(129,140,248,0.55)]" },
+  sky: { chip: "bg-sky-500/15 text-sky-300", glow: "hover:shadow-[0_0_36px_-12px_rgba(56,189,248,0.55)]" },
+  rose: { chip: "bg-rose-500/15 text-rose-300", glow: "hover:shadow-[0_0_36px_-12px_rgba(251,113,133,0.55)]" },
+  amber: { chip: "bg-amber-500/15 text-amber-300", glow: "hover:shadow-[0_0_36px_-12px_rgba(251,191,36,0.55)]" },
+};
 
 interface KpiTileProps {
   icon: React.ReactNode;
   label: string;
   value: string;
+  color: KpiColor;
 }
 
-function KpiTile({ icon, label, value }: KpiTileProps) {
+function KpiTile({ icon, label, value, color }: KpiTileProps) {
+  const c = KPI_COLORS[color];
   return (
-    <div className="flex flex-col gap-3 rounded-xl border border-border-subtle bg-bg-card p-4 shadow-card">
-      <div className="flex items-center gap-2 text-content-tertiary">
+    <div
+      className={cn(
+        "group flex flex-col gap-3 rounded-xl border border-border-subtle bg-bg-card p-4 shadow-card",
+        "transition-[transform,box-shadow] duration-200 ease-out-strong",
+        "hover:-translate-y-0.5 hover:border-border",
+        c.glow,
+      )}
+    >
+      <div className={cn("flex h-9 w-9 items-center justify-center rounded-lg", c.chip)}>
         {icon}
-        <span className="text-xs font-medium uppercase tracking-wide">{label}</span>
       </div>
-      <span className="text-2xl font-bold leading-none text-content-primary">{value}</span>
+      <div className="flex flex-col gap-1">
+        <span className="text-2xl font-bold leading-none text-content-primary tabular-nums">
+          {value}
+        </span>
+        <span className="text-xs font-medium uppercase tracking-wide text-content-tertiary">
+          {label}
+        </span>
+      </div>
     </div>
   );
 }
 
-function KpiTopBar() {
+function KpiRow({
+  followers,
+  coverage,
+  interactions,
+  scheduled,
+}: {
+  followers: string;
+  coverage: string;
+  interactions: string;
+  scheduled: string;
+}) {
   const { t } = useTranslation();
-  const kpisState = useAsync<AggregatedKpis>((s) => loadAggregatedKpis(s), []);
+  return (
+    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <KpiTile icon={<Users className="h-5 w-5" />} label={t("dashboard.kpiFollowers")} value={followers} color="indigo" />
+      <KpiTile icon={<Eye className="h-5 w-5" />} label={t("dashboard.kpiCoverage")} value={coverage} color="sky" />
+      <KpiTile icon={<Zap className="h-5 w-5" />} label={t("dashboard.kpiEngagements")} value={interactions} color="rose" />
+      <KpiTile icon={<CalendarClock className="h-5 w-5" />} label={t("dashboard.kpiScheduled")} value={scheduled} color="amber" />
+    </div>
+  );
+}
 
-  if (kpisState.loading) {
-    return (
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <Skeleton key={i} className="h-24 w-full" />
-        ))}
-      </div>
-    );
-  }
+function KpiSkeletonRow() {
+  return (
+    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      {Array.from({ length: 4 }).map((_, i) => (
+        <Skeleton key={i} className="h-[5.75rem] w-full rounded-xl" />
+      ))}
+    </div>
+  );
+}
 
-  if (kpisState.error) {
-    return <ErrorBanner message={kpisState.error} onRetry={kpisState.reload} />;
-  }
+function PageKpiSection({ page }: { page: FacebookPage }) {
+  const insState = useAsync<PageInsights>((s) => getPageInsights(page.id, "day", s), [page.id]);
+  const postsState = useAsync<ScheduledPost[]>((s) => getPagePosts(page.id, s), [page.id]);
+  const hasIg = !!page.igUserId;
+  const igAccState = useAsync<IgAccountResponse | null>(
+    (s) => (hasIg ? getIgAccount(page.id, s) : Promise.resolve(null)),
+    [page.id, hasIg],
+  );
+  const igInsState = useAsync<IgInsightsResponse | null>(
+    (s) => (hasIg ? getIgInsights(page.id, "day", s) : Promise.resolve(null)),
+    [page.id, hasIg],
+  );
 
-  const kpis = kpisState.data ?? {
-    followers: 0,
-    coverage: 0,
-    engagements: 0,
-    scheduled: 0,
-  };
+  const allPosts = postsState.data ?? [];
+  const fbMetrics = insState.data?.metrics ?? [];
+  const fbScheduled = allPosts.filter(
+    (p) => p.status === "SCHEDULED" && p.platform !== "instagram",
+  ).length;
+  const igScheduled = allPosts.filter(
+    (p) => p.status === "SCHEDULED" && p.platform === "instagram",
+  ).length;
+  const igMetric = (name: string) =>
+    igInsState.data?.metrics.find((m) => m.metric === name)?.value ?? 0;
+  const igUsername = igAccState.data?.account?.username ?? null;
 
   return (
-    <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-      <KpiTile
-        icon={<Users className="h-4 w-4" />}
-        label={t("dashboard.kpiFollowers")}
-        value={compactNumber(kpis.followers)}
-      />
-      <KpiTile
-        icon={<Eye className="h-4 w-4" />}
-        label={t("dashboard.kpiCoverage")}
-        value={compactNumber(kpis.coverage)}
-      />
-      <KpiTile
-        icon={<Zap className="h-4 w-4" />}
-        label={t("dashboard.kpiEngagements")}
-        value={compactNumber(kpis.engagements)}
-      />
-      <KpiTile
-        icon={<CalendarClock className="h-4 w-4" />}
-        label={t("dashboard.kpiScheduled")}
-        value={compactNumber(kpis.scheduled)}
-      />
+    <div className="flex flex-col gap-4">
+      <div>
+        <div className="mb-2.5 flex items-center gap-2 text-sm">
+          <Facebook className="h-4 w-4 text-sky-300" />
+          <span className="truncate font-semibold text-content-primary">{page.name}</span>
+          <span className="text-content-tertiary">· Facebook</span>
+        </div>
+        {insState.loading || postsState.loading ? (
+          <KpiSkeletonRow />
+        ) : (
+          <KpiRow
+            followers={compactNumber(insState.data?.totals?.followersCount ?? 0)}
+            coverage={compactNumber(metricValue(fbMetrics, "page_total_media_view_unique"))}
+            interactions={compactNumber(metricValue(fbMetrics, "page_post_engagements"))}
+            scheduled={compactNumber(fbScheduled)}
+          />
+        )}
+      </div>
+
+      {hasIg && (
+        <div>
+          <div className="mb-2.5 flex items-center gap-2 text-sm">
+            <Instagram className="h-4 w-4 text-rose-300" />
+            <span className="truncate font-semibold text-content-primary">
+              {igUsername ? `@${igUsername}` : page.name}
+            </span>
+            <span className="text-content-tertiary">· Instagram</span>
+          </div>
+          {igAccState.loading || igInsState.loading || postsState.loading ? (
+            <KpiSkeletonRow />
+          ) : (
+            <KpiRow
+              followers={compactNumber(igAccState.data?.account?.followersCount ?? 0)}
+              coverage={compactNumber(igMetric("reach"))}
+              interactions="—"
+              scheduled={compactNumber(igScheduled)}
+            />
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function KpiTopBar({ pages }: { pages: FacebookPage[] }) {
+  if (pages.length === 0) return null;
+  return (
+    <div className="flex flex-col gap-6">
+      {pages.map((p) => (
+        <PageKpiSection key={p.id} page={p} />
+      ))}
     </div>
   );
 }
@@ -186,13 +245,13 @@ function PageInsightRow({ page }: { page: FacebookPage }) {
       ) : !insightsState.data || insightsState.data.metrics.length === 0 ? (
         <p className="text-xs text-content-tertiary">{t("dashboard.noMetrics")}</p>
       ) : (
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap gap-2">
           {insightsState.data.metrics.map((m) => (
-            <div key={m.metric} className="flex flex-col items-start gap-0.5">
-              <span className="text-2xs uppercase tracking-wide text-content-faint">
+            <div key={m.metric} className="flex flex-col items-start gap-1 rounded-md bg-bg-hover px-2 py-1.5">
+              <span className="text-2xs uppercase tracking-wide text-content-tertiary">
                 {metricLabel(m.metric)}
               </span>
-              <span className="text-sm font-semibold text-content-primary">
+              <span className="text-sm font-semibold text-content-secondary">
                 {m.value.toLocaleString("it-IT")}
               </span>
             </div>
@@ -202,14 +261,6 @@ function PageInsightRow({ page }: { page: FacebookPage }) {
     </div>
   );
 }
-
-// Static best-time heuristics — TODO: sostituire con dati reali di performance per orario
-// quando saranno disponibili dall'API (es. GET /pages/:id/insights/best-hours).
-const BEST_HOURS: { slot: string; noteKey: string }[] = [
-  { slot: "09:00 – 10:00", noteKey: "dashboard.bestHour1" },
-  { slot: "12:30 – 13:30", noteKey: "dashboard.bestHour2" },
-  { slot: "19:00 – 21:00", noteKey: "dashboard.bestHour3" },
-];
 
 function statusTone(status: PostStatus): "neutral" | "accent" | "success" | "warning" | "danger" {
   switch (status) {
@@ -298,18 +349,233 @@ function ActiveJobsCard() {
   );
 }
 
+type DashSection = "post" | "usage" | "insight";
+
+function DashSectionTabs({
+  active,
+  onChange,
+}: {
+  active: DashSection;
+  onChange: (s: DashSection) => void;
+}) {
+  const { t } = useTranslation();
+  const tabs: { id: DashSection; label: string; icon: typeof FileText; activeColor: string }[] = [
+    { id: "post", label: t("dashboard.sectionPost"), icon: FileText, activeColor: "text-indigo-300" },
+    { id: "usage", label: t("dashboard.sectionUsage"), icon: BarChart3, activeColor: "text-sky-300" },
+    { id: "insight", label: t("dashboard.sectionInsight"), icon: TrendingUp, activeColor: "text-rose-300" },
+  ];
+  return (
+    <div
+      role="tablist"
+      aria-label={t("dashboard.sectionsAria")}
+      className="flex items-center gap-1 overflow-x-auto border-b border-border-subtle"
+    >
+      {tabs.map((tab) => {
+        const isActive = tab.id === active;
+        const Icon = tab.icon;
+        return (
+          <button
+            key={tab.id}
+            type="button"
+            role="tab"
+            aria-selected={isActive}
+            onClick={() => onChange(tab.id)}
+            className={cn(
+              "inline-flex shrink-0 items-center gap-2 -mb-px border-b-2 px-3.5 pb-2.5 pt-1 text-sm font-medium",
+              "transition-colors duration-150 ease-out-strong",
+              "focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-ring",
+              isActive
+                ? "border-accent text-content-primary"
+                : "border-transparent text-content-tertiary hover:text-content-primary",
+            )}
+          >
+            <Icon className={cn("h-4 w-4", isActive ? tab.activeColor : "")} />
+            {tab.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+type Platform = "fb" | "ig";
+
+function PlatformSubTabs({
+  active,
+  onChange,
+  hasInstagram,
+}: {
+  active: Platform;
+  onChange: (p: Platform) => void;
+  hasInstagram: boolean;
+}) {
+  const { t } = useTranslation();
+  const tabs = [
+    { id: "fb" as const, label: "Facebook", icon: Facebook, color: "text-sky-300" },
+    ...(hasInstagram
+      ? [{ id: "ig" as const, label: "Instagram", icon: Instagram, color: "text-rose-300" }]
+      : []),
+  ];
+  if (tabs.length < 2) return null;
+  return (
+    <div
+      role="tablist"
+      aria-label={t("dashboard.platformAria")}
+      className="inline-flex items-center gap-1 self-start rounded-lg border border-border-subtle bg-bg-inset p-1"
+    >
+      {tabs.map((tab) => {
+        const isActive = tab.id === active;
+        const Icon = tab.icon;
+        return (
+          <button
+            key={tab.id}
+            type="button"
+            role="tab"
+            aria-selected={isActive}
+            onClick={() => onChange(tab.id)}
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium",
+              "transition-colors duration-150 ease-out-strong",
+              "focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-ring",
+              isActive
+                ? "bg-bg-card text-content-primary shadow-card"
+                : "text-content-tertiary hover:text-content-primary",
+            )}
+          >
+            <Icon className={cn("h-4 w-4", isActive ? tab.color : "")} />
+            {tab.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function IgInsightRow({ page }: { page: FacebookPage }) {
+  const { t } = useTranslation();
+  const state = useAsync<IgInsightsResponse>(
+    (s) => getIgInsights(page.id, "day", s),
+    [page.id],
+  );
+  return (
+    <div className="rounded-lg border border-border-subtle bg-bg-inset px-4 py-3">
+      <div className="mb-2 flex items-center gap-2">
+        <Instagram className="h-4 w-4 text-rose-300" />
+        <span className="text-sm font-semibold text-content-primary">{page.name}</span>
+      </div>
+      {state.loading ? (
+        <Skeleton className="h-6 w-full" />
+      ) : state.error ? (
+        <ErrorBanner message={state.error} onRetry={state.reload} />
+      ) : state.data?.error ? (
+        <ErrorBanner message={state.data.error} onRetry={state.reload} />
+      ) : !state.data || state.data.metrics.length === 0 ? (
+        <p className="text-xs text-content-tertiary">{t("dashboard.noIgMetrics")}</p>
+      ) : (
+        <div className="flex flex-wrap gap-2">
+          {state.data.metrics.map((m) => (
+            <div key={m.metric} className="flex flex-col items-start gap-1 rounded-md bg-bg-hover px-2 py-1.5">
+              <span className="text-2xs uppercase tracking-wide text-content-tertiary">
+                {metricLabel(m.metric)}
+              </span>
+              <span className="text-sm font-semibold text-content-secondary">
+                {(m.value ?? 0).toLocaleString("it-IT")}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PostList({ posts }: { posts: ScheduledPost[] }) {
+  const { t } = useTranslation();
+  return (
+    <div className="flex flex-col gap-3 stagger">
+      {posts.map((p) => {
+        const when = formatWhen(p.scheduledAt);
+        return (
+          <div
+            key={p.id}
+            className="rounded-lg border border-border-subtle bg-bg-inset p-4"
+          >
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Badge tone={statusTone(p.status)}>{statusLabel(p.status)}</Badge>
+                {p.angle && <Badge tone="accent">{p.angle}</Badge>}
+                {p.mediaType && <Badge>{mediaTypeLabel(p.mediaType)}</Badge>}
+              </div>
+              {when && (
+                <span className="inline-flex items-center gap-1 text-xs text-content-tertiary">
+                  <Calendar className="h-3 w-3" />
+                  {when}
+                </span>
+              )}
+            </div>
+            {p.body && (
+              <p className="whitespace-pre-wrap text-sm leading-relaxed text-content-secondary">
+                {p.body}
+              </p>
+            )}
+            {p.errorMessage && (
+              <p className="mt-2 flex items-center gap-1.5 rounded-md border border-danger/30 bg-danger-soft px-3 py-2 text-xs text-danger">
+                <AlertCircle className="h-3 w-3 shrink-0" />
+                {p.errorMessage}
+              </p>
+            )}
+            {p.baseHashtags?.length || p.specificHashtags?.length || p.finalHashtags?.length ? (
+              <Collapsible
+                title={t("dashboard.hashtagsTitle")}
+                summary={p.finalHashtags?.slice(0, 3).join(" ")}
+                className="mt-2"
+              >
+                <HashtagBreakdown
+                  base={p.baseHashtags}
+                  specific={p.specificHashtags}
+                  final={p.finalHashtags}
+                />
+              </Collapsible>
+            ) : (
+              <HashtagBreakdown
+                base={p.baseHashtags}
+                specific={p.specificHashtags}
+                final={p.finalHashtags}
+              />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export function DashboardScreen() {
   const { t } = useTranslation();
   const pagesState = useAsync<FacebookPage[]>((s) => getPages(s), []);
   const [pageId, setPageId] = useState("");
+  const [section, setSection] = useState<DashSection>("post");
+  const [postPlatform, setPostPlatform] = useState<Platform>("fb");
+  const [insightPlatform, setInsightPlatform] = useState<Platform>("fb");
 
   const postsState = useAsync<ScheduledPost[]>(
     (s) => (pageId ? getPagePosts(pageId, s) : Promise.resolve([])),
     [pageId],
   );
 
-  const pages = useMemo(() => pagesState.data ?? [], [pagesState.data]);
+  const pages = pagesState.data ?? [];
   const posts = postsState.data ?? [];
+
+  const activePage = pages.find((p) => p.id === pageId) ?? null;
+  const pageHasIg = !!activePage?.igUserId;
+  const igPages = pages.filter((p) => p.igUserId);
+  const hasAnyIg = igPages.length > 0;
+  const effPostPlatform: Platform = postPlatform === "ig" && pageHasIg ? "ig" : "fb";
+  const effInsightPlatform: Platform = insightPlatform === "ig" && hasAnyIg ? "ig" : "fb";
+
+  const fbPosts = posts.filter((p) => p.platform !== "instagram");
+  const igPosts = posts.filter((p) => p.platform === "instagram");
+  const shownPosts = effPostPlatform === "ig" ? igPosts : fbPosts;
 
   // Imposta la prima pagina come attiva al caricamento (o se quella selezionata
   // non è più valida), così il dettaglio post compare subito senza scelta manuale.
@@ -322,14 +588,22 @@ export function DashboardScreen() {
 
   return (
     <div className="flex flex-col gap-6">
-      {/* KPI top bar: quadro immediato aggregato su tutte le pagine connesse. */}
-      <KpiTopBar />
+      <PageHeader title={t("dashboard.title")} description={t("dashboard.headerDescription")} />
 
-      {/* Attività in background in corso (es. analisi AI): nascosta se nessuna. */}
+      {pagesState.loading ? <KpiSkeletonRow /> : <KpiTopBar pages={pages} />}
+
       <ActiveJobsCard />
 
       <Card>
-        <CardHeader title={t("dashboard.title")} description={t("dashboard.description")} />
+        <CardHeader
+          title={
+            <span className="flex items-center gap-2">
+              <LayoutDashboard className="h-4 w-4 text-indigo-300" />
+              {t("dashboard.selectPageTitle")}
+            </span>
+          }
+          description={t("dashboard.selectPageDescription")}
+        />
         <CardBody>
           {pagesState.error ? (
             <ErrorBanner message={pagesState.error} onRetry={pagesState.reload} />
@@ -356,161 +630,170 @@ export function DashboardScreen() {
         </CardBody>
       </Card>
 
-      {pageId && (
-        <Card>
-          <CardHeader
-            title={t("dashboard.postsTitle")}
-            description={t("dashboard.postsDescription")}
-          />
-          <CardBody>
-            {postsState.loading ? (
-              <div className="flex flex-col gap-2">
-                <Skeleton className="h-20 w-full" />
-                <Skeleton className="h-20 w-full" />
-              </div>
-            ) : postsState.error ? (
-              <ErrorBanner message={postsState.error} onRetry={postsState.reload} />
-            ) : posts.length === 0 ? (
-              <EmptyState
-                icon={<FileText className="h-5 w-5" />}
-                title={t("dashboard.noPostsTitle")}
-                description={t("dashboard.noPostsDescription")}
-                action={
-                  <NavLink
-                    to="/pianificatore"
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3.5 py-2 text-sm font-medium text-white transition-colors duration-150 ease-out-strong hover:bg-accent-hover"
-                  >
-                    <CalendarClock className="h-4 w-4" />
-                    {t("dashboard.goToPlanner")}
-                  </NavLink>
+      <DashSectionTabs active={section} onChange={setSection} />
+
+      {section === "post" &&
+        (pageId && activePage ? (
+          <div className="flex flex-col gap-4 animate-fade-in">
+            <PlatformSubTabs
+              active={effPostPlatform}
+              onChange={setPostPlatform}
+              hasInstagram={pageHasIg}
+            />
+            <Card>
+              <CardHeader
+                title={
+                  <span className="flex items-center gap-2">
+                    {effPostPlatform === "ig" ? (
+                      <Instagram className="h-4 w-4 text-rose-300" />
+                    ) : (
+                      <FileText className="h-4 w-4 text-indigo-300" />
+                    )}
+                    {effPostPlatform === "ig"
+                      ? t("dashboard.postsIgTitle")
+                      : t("dashboard.postsFbTitle")}
+                  </span>
+                }
+                description={
+                  effPostPlatform === "ig"
+                    ? t("dashboard.postsIgDescription")
+                    : t("dashboard.postsFbDescription")
                 }
               />
-            ) : (
-              <div className="flex flex-col gap-3 stagger">
-                {posts.map((p) => {
-                  const when = formatWhen(p.scheduledAt);
-                  return (
-                    <div
-                      key={p.id}
-                      className="rounded-lg border border-border-subtle bg-bg-inset p-4"
-                    >
-                      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                        <div className="flex items-center gap-2">
-                          <Badge tone={statusTone(p.status)}>{statusLabel(p.status)}</Badge>
-                          {p.angle && <Badge tone="accent">{p.angle}</Badge>}
-                          {p.mediaType && <Badge>{mediaTypeLabel(p.mediaType)}</Badge>}
-                        </div>
-                        {when && (
-                          <span className="inline-flex items-center gap-1 text-xs text-content-tertiary">
-                            <Calendar className="h-3 w-3" />
-                            {when}
-                          </span>
-                        )}
-                      </div>
-                      {p.body && (
-                        <p className="whitespace-pre-wrap text-sm leading-relaxed text-content-secondary">
-                          {p.body}
-                        </p>
-                      )}
-                      {p.errorMessage && (
-                        <p className="mt-2 inline-flex items-center gap-1 text-xs text-danger">
-                          <AlertCircle className="h-3 w-3" />
-                          {p.errorMessage}
-                        </p>
-                      )}
-                      <HashtagBreakdown
-                        base={p.baseHashtags}
-                        specific={p.specificHashtags}
-                        final={p.finalHashtags}
-                      />
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </CardBody>
-        </Card>
-      )}
+              <CardBody>
+                {postsState.loading ? (
+                  <div className="flex flex-col gap-2">
+                    <Skeleton className="h-20 w-full" />
+                    <Skeleton className="h-20 w-full" />
+                  </div>
+                ) : postsState.error ? (
+                  <ErrorBanner message={postsState.error} onRetry={postsState.reload} />
+                ) : shownPosts.length === 0 ? (
+                  <EmptyState
+                    icon={
+                      effPostPlatform === "ig" ? (
+                        <Instagram className="h-5 w-5" />
+                      ) : (
+                        <FileText className="h-5 w-5" />
+                      )
+                    }
+                    title={
+                      effPostPlatform === "ig"
+                        ? t("dashboard.noPostsIgTitle")
+                        : t("dashboard.noPostsFbTitle")
+                    }
+                    description={
+                      effPostPlatform === "ig"
+                        ? t("dashboard.noPostsIgDescription")
+                        : t("dashboard.noPostsFbDescription")
+                    }
+                    action={
+                      <NavLink
+                        to="/pianificatore"
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3.5 py-2 text-sm font-medium text-white transition-colors duration-150 ease-out-strong hover:bg-accent-hover"
+                      >
+                        <CalendarClock className="h-4 w-4" />
+                        {t("dashboard.goToPlanner")}
+                      </NavLink>
+                    }
+                  />
+                ) : (
+                  <PostList posts={shownPosts} />
+                )}
+              </CardBody>
+            </Card>
+          </div>
+        ) : (
+          <Card className="animate-fade-in">
+            <CardBody>
+              <p className="text-sm text-content-tertiary">{t("dashboard.selectPageForPosts")}</p>
+            </CardBody>
+          </Card>
+        ))}
 
-      {/* Statistiche d'uso del motore di varietà: formati/immagini/citazioni usati. */}
-      {pageId && <UsageStatsCard pageId={pageId} />}
+      {section === "usage" &&
+        (pageId ? (
+          <div className="animate-fade-in">
+            <UsageStatsCard pageId={pageId} />
+          </div>
+        ) : (
+          <Card className="animate-fade-in">
+            <CardBody>
+              <p className="text-sm text-content-tertiary">{t("dashboard.selectPageForUsage")}</p>
+            </CardBody>
+          </Card>
+        ))}
 
-      {/* Riepilogo insight + Migliori orari: affiancati su schermi xl. */}
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2 xl:items-start">
-        <Card className="min-w-0">
-          <CardHeader
-            title={t("dashboard.insightsTitle")}
-            description={t("dashboard.insightsDescription")}
-            action={
-              <NavLink
-                to="/insight"
-                className="inline-flex items-center gap-1 text-xs font-medium text-accent hover:underline underline-offset-2"
-              >
-                {t("dashboard.fullDetail")}
-                <ExternalLink className="h-3 w-3" />
-              </NavLink>
-            }
+      {section === "insight" && (
+        <div className="flex flex-col gap-4 animate-fade-in">
+          <PlatformSubTabs
+            active={effInsightPlatform}
+            onChange={setInsightPlatform}
+            hasInstagram={hasAnyIg}
           />
-          <CardBody>
-            {pagesState.loading ? (
-              <div className="flex flex-col gap-2">
-                <Skeleton className="h-16 w-full" />
-                <Skeleton className="h-16 w-full" />
-              </div>
-            ) : pagesState.error ? (
-              <ErrorBanner message={pagesState.error} onRetry={pagesState.reload} />
-            ) : pages.length === 0 ? (
-              <EmptyState
-                icon={<BarChart3 className="h-5 w-5" />}
-                title={t("dashboard.noPagesTitle")}
-                description={t("dashboard.noPagesInsightsDescription")}
-                action={
-                  <NavLink
-                    to="/connessione"
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3.5 py-2 text-sm font-medium text-white transition-colors duration-150 ease-out-strong hover:bg-accent-hover"
-                  >
-                    <Link2 className="h-4 w-4" />
-                    {t("dashboard.goToConnection")}
-                  </NavLink>
-                }
-              />
-            ) : (
-              <div className="flex flex-col gap-3 stagger">
-                {pages.map((p) => (
-                  <PageInsightRow key={p.id} page={p} />
-                ))}
-              </div>
-            )}
-          </CardBody>
-        </Card>
-
-        <Card className="min-w-0">
-          <CardHeader
-            title={t("dashboard.bestHoursTitle")}
-            description={t("dashboard.bestHoursDescription")}
-          />
-          <CardBody>
-            {/* Suggerimento: dati statici — TODO: agganciare dati reali di performance per orario
-                quando saranno disponibili dall'API (es. GET /pages/:id/insights/best-hours). */}
-            <div className="mb-3 flex items-center gap-2">
-              <Badge tone="accent">{t("dashboard.suggestion")}</Badge>
-              <span className="text-xs text-content-tertiary">{t("dashboard.bestHoursNote")}</span>
-            </div>
-            <div className="flex flex-col gap-2 stagger">
-              {BEST_HOURS.map(({ slot, noteKey }) => (
-                <div
-                  key={slot}
-                  className="flex items-center gap-3 rounded-lg border border-border-subtle bg-bg-inset px-4 py-3"
+          <Card className="min-w-0">
+            <CardHeader
+              title={
+                <span className="flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4 text-rose-300" />
+                  {t("dashboard.insightsTitle")}
+                </span>
+              }
+              description={t("dashboard.insightsDescription")}
+              action={
+                <NavLink
+                  to="/insight"
+                  className="inline-flex items-center gap-1 text-xs font-medium text-accent hover:underline underline-offset-2"
                 >
-                  <Clock className="h-4 w-4 shrink-0 text-content-tertiary" />
-                  <span className="text-sm font-semibold text-content-primary">{slot}</span>
-                  <span className="text-xs text-content-tertiary">{t(noteKey)}</span>
+                  {t("dashboard.fullDetail")}
+                  <ExternalLink className="h-3 w-3" />
+                </NavLink>
+              }
+            />
+            <CardBody>
+              {effInsightPlatform === "ig" ? (
+                igPages.length === 0 ? (
+                  <p className="text-sm text-content-tertiary">{t("dashboard.noIgPages")}</p>
+                ) : (
+                  <div className="flex flex-col gap-3 stagger">
+                    {igPages.map((p) => (
+                      <IgInsightRow key={p.id} page={p} />
+                    ))}
+                  </div>
+                )
+              ) : pagesState.loading ? (
+                <div className="flex flex-col gap-2">
+                  <Skeleton className="h-16 w-full" />
+                  <Skeleton className="h-16 w-full" />
                 </div>
-              ))}
-            </div>
-          </CardBody>
-        </Card>
-      </div>
+              ) : pagesState.error ? (
+                <ErrorBanner message={pagesState.error} onRetry={pagesState.reload} />
+              ) : pages.length === 0 ? (
+                <EmptyState
+                  icon={<BarChart3 className="h-5 w-5" />}
+                  title={t("dashboard.noPagesTitle")}
+                  description={t("dashboard.noPagesInsightsDescription")}
+                  action={
+                    <NavLink
+                      to="/connessione"
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3.5 py-2 text-sm font-medium text-white transition-colors duration-150 ease-out-strong hover:bg-accent-hover"
+                    >
+                      <Link2 className="h-4 w-4" />
+                      {t("dashboard.goToConnection")}
+                    </NavLink>
+                  }
+                />
+              ) : (
+                <div className="flex flex-col gap-3 stagger">
+                  {pages.map((p) => (
+                    <PageInsightRow key={p.id} page={p} />
+                  ))}
+                </div>
+              )}
+            </CardBody>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }

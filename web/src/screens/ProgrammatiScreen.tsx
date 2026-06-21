@@ -1,11 +1,30 @@
 import { useEffect, useMemo, useState } from "react";
 import { NavLink } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { CalendarCheck, Clock, Send, Trash2, AlertTriangle, Link2, Instagram } from "lucide-react";
+import {
+  CalendarCheck,
+  Clock,
+  Send,
+  Trash2,
+  AlertTriangle,
+  Info,
+  Link2,
+  Instagram,
+  MoreVertical,
+} from "lucide-react";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { Field, selectClass } from "@/components/ui/Input";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { Modal } from "@/components/ui/Modal";
+import { selectClass } from "@/components/ui/Input";
 import { Badge, EmptyState, ErrorBanner, Skeleton } from "@/components/ui/misc";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/DropdownMenu";
+import { Tooltip } from "@/components/ui/Tooltip";
 import { useToast } from "@/components/ui/toast";
 import { FacebookPreview, scheduledAtLabel } from "@/components/FacebookPreview";
 import { useAsync, errorMessage } from "@/lib/useAsync";
@@ -58,7 +77,9 @@ function ProgrammatoCard({
   const { t } = useTranslation();
   const toast = useToast();
   const [publishing, setPublishing] = useState(false);
+  const [confirmPublish, setConfirmPublish] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [igBusy, setIgBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -100,13 +121,13 @@ function ProgrammatoCard({
   }
 
   async function handlePublishNow() {
-    if (!window.confirm(t("programmati.confirmPublishNow"))) return;
     setPublishing(true);
     setError(null);
     try {
       // Senza scheduledAt → pubblica ADESSO.
       await publishPost(post.id);
       toast.success(t("programmati.publishedToast"));
+      setConfirmPublish(false);
       onChanged();
     } catch (err) {
       setError(errorMessage(err) || t("programmati.publishFailed"));
@@ -116,23 +137,24 @@ function ProgrammatoCard({
   }
 
   async function handleRemove() {
-    if (!window.confirm(t("programmati.confirmRemove"))) return;
     setDeleting(true);
     setError(null);
     try {
       await deleteDraft(post.id);
       toast.success(t("programmati.removedToast"));
+      setConfirmDelete(false);
       onChanged();
     } catch (err) {
       setError(errorMessage(err) || t("programmati.removeFailed"));
-    } finally {
       setDeleting(false);
     }
   }
 
   return (
     <div className="rounded-lg border border-border-subtle bg-bg-inset p-4">
-      <FacebookPreview draft={post} pageName={pageName} />
+      <div className="max-h-80 overflow-hidden rounded-lg">
+        <FacebookPreview draft={post} pageName={pageName} />
+      </div>
 
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2">
@@ -150,10 +172,10 @@ function ProgrammatoCard({
             </span>
           )}
           {scheduleLabel && (
-            <span className="inline-flex items-center gap-1.5 text-xs font-medium text-content-secondary">
-              <Clock className="h-3.5 w-3.5 text-content-tertiary" />
+            <Badge tone="neutral">
+              <Clock className="h-3 w-3" />
               {scheduleLabel}
-            </span>
+            </Badge>
           )}
         </div>
         <Badge tone="success">{t("programmati.inQueue")}</Badge>
@@ -169,32 +191,24 @@ function ProgrammatoCard({
         <Button
           variant="primary"
           size="sm"
-          onClick={handlePublishNow}
+          onClick={() => setConfirmPublish(true)}
           loading={publishing}
           disabled={busy}
         >
           <Send className="h-4 w-4" />
           {t("programmati.publishNow")}
         </Button>
-        <Button
-          variant="danger"
-          size="sm"
-          onClick={handleRemove}
-          loading={deleting}
-          disabled={busy}
-        >
-          <Trash2 className="h-4 w-4" />
-          {t("programmati.remove")}
-        </Button>
 
         {/* Toggle "anche su Instagram": solo sui post FB Reel/Storia. */}
         {canGoInstagram &&
           (igTwin ? (
             <div className="ml-auto flex items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 text-xs font-medium text-success">
-                <Instagram className="h-4 w-4" />
-                {t("instagram.alsoPublishedOn")}
-              </span>
+              <Tooltip content={t("instagram.alsoPublishedTooltip")}>
+                <span className="inline-flex cursor-default items-center gap-1.5 text-xs font-medium text-success">
+                  <Instagram className="h-4 w-4" />
+                  {t("instagram.alsoPublishedOn")}
+                </span>
+              </Tooltip>
               <Button
                 variant="ghost"
                 size="sm"
@@ -202,23 +216,107 @@ function ProgrammatoCard({
                 loading={igBusy}
                 disabled={busy}
               >
-                {t("instagram.remove")}
+                {t("instagram.removeShort")}
               </Button>
             </div>
           ) : (
-            <Button
-              variant="secondary"
-              size="sm"
-              className="ml-auto"
-              onClick={handleAddInstagram}
-              loading={igBusy}
-              disabled={busy}
-            >
-              <Instagram className="h-4 w-4" />
-              {t("instagram.alsoPublish")}
-            </Button>
+            <Tooltip content={t("instagram.alsoPublishTooltip")}>
+              <Button
+                variant="secondary"
+                size="sm"
+                className="ml-auto"
+                onClick={handleAddInstagram}
+                loading={igBusy}
+                disabled={busy}
+              >
+                <Instagram className="h-4 w-4" />
+                {t("instagram.alsoPublish")}
+              </Button>
+            </Tooltip>
           ))}
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="sm" aria-label={t("common.moreActions")} disabled={busy}>
+              <MoreVertical className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem danger onSelect={() => setConfirmDelete(true)}>
+              <Trash2 className="h-4 w-4" />
+              {t("programmati.removeFromQueue")}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
+
+      <Modal
+        open={confirmPublish}
+        onClose={() => {
+          if (publishing) return;
+          setConfirmPublish(false);
+        }}
+        size="sm"
+        title={t("programmati.publishNow")}
+        description={t("programmati.publishConfirmDescription")}
+        footer={
+          <>
+            <Button
+              variant="ghost"
+              onClick={() => setConfirmPublish(false)}
+              disabled={publishing}
+            >
+              {t("common.cancel")}
+            </Button>
+            <Button variant="primary" onClick={handlePublishNow} loading={publishing}>
+              <Send className="h-4 w-4" />
+              {t("programmati.publishNow")}
+            </Button>
+          </>
+        }
+      >
+        <div className="flex items-start gap-2 rounded-lg border border-accent/40 bg-accent-soft px-3 py-2.5">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
+          <p className="text-sm leading-snug text-content-primary">
+            {t("programmati.publishConfirmBody", { pageName })}
+          </p>
+        </div>
+        {error && (
+          <div className="mt-3">
+            <ErrorBanner message={error} />
+          </div>
+        )}
+      </Modal>
+
+      <Modal
+        open={confirmDelete}
+        onClose={() => {
+          if (deleting) return;
+          setConfirmDelete(false);
+        }}
+        size="sm"
+        title={t("programmati.removeFromQueue")}
+        description={t("programmati.removeConfirmDescription")}
+        footer={
+          <>
+            <Button
+              variant="ghost"
+              onClick={() => setConfirmDelete(false)}
+              disabled={deleting}
+            >
+              {t("common.cancel")}
+            </Button>
+            <Button variant="danger" onClick={handleRemove} loading={deleting}>
+              <Trash2 className="h-4 w-4" />
+              {t("programmati.remove")}
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm leading-snug text-content-secondary">
+          {t("programmati.removeConfirmBody")}
+        </p>
+      </Modal>
     </div>
   );
 }
@@ -250,11 +348,18 @@ function ProgrammatiList({ page }: { page: FacebookPage }) {
     }
   }
 
+  const fbCount = programmati.filter((p) => p.platform !== "instagram").length;
+
   return (
     <Card>
       <CardHeader
         title={t("programmati.queueTitle")}
         description={t("programmati.queueDescription")}
+        action={
+          !postsState.loading && fbCount > 0 ? (
+            <Badge tone="neutral">{fbCount}</Badge>
+          ) : undefined
+        }
       />
       <CardBody>
         {postsState.loading ? (
@@ -308,14 +413,18 @@ export function ProgrammatiScreen() {
 
   return (
     <div className="flex flex-col gap-6">
-      <Card>
-        <CardHeader title={t("programmati.title")} description={t("programmati.description")} />
-        <CardBody>
-          {pagesState.error ? (
-            <ErrorBanner message={pagesState.error} onRetry={pagesState.reload} />
-          ) : pagesState.loading ? (
-            <Skeleton className="h-9 w-48" />
-          ) : pages.length === 0 ? (
+      <PageHeader
+        title={t("programmati.title")}
+        description={t("programmati.description")}
+      />
+
+      {pagesState.error ? (
+        <ErrorBanner message={pagesState.error} onRetry={pagesState.reload} />
+      ) : pagesState.loading ? (
+        <Skeleton className="h-9 w-48" />
+      ) : pages.length === 0 ? (
+        <Card>
+          <CardBody>
             <EmptyState
               icon={<CalendarCheck className="h-5 w-5" />}
               title={t("programmati.noPagesTitle")}
@@ -330,11 +439,16 @@ export function ProgrammatiScreen() {
                 </NavLink>
               }
             />
-          ) : (
-            <div className="flex flex-col gap-4">
-              <Field label={t("programmati.pageField")} className="max-w-xs">
+          </CardBody>
+        </Card>
+      ) : (
+        <>
+          <Card>
+            <CardHeader
+              title={t("programmati.pageField")}
+              action={
                 <select
-                  className={selectClass}
+                  className={selectClass + " max-w-xs"}
                   value={activePage?.id ?? ""}
                   onChange={(e) => setActiveId(e.target.value)}
                 >
@@ -344,22 +458,21 @@ export function ProgrammatiScreen() {
                     </option>
                   ))}
                 </select>
-              </Field>
+              }
+            />
+          </Card>
 
-              {/* Avviso: i contenuti in coda li pubblica il job interno → server acceso. */}
-              <div className="flex items-start gap-2 rounded-lg border border-accent/40 bg-accent-soft px-3 py-2.5">
-                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
-                <p className="text-sm leading-snug text-content-primary">
-                  {t("programmati.serverWarning")}
-                </p>
-              </div>
-            </div>
+          <div className="flex items-center gap-2 rounded-lg border border-accent/30 bg-accent-soft px-3 py-2">
+            <Info className="h-4 w-4 shrink-0 text-accent" />
+            <p className="text-sm leading-snug text-content-secondary">
+              {t("programmati.serverWarning")}
+            </p>
+          </div>
+
+          {activePage && (
+            <ProgrammatiList key={activePage.id} page={activePage} />
           )}
-        </CardBody>
-      </Card>
-
-      {!pagesState.loading && !pagesState.error && activePage && (
-        <ProgrammatiList key={activePage.id} page={activePage} />
+        </>
       )}
     </div>
   );

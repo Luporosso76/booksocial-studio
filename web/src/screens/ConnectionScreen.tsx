@@ -9,12 +9,23 @@ import {
   Square,
   Plug,
   Settings2,
+  Eye,
+  EyeOff,
+  MoreVertical,
 } from "lucide-react";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Field, Input } from "@/components/ui/Input";
 import { Badge, EmptyState, ErrorBanner, Skeleton } from "@/components/ui/misc";
 import { Modal } from "@/components/ui/Modal";
+import { Drawer } from "@/components/ui/Drawer";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/components/ui/DropdownMenu";
 import { useToast } from "@/components/ui/toast";
 import { useAsync, errorMessage } from "@/lib/useAsync";
 import { useStatus } from "@/lib/status";
@@ -36,6 +47,7 @@ export function ConnectionScreen() {
   const pagesState = useAsync<FacebookPage[]>((s) => getPages(s), []);
 
   const [token, setToken] = useState("");
+  const [showToken, setShowToken] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [discovered, setDiscovered] = useState<ManagedPage[] | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -139,7 +151,7 @@ export function ConnectionScreen() {
               <div className="relative flex-1">
                 <KeyRound className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-content-faint" />
                 <Input
-                  type="password"
+                  type={showToken ? "text" : "password"}
                   autoComplete="off"
                   placeholder="EAAB..."
                   value={token}
@@ -147,8 +159,20 @@ export function ConnectionScreen() {
                   onKeyDown={(e) => {
                     if (e.key === "Enter") handleConnect();
                   }}
-                  className="pl-9 font-mono"
+                  className="pl-9 pr-9 font-mono"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowToken((v) => !v)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-content-tertiary transition-colors hover:text-content-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-ring"
+                  aria-label={t(showToken ? "connection.hideToken" : "connection.showToken")}
+                >
+                  {showToken ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
               </div>
               <Button variant="primary" onClick={handleConnect} loading={connecting}>
                 <Plug className="h-4 w-4" />
@@ -163,12 +187,29 @@ export function ConnectionScreen() {
                 <span className="text-[0.8125rem] font-medium text-content-secondary">
                   {t("connection.availablePages")}
                 </span>
-                <span className="text-xs text-content-tertiary">
-                  {t("connection.selectedCount", {
-                    selected: selected.size,
-                    total: discovered.length,
-                  })}
-                </span>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-content-tertiary">
+                    {t("connection.selectedCount", {
+                      selected: selected.size,
+                      total: discovered.length,
+                    })}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setSelected(
+                        selected.size === discovered.length
+                          ? new Set()
+                          : new Set(discovered.map((p) => p.id)),
+                      )
+                    }
+                    className="rounded text-xs font-medium text-accent transition-colors hover:text-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-ring"
+                  >
+                    {selected.size === discovered.length
+                      ? t("connection.deselectAll")
+                      : t("connection.selectAll")}
+                  </button>
+                </div>
               </div>
               <div className="flex flex-col gap-1.5 stagger">
                 {discovered.map((p) => {
@@ -220,14 +261,6 @@ export function ConnectionScreen() {
         <CardHeader
           title={t("connection.connectedTitle")}
           description={t("connection.connectedDescription")}
-          action={
-            connected.length > 0 ? (
-              <Button variant="danger" size="sm" onClick={() => setConfirmDisconnect(true)}>
-                <Unplug className="h-4 w-4" />
-                {t("connection.disconnectAll")}
-              </Button>
-            ) : undefined
-          }
         />
         <CardBody>
           {pagesState.loading ? (
@@ -261,28 +294,43 @@ export function ConnectionScreen() {
                       <div className="truncate text-xs text-content-tertiary">{p.category}</div>
                     )}
                   </div>
-                  <div className="flex shrink-0 items-center gap-1">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setManagingPage(p)}
-                      aria-label={t("connection.manageAria", { name: p.name })}
-                    >
-                      <Settings2 className="h-4 w-4" />
-                      <span className="hidden sm:inline">{t("connection.managePage")}</span>
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      loading={removing === p.id}
-                      onClick={() => handleRemove(p.id)}
-                      aria-label={t("connection.removeAria", { name: p.name })}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        aria-label={t("connection.actionsAria", { name: p.name })}
+                        loading={removing === p.id}
+                      >
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onSelect={() => setManagingPage(p)}>
+                        <Settings2 className="h-4 w-4" />
+                        {t("connection.managePage")}
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem danger onSelect={() => handleRemove(p.id)}>
+                        <Trash2 className="h-4 w-4" />
+                        {t("connection.removePage")}
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               ))}
+
+              <div className="mt-2 flex justify-end border-t border-border-subtle pt-3">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setConfirmDisconnect(true)}
+                  className="text-content-tertiary hover:text-danger"
+                >
+                  <Unplug className="h-4 w-4" />
+                  {t("connection.disconnectAll")}
+                </Button>
+              </div>
             </div>
           )}
         </CardBody>
@@ -309,15 +357,23 @@ export function ConnectionScreen() {
       </Modal>
 
       {managingPage && (
-        <Modal
+        <Drawer
           open={managingPage !== null}
           onClose={() => setManagingPage(null)}
-          title={t("connection.settingsTitle")}
-          description={managingPage.name}
-          size="lg"
+          title={`${t("connection.settingsTitle")} — ${managingPage.name}`}
+          footer={
+            <>
+              <Button variant="ghost" onClick={() => setManagingPage(null)}>
+                {t("common.cancel")}
+              </Button>
+              <Button variant="primary" onClick={() => setManagingPage(null)}>
+                {t("common.close")}
+              </Button>
+            </>
+          }
         >
           <PageSettingsEditor pageId={managingPage.pageId ?? managingPage.id} />
-        </Modal>
+        </Drawer>
       )}
     </div>
   );

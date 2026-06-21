@@ -21,7 +21,8 @@
     "removeFailed": "Removal failed.",
     "deleteFailed": "Deletion failed.",
     "genericError": "An error occurred.",
-    "noText": "(no text)"
+    "noText": "(no text)",
+    "moreActions": "More actions"
   },
   "nav": {
     "brand": "BookSocial",
@@ -73,7 +74,8 @@
     "sampleImported": "Sample book imported. Analyzing…",
     "sampleFailed": "Failed to import the sample book.",
     "baseHashtags": "{{count}} base hashtags",
-    "noBaseHashtags": "no base hashtags"
+    "noBaseHashtags": "no base hashtags",
+    "modifiedDate": "Mod. {{date}}"
   },
   "import": {
     "title": "Upload a book",
@@ -95,7 +97,9 @@
     "errorSelectFile": "Select a .md file first.",
     "errorImportFailed": "Import failed.",
     "cardReady": "Profile ready for \"{{title}}\".",
-    "analysisFailed": "Analysis failed: {{error}}"
+    "analysisFailed": "Analysis failed: {{error}}",
+    "authorHint": "E.g. Mario Rossi",
+    "languageHint": "ISO code, e.g. it, en"
   },
   "book": {
     "library": "Library",
@@ -136,7 +140,8 @@
       "buildVisualBible": "Build/Update visual bible",
       "buildingVisualBible": "Building…",
       "generateSceneImages": "Generate scene images",
-      "queueSceneImages": "Add to queue"
+      "queueSceneImages": "Add to queue",
+      "more": "More actions"
     },
     "profile": {
       "title": "Book profile",
@@ -387,7 +392,11 @@
       "outfitContextPlaceholder": "outfit for that context",
       "removeContextAria": "Remove context",
       "addContext": "Add context",
-      "notesLabel": "Notes"
+      "notesLabel": "Notes",
+      "sourceAiTooltip": "Extracted automatically by the AI during book analysis.",
+      "sourceEditedTooltip": "Created or edited by hand.",
+      "moreActionsAria": "More actions for {{name}}",
+      "delete": "Delete"
     },
     "visualBible": {
       "title": "Analysis / Visual bible",
@@ -401,7 +410,11 @@
         "props": "Objects & world",
         "minors": "Minor characters",
         "presence": "Character presence"
-      }
+      },
+      "buildTooltip": "Build or update the book's visual bible",
+      "buildShort": "Visual bible",
+      "buildingShort": "Visual bible…",
+      "buildPanelTitle": "Building visual bible"
     },
     "visualProps": {
       "title": "Objects & world",
@@ -420,7 +433,9 @@
       "addObject": "Add object",
       "saved": "Objects & world saved.",
       "generateStarted": "Object generation started.",
-      "generateFailed": "Failed to generate objects."
+      "generateFailed": "Failed to generate objects.",
+      "newObject": "New object",
+      "noDescription": "No description"
     },
     "visualExtras": {
       "title": "Minor characters",
@@ -435,7 +450,21 @@
       "add": "Add",
       "saved": "Minor characters saved.",
       "generateStarted": "Minor character generation started.",
-      "generateFailed": "Failed to generate minor characters."
+      "generateFailed": "Failed to generate minor characters.",
+      "newMinor": "New minor character",
+      "noAppearance": "No appearance"
+    },
+    "schedaSub": {
+      "profilo": "Profile",
+      "visivo": "Visual",
+      "pagine": "Pages",
+      "aria": "Book details sections"
+    },
+    "visivo": {
+      "direttive": "Directives",
+      "props": "Objects & world",
+      "minors": "Minor characters",
+      "aria": "Visual canon sections"
     }
   },
   "dashboard": {
@@ -469,7 +498,31 @@
     "bestHoursNote": "Heuristic based on Facebook averages; your data may vary.",
     "bestHour1": "High morning open rate",
     "bestHour2": "Lunch break",
-    "bestHour3": "Evening peak"
+    "bestHour3": "Evening peak",
+    "headerDescription": "Overview of your connected pages: metrics, posts and activity.",
+    "sectionPost": "Posts",
+    "sectionUsage": "Usage stats",
+    "sectionInsight": "Visibility & insights",
+    "sectionsAria": "Dashboard sections",
+    "platformAria": "Platform",
+    "selectPageTitle": "Select page",
+    "selectPageDescription": "The active page drives Posts and Usage stats.",
+    "postsFbTitle": "Facebook posts",
+    "postsIgTitle": "Instagram posts",
+    "postsFbDescription": "Drafts and publications on Facebook.",
+    "postsIgDescription": "Scheduled and published posts on Instagram.",
+    "noPostsFbTitle": "No Facebook posts",
+    "noPostsIgTitle": "No Instagram posts",
+    "noPostsFbDescription": "Generate a week from the Planner to populate this page.",
+    "noPostsIgDescription": "Instagram posts come from Reels/Stories scheduled in the Planner.",
+    "selectPageForPosts": "Select a page to see its posts.",
+    "selectPageForUsage": "Select a page to see its usage stats.",
+    "noIgMetrics": "No Instagram metrics available.",
+    "noIgPages": "No page with a linked Instagram account.",
+    "hashtagsTitle": "Hashtags",
+    "hashtagsBase": "Base",
+    "hashtagsSpecific": "Specific",
+    "hashtagsFinal": "Final"
   },
   "planner": {
     "publishFailed": "Publishing failed.",
@@ -575,7 +628,13 @@
     "noDraftsCreatedDescription": "Set the quotas or check the book's associations.",
     "noDraftsTitle": "No drafts",
     "noDraftsWithPage": "Set the quotas, choose the period and press Generate.",
-    "noDraftsWithoutPage": "Select a page and a book, set the quotas and press Generate."
+    "noDraftsWithoutPage": "Select a page and a book, set the quotas and press Generate.",
+    "addWindowTitle": "Add time window",
+    "addWindowShort": "Add",
+    "deleteDraftTitle": "Delete draft",
+    "deleteDraftDescription": "This action cannot be undone.",
+    "draftsCountSuffix": "drafts",
+    "todayShort": "Today"
   },
   "programmati": {
     "kindContent": "Content",
@@ -598,7 +657,12 @@
     "noPagesDescription": "Connect at least one Facebook page to see scheduled content.",
     "goToConnection": "Go to Connection",
     "pageField": "Page",
-    "serverWarning": "This content (reels/stories) is published by the internal job at the scheduled time: the server must stay on."
+    "serverWarning": "This content (reels/stories) is published by the internal job at the scheduled time: the server must stay on.",
+    "publishConfirmDescription": "Real and immediate publication on Facebook.",
+    "publishConfirmBody": "You are about to REALLY publish on Facebook, on page «{{pageName}}». Real and immediate action.",
+    "removeFromQueue": "Remove from queue",
+    "removeConfirmDescription": "The content will be deleted and will no longer be published.",
+    "removeConfirmBody": "Do you want to remove this content from the queue? This action cannot be undone."
   },
   "insights": {
     "periodDay": "Today",
@@ -740,7 +804,9 @@
     "description": "Manage posts, comments, fields and native publishing of your Facebook pages.",
     "noPagesTitle": "No connected pages",
     "noPagesDescription": "Connect at least one Facebook page to manage it.",
-    "goToConnection": "Go to Connection"
+    "goToConnection": "Go to Connection",
+    "moreActions": "More actions",
+    "morePostActions": "More post actions"
   },
   "connection": {
     "tokenRequired": "Paste the System User token first.",
@@ -774,7 +840,13 @@
     "disconnectTitle": "Disconnect all pages?",
     "disconnectDescription": "The tokens will be removed from the keyring. You can reconnect at any time.",
     "disconnectBody": "This action unlinks every page from BookSocial Studio. Books and drafts remain saved.",
-    "settingsTitle": "Page settings"
+    "settingsTitle": "Page settings",
+    "showToken": "Show token",
+    "hideToken": "Hide token",
+    "selectAll": "Select all",
+    "deselectAll": "Deselect all",
+    "actionsAria": "Actions for {{name}}",
+    "removePage": "Remove page"
   },
   "settings": {
     "title": "Settings",
@@ -1146,7 +1218,10 @@
     "addFailed": "Could not add to Instagram.",
     "removeFailed": "Could not remove from Instagram.",
     "badge": "Instagram",
-    "linkedToFb": "linked to the Facebook post"
+    "linkedToFb": "linked to the Facebook post",
+    "alsoPublishTooltip": "Publish this Reel/Story on Instagram at the same time.",
+    "alsoPublishedTooltip": "This content will also be published on Instagram at the same time.",
+    "removeShort": "Remove IG"
   },
   "visualBible": {
     "step": {

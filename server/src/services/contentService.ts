@@ -106,7 +106,7 @@ export class ContentService {
 
   // Analisi lenta: analisi col modello e salvataggio scheda. Pensata per girare in BACKGROUND,
   // cosi' la richiesta HTTP di import non resta appesa su libri grandi.
-  async analyzeProfile(book: Book, imp: ImportedBook): Promise<void> {
+  async analyzeProfile(book: Book, imp: ImportedBook, outputLanguage?: string): Promise<void> {
     const fullText = joinChapters(imp.chapters);
 
     // Pre-pass NLP (OPZIONALE) PRIMA dell'analisi: estrae citazioni/dialoghi REALI
@@ -126,6 +126,7 @@ export class ContentService {
       },
       fullText,
       seedCharacters,
+      outputLanguage,
     );
     await books.upsertProfile({
       bookId: book.id,
@@ -241,7 +242,7 @@ export class ContentService {
 
   // Ri-analizza un libro gia' importato ricostruendo profilo+personaggi dai capitoli
   // gia' salvati (con testo). Pensata per girare in BACKGROUND (vedi /books/:id/reanalyze).
-  async reanalyzeBook(bookId: number): Promise<void> {
+  async reanalyzeBook(bookId: number, language?: string): Promise<void> {
     const book = await books.get(bookId);
     if (!book) throw new ContentError(`Libro ${bookId} non trovato.`);
     const chapters = await books.chapters(bookId);
@@ -258,7 +259,7 @@ export class ContentService {
         charCount: ch.charCount,
       })),
     };
-    await this.analyzeProfile(book, imp);
+    await this.analyzeProfile(book, imp, language);
     // "Rigenera tutto tranne link e immagini": azzera le schede visive dei capitoli così
     // verranno ricostruite da zero on-demand. NON tocca book_link né media_asset (preservati).
     await books.clearChapterScenes(bookId);

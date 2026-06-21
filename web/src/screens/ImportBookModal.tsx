@@ -147,7 +147,7 @@ export function ImportBookModal({
       }
     >
       {error && (
-        <div className="mb-3">
+        <div className="mb-4" role="alert">
           <ErrorBanner message={error} onRetry={busy ? undefined : handleImport} />
         </div>
       )}
@@ -211,7 +211,7 @@ export function ImportBookModal({
               pickFile(e.dataTransfer.files?.[0] ?? null);
             }}
             className={cn(
-              "flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-6 py-10 text-center",
+              "flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed px-6 py-6 text-center",
               "transition-[border-color,background-color,transform] duration-150 ease-out-strong active:scale-[0.99]",
               dragging
                 ? "border-accent bg-accent-soft"
@@ -220,8 +220,8 @@ export function ImportBookModal({
           >
             {file ? (
               <>
-                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-accent-soft text-accent">
-                  <FileText className="h-5 w-5" />
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-accent-soft text-accent">
+                  <FileText className="h-4 w-4" />
                 </span>
                 <span className="text-sm font-medium text-content-primary">{file.name}</span>
                 <span className="text-xs text-content-tertiary">
@@ -230,7 +230,7 @@ export function ImportBookModal({
               </>
             ) : (
               <>
-                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-bg-hover text-content-tertiary">
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-bg-hover text-content-tertiary">
                   <UploadCloud className="h-5 w-5" />
                 </span>
                 <span className="text-sm font-medium text-content-primary">
@@ -249,14 +249,14 @@ export function ImportBookModal({
           />
 
           <div className="grid grid-cols-2 gap-3">
-            <Field label={t("import.authorLabel")}>
+            <Field label={t("import.authorLabel")} hint={t("import.authorHint")}>
               <Input
                 placeholder={t("import.authorPlaceholder")}
                 value={author}
                 onChange={(e) => setAuthor(e.target.value)}
               />
             </Field>
-            <Field label={t("import.languageLabel")}>
+            <Field label={t("import.languageLabel")} hint={t("import.languageHint")}>
               <Input
                 placeholder={t("import.languagePlaceholder")}
                 value={language}
