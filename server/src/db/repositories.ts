@@ -104,7 +104,7 @@ function parseChapterScene(raw: unknown): ChapterScene | null {
     mainObjects: strArr(o.mainObjects),
     secondaryObjects: strArr(o.secondaryObjects),
     characters: strArr(o.characters),
-    // Retrocompat: schede vecchie senza physicsRules → [].
+    // Schede senza physicsRules → [].
     physicsRules: strArr(o.physicsRules),
     source: o.source === "USER" ? "USER" : "AI",
     model: str(o.model),

@@ -111,7 +111,7 @@ function enumerateCandidates(av: Availability): Candidate[] {
         } else if (visualKind === "storyboard") {
           allowedAspects = ["1:1"];
         } else {
-          // card (post nel feed): formato FISSO 4:5 (non più rotazione 1:1/4:5/1.91:1).
+          // card (post nel feed): formato FISSO 4:5.
           allowedAspects = ["4:5"];
         }
 

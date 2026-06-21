@@ -249,7 +249,7 @@ const MIGRATIONS: Migration[] = [
   {
     // V7: varietà + orari variabili + storie + musica.
     //  - posting_slot diventa giorno + FASCIA (time_start/time_end); time_of_day resta
-    //    come fallback/legacy (centro fascia). La generazione varia l'orario nella fascia.
+    //    come fallback (centro fascia). La generazione varia l'orario nella fascia.
     //  - scheduled_post ricorda il formato scelto (content_format JSON) e la musica (music_id).
     //  - music_track: libreria musicale globale (upload utente), montata sui reel/storie.
     //  - content_usage: registro d'uso (memoria del motore di varietà + statistiche).
@@ -305,7 +305,7 @@ const MIGRATIONS: Migration[] = [
       `ALTER TABLE content_usage ADD COLUMN chapter_index INTEGER NULL`,
 
       // usage_policy: come usare il link nei post — always (sempre) | sometimes (a volte)
-      //   | sales (solo post orientati alla vendita) | manual (mai automatico). NULL = legacy.
+      //   | sales (solo post orientati alla vendita) | manual (mai automatico). NULL = non impostato.
       `ALTER TABLE book_link ADD COLUMN usage_policy TEXT NULL`,
     ],
   },
@@ -328,7 +328,7 @@ const MIGRATIONS: Migration[] = [
   {
     // V10: musica PER-LIBRO. La libreria musicale diventa specifica del libro (come le
     // immagini): il motore di varietà sceglie le tracce del libro. book_id NULL = traccia
-    // globale/legacy (usabile da tutti i libri).
+    // globale (usabile da tutti i libri).
     // NOTA: la FK music_track.book_id -> book non è enforced: SQLite NON supporta ADD CONSTRAINT
     // su tabella esistente, quindi la colonna viene aggiunta senza FK enforced (semantica app
     // invariata). ON DELETE CASCADE gestito a livello logico.

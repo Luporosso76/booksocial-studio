@@ -125,40 +125,8 @@ All endpoints mirror their Facebook counterparts and live under the page:
 | `POST /pages/:id/ig/comments/:commentId/hide` | Hide/unhide a comment (`hide=true|false`) |
 | `DELETE /pages/:id/ig/comments/:commentId` | Delete a comment |
 
-`GET /pages` now also exposes `igUserId` per page (used by the UI to decide
+`GET /pages` exposes `igUserId` per page (used by the UI to decide
 whether to show the Instagram tab).
-
-## Files touched
-
-**Database**
-
-- Migration **V24**: `facebook_page.ig_user_id`,
-  `scheduled_post.platform` (`'facebook' | 'instagram'`),
-  `scheduled_post.linked_post_id`, `scheduled_post.ig_media_id`.
-
-**Backend (`server/src`)**
-
-- `facebook/instagramClient.ts` — Instagram Graph client: `getIgUserId`,
-  `publishVideo` (resumable), `getIgAccount`, `fetchIgMedia`, `fetchIgComments`,
-  `replyToIgComment`, `setIgCommentHidden`, `deleteIgComment`,
-  `fetchIgAccountInsights`.
-- `services/instagramPublisher.ts` — `createInstagramJob`,
-  `publishInstagramJob`.
-- `scheduler/publishScheduler.ts` — routes a job by `post.platform`.
-- `services/pageConnectService.ts` — best-effort `igUserId` population on
-  connect.
-- `routes.ts` — `resolveIgContext` helper, the `/pages/:id/ig/*` routes,
-  `/posts/:id/instagram`, and lazy `igUserId` backfill on `GET /pages`.
-- `serialize.ts` — `pageDto` exposes `igUserId`.
-
-**Frontend (`web/src`)**
-
-- `api/types.ts`, `api/endpoints.ts` — Instagram types and API calls;
-  `FacebookPage.igUserId`.
-- `components/InstagramPanel.tsx` — the Instagram tab (media, comments,
-  scheduled jobs, account + insights).
-- `screens/GestionePaginaScreen.tsx`, `screens/InsightsScreen.tsx` — the
-  Facebook/Instagram platform tabs.
 
 ## Meta app setup
 

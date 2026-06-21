@@ -49,7 +49,7 @@ export function musicDir(): string {
 // ricollocabili senza riscrivere il DB. Ogni LETTURA da DB passa per resolveDataPath; ogni
 // SCRITTURA/insert passa per toDataRelative.
 
-// DB → assoluto. Retrocompat: se il path è già assoluto (riga legacy), lo ritorna invariato.
+// DB → assoluto. Se il path è già assoluto, lo ritorna invariato.
 export function resolveDataPath(p: string): string {
   return isAbsolute(p) ? p : join(dataDir(), p);
 }

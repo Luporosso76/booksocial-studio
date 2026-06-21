@@ -216,7 +216,7 @@ NOT through clutter.`,
 
 // Restituisce i blocchi-dominio da iniettare nel prompt, in ordine di registry. Regole:
 //   - se `enabled` è NON vuoto → si considerano solo i moduli abilitati per il libro;
-//   - se `enabled` è vuoto (libro non configurato) → si considerano TUTTI i moduli (retrocompat),
+//   - se `enabled` è vuoto (libro non configurato) → si considerano TUTTI i moduli,
 //     comunque filtrati per pertinenza;
 //   - un modulo è incluso solo se almeno una delle sue keyword compare nell'`haystack` (scheda visiva
 //     del capitolo, o testo del capitolo come fallback) → pertinenza alla scena.
