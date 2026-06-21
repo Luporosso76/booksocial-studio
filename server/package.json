@@ -5,7 +5,7 @@
   "description": "BookSocial Studio backend (Node + TypeScript + Hono + SQLite).",
   "type": "module",
   "engines": {
-    "node": ">=20 <25"
+    "node": ">=24"
   },
   "scripts": {
     "dev": "tsx watch src/index.ts",

@@ -22,7 +22,6 @@ jobs:
 
       - name: lint
         run: npm run lint
-        continue-on-error: true
 
       - name: server — install, typecheck
         working-directory: server

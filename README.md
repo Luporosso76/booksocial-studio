@@ -42,7 +42,7 @@ The user manual is also available in Italian, Spanish, French, Portuguese and Ge
 
 ## Prerequisites
 
-- **Node.js 20–24** (see `.nvmrc`; the project pins `>=20 <25`). Native modules (`better-sqlite3`) are
+- **Node.js 24** (see `.nvmrc`). Native modules (`better-sqlite3`) are
   built for your Node version — if you switch Node, run `npm rebuild better-sqlite3`.
 - An **AI text engine** — choose any: an **API key** (OpenAI, Anthropic, Google, or any
   OpenAI‑compatible endpoint like OpenRouter/Groq, plus local **Ollama**), or a **subscription CLI**
@@ -57,7 +57,7 @@ The user manual is also available in Italian, Spanish, French, Portuguese and Ge
 ## Quick start (Docker)
 
 ```bash
-git clone <your-fork-url> booksocial-studio
+git clone https://github.com/Luporosso76/booksocial-studio.git
 cd booksocial-studio
 cp server/.env.example server/.env   # edit as needed
 docker compose up -d --build
