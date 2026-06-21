@@ -1,21 +1,37 @@
+# Low-noise setup: monthly schedule, and every ecosystem's updates are collapsed
+# into a SINGLE grouped pull request. Security fixes are handled separately by
+# Dependabot security updates (repo Settings → Code security), which still open
+# their own PRs as soon as a vulnerability is detected — independent of this schedule.
 version: 2
 updates:
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
+    groups:
+      all:
+        patterns: ["*"]
 
   - package-ecosystem: "npm"
     directory: "/server"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
+    groups:
+      all:
+        patterns: ["*"]
 
   - package-ecosystem: "npm"
     directory: "/web"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
+    groups:
+      all:
+        patterns: ["*"]
 
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
+    groups:
+      all:
+        patterns: ["*"]
