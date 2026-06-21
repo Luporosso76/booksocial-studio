@@ -386,19 +386,12 @@ const MIGRATIONS: Migration[] = [
     statements: [`ALTER TABLE book_chapter ADD COLUMN scene_json TEXT NULL`],
   },
   {
-    // V16: PATH RELATIVI. Storicamente i path file erano ASSOLUTI sotto
-    // ~/.local/share/book-social/. Ora il codice li salva/legge RELATIVI a dataDir() (vedi
-    // paths.ts resolveDataPath/toDataRelative), così i dati sono ricollocabili. Qui togliamo
-    // una-tantum il vecchio prefisso assoluto dalle 5 colonne che contengono path.
-    // MySQL SUBSTRING(x, LENGTH(prefix)+1) -> SQLite substr(x, length(prefix)+1).
+    // V16: PATH RELATIVI. Il codice salva/legge i path RELATIVI a dataDir() (vedi paths.ts
+    // resolveDataPath/toDataRelative), così i dati sono ricollocabili. Le nuove installazioni
+    // scrivono già path relativi dall'inizio, quindi questa versione non ha nulla da fare ed è
+    // mantenuta solo per preservare la numerazione delle migrazioni.
     version: 16,
-    statements: [
-      `UPDATE book           SET source_path = substr(source_path, length('/home/lupo/.local/share/book-social/') + 1) WHERE source_path LIKE '/home/lupo/.local/share/book-social/%'`,
-      `UPDATE media_asset    SET path        = substr(path,        length('/home/lupo/.local/share/book-social/') + 1) WHERE path        LIKE '/home/lupo/.local/share/book-social/%'`,
-      `UPDATE music_track    SET path        = substr(path,        length('/home/lupo/.local/share/book-social/') + 1) WHERE path        LIKE '/home/lupo/.local/share/book-social/%'`,
-      `UPDATE render_job     SET output_path = substr(output_path, length('/home/lupo/.local/share/book-social/') + 1) WHERE output_path LIKE '/home/lupo/.local/share/book-social/%'`,
-      `UPDATE scheduled_post SET media_path  = substr(media_path,  length('/home/lupo/.local/share/book-social/') + 1) WHERE media_path  LIKE '/home/lupo/.local/share/book-social/%'`,
-    ],
+    statements: [],
   },
   {
     // V17: configurazione VISIVA per-libro. visual_domains = CSV dei moduli-dominio del prompt immagine
