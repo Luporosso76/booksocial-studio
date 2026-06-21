@@ -925,6 +925,7 @@ function VisualDirectivesCard({
         setLoadingDomains(false);
       });
     return () => ctrl.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function toggleDomain(key: string) {
