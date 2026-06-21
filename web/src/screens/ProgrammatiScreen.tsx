@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { NavLink } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { CalendarCheck, Clock, Send, Trash2, AlertTriangle, Link2, Instagram } from "lucide-react";
@@ -295,7 +295,7 @@ export function ProgrammatiScreen() {
   const pagesState = useAsync<FacebookPage[]>((s) => getPages(s), []);
   const [activeId, setActiveId] = useState("");
 
-  const pages = pagesState.data ?? [];
+  const pages = useMemo(() => pagesState.data ?? [], [pagesState.data]);
   const activePage = pages.find((p) => p.id === activeId) ?? pages[0] ?? null;
 
   // Default alla prima pagina al caricamento (o se la selezione non è più valida).

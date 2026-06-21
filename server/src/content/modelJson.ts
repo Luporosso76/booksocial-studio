@@ -8,7 +8,7 @@ export function parseModelJson(modelOutput: string): unknown {
   const json = extractObject(modelOutput);
   try {
     return JSON.parse(json);
-  } catch (e) {
+  } catch {
     throw new ContentError(`Risposta del modello non in JSON valido:\n${truncate(modelOutput)}`);
   }
 }

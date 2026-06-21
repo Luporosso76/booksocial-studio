@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { NavLink } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
@@ -1231,7 +1231,7 @@ export function GestionePaginaScreen() {
   // Bump dopo una pubblicazione per forzare il reload della lista post.
   const [reloadToken, setReloadToken] = useState(0);
 
-  const pages = pagesState.data ?? [];
+  const pages = useMemo(() => pagesState.data ?? [], [pagesState.data]);
 
   // Pagina selezionata: quella scelta, altrimenti la prima disponibile.
   const selected: FacebookPage | null =
