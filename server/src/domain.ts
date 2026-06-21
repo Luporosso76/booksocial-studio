@@ -25,14 +25,14 @@ export interface Book {
   websiteUrl: string | null;
   notes: string | null;
   baseHashtags: string | null;
-  // Configurazione VISIVA per-libro (V17): moduli-dominio del prompt immagine attivi (CSV in DB →
+  // Configurazione VISIVA per-libro: moduli-dominio del prompt immagine attivi (CSV in DB →
   // string[]) e direttive d'arte libere. Scoppiano i blocchi specifici per libro. Vedi imageDomains.ts.
   visualDomains: string[];
   visualDirectives: string | null; // testo ORIGINALE scritto dall'utente (in italiano), per la UI
-  visualDirectivesEn: string | null; // traduzione EN iniettata nel prompt immagine (V18)
-  // Oggetti/veicoli ricorrenti canonici + fatti del mondo (lato guida) — V20. Vedi BookVisualProps.
+  visualDirectivesEn: string | null; // traduzione EN iniettata nel prompt immagine
+  // Oggetti/veicoli ricorrenti canonici + fatti del mondo (lato guida). Vedi BookVisualProps.
   visualProps: BookVisualProps;
-  // Personaggi minori/incidentali con un look canonico fisso — V21. Vedi BookVisualExtras.
+  // Personaggi minori/incidentali con un look canonico fisso. Vedi BookVisualExtras.
   visualExtras: BookVisualExtras;
 }
 
@@ -59,7 +59,7 @@ export interface VisualProp {
 
 export type DrivingSide = "left" | "right";
 
-// Canone degli oggetti + fatti visivi del MONDO del libro (V20). Persistito in book.visual_props_json.
+// Canone degli oggetti + fatti visivi del MONDO del libro. Persistito in book.visual_props_json.
 export interface BookVisualProps {
   props: VisualProp[];
   drivingSide: DrivingSide | null; // lato di guida del paese (volante/auto), per scene con strade/auto
@@ -73,10 +73,10 @@ export interface BookChapter {
   title: string | null;
   text: string;
   charCount: number;
-  // Escluso dalla generazione immagini (V23): true → il capitolo NON entra nel pool di selezione
+  // Escluso dalla generazione immagini: true → il capitolo NON entra nel pool di selezione
   // (anti-frontespizio + toggle manuale). Default false; auto-true sui capitoli cortissimi all'import.
   excluded: boolean;
-  // Scheda visiva del capitolo (V15): estratta on-demand dal testo e messa in cache.
+  // Scheda visiva del capitolo: estratta on-demand dal testo e messa in cache.
   // null = non ancora estratta. Vedi ChapterScene.
   scene: ChapterScene | null;
 }
@@ -101,7 +101,7 @@ export interface ChapterScene {
 
 export type CharacterSource = "AI" | "USER";
 
-// Abbigliamento CANONICO di un personaggio (V19): un abito di DEFAULT + abiti per CONTESTO che
+// Abbigliamento CANONICO di un personaggio: un abito di DEFAULT + abiti per CONTESTO che
 // scattano quando le loro keyword combaciano con la scheda del capitolo (luogo/ambiente/oggetti),
 // così "stessa scena → stesso vestito". Persistito in book_character.outfits_json.
 export interface CharacterOutfit {
@@ -128,7 +128,7 @@ export interface BookCharacter {
   // null/[] se il pre-pass non è stato eseguito.
   mentions: number | null;
   chapters: number[];
-  // Abbigliamento canonico (V19): default + abiti per contesto. Vedi CharacterOutfits.
+  // Abbigliamento canonico: default + abiti per contesto. Vedi CharacterOutfits.
   outfits: CharacterOutfits;
   createdAt: number;
   updatedAt: number;
@@ -210,7 +210,7 @@ export interface BookLink {
   usagePolicy: LinkUsagePolicy | null;
 }
 
-// Verdetto del QUALITY CHECK visivo (V22): un modello multimodale GUARDA l'immagine generata e
+// Verdetto del QUALITY CHECK visivo: un modello multimodale GUARDA l'immagine generata e
 // segnala i problemi (testo/scritte, anatomia, nudità, gi/karate fuori contesto, collage, soggetto
 // assente/sbagliato). `ok` è true SOLO se `issues` è vuoto. Persistito in media_asset.qa_json.
 export interface SceneQa {
@@ -228,7 +228,7 @@ export interface MediaAsset {
   genPrompt: string | null; // prompt dei visual generati (interno, NON user-facing)
   chapterIdx: number | null; // capitolo di riferimento (per scegliere l'immagine giusta per un post)
   tags: string[]; // tag/soggetti (megattere, mare, tartaruga, mood, personaggi…)
-  // Verdetto del QA visivo (V22), o null se non eseguito / non disponibile (best-effort).
+  // Verdetto del QA visivo, o null se non eseguito / non disponibile (best-effort).
   qa: SceneQa | null;
   addedAt: number;
 }

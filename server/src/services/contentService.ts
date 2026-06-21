@@ -259,7 +259,7 @@ export class ContentService {
       })),
     };
     await this.analyzeProfile(book, imp);
-    // "Rigenera tutto tranne link e immagini": azzera le schede visive dei capitoli (V15) così
+    // "Rigenera tutto tranne link e immagini": azzera le schede visive dei capitoli così
     // verranno ricostruite da zero on-demand. NON tocca book_link né media_asset (preservati).
     await books.clearChapterScenes(bookId);
   }

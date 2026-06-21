@@ -59,7 +59,7 @@ interface AvailableImage {
   id: number;
   caption: string | null;
   scope: string;
-  // Capitolo illustrato (catalogazione V14) + tag soggetto/luogo/mood (in INGLESE: vengono
+  // Capitolo illustrato (catalogazione) + tag soggetto/luogo/mood (in INGLESE: vengono
   // prodotti per il modello immagini). Usati per la selezione per pertinenza.
   chapterIdx: number | null;
   tags: string[];

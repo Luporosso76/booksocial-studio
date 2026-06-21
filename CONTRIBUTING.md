@@ -1,7 +1,7 @@
 # Contributing to BookSocial Studio
 
 Thanks for your interest in improving BookSocial Studio. This is a **local-first, source-available**
-project and contributions are welcome — bug fixes, new AI providers, documentation, and tests.
+project and contributions are welcome — bug fixes, new AI providers, and documentation.
 
 > **License note:** the project is released under **PolyForm Noncommercial License 1.0.0** (see
 > [`LICENSE`](LICENSE)). It is *source-available*, not an OSI "open source" license: you may use,
@@ -18,13 +18,13 @@ server/          Backend: Node + TypeScript + Hono, embedded SQLite (better-sqli
   src/media/     Image engine + rendering (Satori/resvg, ffmpeg/Remotion) — ImageEngine + createImageEngine()
   src/scheduler/ Background publish scheduler
   src/services/  Higher-level orchestration (week planning, publishing, page connect)
-  src/db/        SQLite migrations, pool, repositories
+  src/db/        SQLite schema, pool, repositories
   src/secrets/   Encrypted file store for tokens/keys (secrets.enc)
   src/facebook/  Facebook Graph API client
 web/             Frontend: React + Vite + Tailwind
   src/screens/   Top-level screens (Books, Planner, Scheduled, Insights, Connection, Page management, Settings…)
 docs/            Documentation (MANUAL, SETUP, PROVIDERS, INSTAGRAM, ARCHITECTURE)
-samples/         Sample book for testing
+samples/         Sample book to try the app
 ```
 
 See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for how these fit together.
@@ -56,7 +56,6 @@ Copy `server/.env.example` to `server/.env` and configure at least a text provid
 ```bash
 # Backend
 cd server && npm run typecheck   # tsc --noEmit, must be clean
-cd server && npm test            # tsx --test src/**/*.test.ts
 
 # Frontend
 cd web && npm run build          # tsc -b && vite build, must succeed
@@ -89,7 +88,7 @@ Add any new config to `server/src/config.ts` (read from env) and document the en
 
 1. Fork and create a topic branch (`fix/...`, `feat/...`, `docs/...`).
 2. Make your change with the smallest viable diff.
-3. Run the checks above (typecheck, tests, web build) and verify locally.
+3. Run the checks above (typecheck, web build) and verify locally.
 4. Open a PR using the [PR template](.github/PULL_REQUEST_TEMPLATE.md); link the related issue and
    describe how you tested it.
 

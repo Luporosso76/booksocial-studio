@@ -343,7 +343,7 @@ export const cliLogin = (tool: string) =>
 export const getChapters = (bookId: string, signal?: AbortSignal) =>
   apiGet<BookChapterFull[]>(`/books/${bookId}/chapters`, signal);
 
-// --- Schede visive capitolo (V15): ambiente / oggetti / personaggi ---
+// --- Schede visive capitolo: ambiente / oggetti / personaggi ---
 export const getChapterScene = (bookId: string, idx: number, signal?: AbortSignal) =>
   apiGet<{ scene: ChapterScene }>(`/books/${bookId}/chapters/${idx}/scene`, signal);
 

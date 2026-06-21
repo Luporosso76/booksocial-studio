@@ -24,7 +24,7 @@ export interface MediaRegenJob {
   // Override FLASHBACK/ricordo (manuale): rende i personaggi più giovani e vestiti per l'epoca,
   // scavalcando età e outfit canonici. Forza la ricostruzione dal capitolo (serve la pipeline).
   flashback?: SceneFlashback;
-  // QUALITY CHECK visivo (V22): se true, dopo la rigenerazione il modello GUARDA l'immagine e, se
+  // QUALITY CHECK visivo: se true, dopo la rigenerazione il modello GUARDA l'immagine e, se
   // bocciata (ok=false), la rigenera UNA volta sola con un nuovo seed. Assente/false = solo verdetto.
   verify?: boolean;
 }

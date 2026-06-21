@@ -47,8 +47,7 @@ export function allowedKindsForType(type: ContentType): VisualKindChoice[] {
       return ["story"];
     case "post":
     default:
-      // storyboard (griglia 2×2 multi-pannello) RIMOSSO su richiesta utente: i post usano
-      // immagini SINGOLE (card) o solo testo.
+      // I post usano immagini SINGOLE (card) o solo testo.
       return ["none", "card"];
   }
 }

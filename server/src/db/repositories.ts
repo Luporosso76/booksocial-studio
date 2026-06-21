@@ -345,7 +345,7 @@ function mapMedia(r: Row): MediaAsset {
   };
 }
 
-// Verdetto del QA visivo (V22) dalla colonna qa_json: tollerante — null se assente/rotto; coerce
+// Verdetto del QA visivo dalla colonna qa_json: tollerante — null se assente/rotto; coerce
 // alla forma { ok, issues:[] } (issues sempre array di stringhe) altrimenti.
 function parseQa(raw: unknown): SceneQa | null {
   if (typeof raw !== "string" || raw.trim() === "") return null;
@@ -517,7 +517,7 @@ export const books = {
   },
 
   // Configurazione visiva per-libro: moduli-dominio attivi (CSV) + direttive d'arte (originale IT in
-  // `visual_directives`, traduzione EN in `visual_directives_en`, V18). L'EN è quella iniettata nel prompt.
+  // `visual_directives`, traduzione EN in `visual_directives_en`). L'EN è quella iniettata nel prompt.
   async setVisualConfig(
     id: number,
     domains: string[],
@@ -536,7 +536,7 @@ export const books = {
     );
   },
 
-  // Oggetti/veicoli ricorrenti + mondo (V20).
+  // Oggetti/veicoli ricorrenti + mondo.
   async setVisualProps(id: number, props: BookVisualProps): Promise<void> {
     await execute("UPDATE book SET visual_props_json=?, updated_at=? WHERE id=?", [
       serializeVisualProps(props),
@@ -545,7 +545,7 @@ export const books = {
     ]);
   },
 
-  // Personaggi minori/incidentali canonici (V21).
+  // Personaggi minori/incidentali canonici.
   async setVisualExtras(id: number, extras: BookVisualExtras): Promise<void> {
     await execute("UPDATE book SET visual_extras_json=?, updated_at=? WHERE id=?", [
       serializeVisualExtras(extras),
@@ -565,7 +565,7 @@ export const books = {
   ): Promise<void> {
     await execute("DELETE FROM book_chapter WHERE book_id=?", [bookId]);
     for (const ch of chapters) {
-      // Auto-esclusione (V23): i capitoli cortissimi (< 200 char, tipico frontespizio) nascono
+      // Auto-esclusione: i capitoli cortissimi (< 200 char, tipico frontespizio) nascono
       // esclusi dalla generazione immagini; l'utente può poi includerli/escluderli a mano.
       await execute(
         "INSERT INTO book_chapter(book_id, idx, title, text, char_count, excluded) VALUES (?,?,?,?,?,?)",
@@ -574,7 +574,7 @@ export const books = {
     }
   },
 
-  // Esclude/include un capitolo dalla generazione immagini (V23). Ritorna false se il capitolo
+  // Esclude/include un capitolo dalla generazione immagini. Ritorna false se il capitolo
   // non esiste (così il route può rispondere 404).
   async setChapterExcluded(bookId: number, idx: number, excluded: boolean): Promise<boolean> {
     const r = await execute("UPDATE book_chapter SET excluded=? WHERE book_id=? AND idx=?", [
@@ -1009,7 +1009,7 @@ export const media = {
     ]);
   },
 
-  // Salva il verdetto del QUALITY CHECK visivo (V22) — best-effort: null se la QA non è disponibile.
+  // Salva il verdetto del QUALITY CHECK visivo — best-effort: null se la QA non è disponibile.
   async setQa(id: number, qa: SceneQa | null): Promise<void> {
     await execute("UPDATE media_asset SET qa_json=? WHERE id=?", [
       qa ? JSON.stringify(qa) : null,
