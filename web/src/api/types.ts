@@ -1,4 +1,4 @@
-// Types mirroring the REST contract in MIGRATION_SPEC.md.
+// Types mirroring the backend REST contract.
 // These are intentionally permissive (optional fields) because the backend
 // shape may still evolve; the UI degrades gracefully on missing fields.
 

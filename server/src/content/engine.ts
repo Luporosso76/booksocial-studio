@@ -62,7 +62,6 @@ function resolveBinary(name: string): string {
 }
 
 // Content engine: a local CLI that turns a text prompt into a text response.
-// Ported from Java OpenCodeProcess / CodexProcess / ClaudeProcess.
 // The engine receives ONLY text (book scheda / prompt), never any token.
 
 export interface ContentEngine {

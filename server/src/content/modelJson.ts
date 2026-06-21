@@ -1,8 +1,8 @@
 import { ContentError } from "./engine.js";
 
 // Extracts the first balanced { ... } JSON object from a model's text answer.
-// Mirrors the Java ModelJson: the model is told to return only JSON but may wrap
-// it in a ```json ... ``` fence, so we isolate the first balanced object.
+// The model is told to return only JSON but may wrap it in a ```json ... ``` fence,
+// so we isolate the first balanced object.
 
 export function parseModelJson(modelOutput: string): unknown {
   const json = extractObject(modelOutput);

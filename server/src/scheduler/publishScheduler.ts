@@ -11,7 +11,7 @@ import { publishInstagramJob } from "../services/instagramPublisher.js";
 //  - each tick, take due posts, atomically claim them (SCHEDULED->PUBLISHING), publish;
 //  - on error apply backoff and retry up to maxPublishAttempts, then FAILED.
 // IMPORTANT: DRAFT posts are NEVER published automatically; only SCHEDULED due posts.
-// Posts with an existing fb_post_id are never republished. Ported from Java PublishScheduler.
+// Posts with an existing fb_post_id are never republished.
 
 const DUE_BATCH = 10;
 

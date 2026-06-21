@@ -5,8 +5,8 @@ import type { BookProfile, MediaType } from "../domain.js";
 import { MEDIA_TYPES } from "../domain.js";
 
 // Generates one post from the compact book scheda (not the whole book), the
-// requested angle, and recent posts (to avoid repetition). Prompt ported almost
-// verbatim from Java PostGenerator: ABSOLUTE ANTI-SPOILER RULE, hashtag base+specific.
+// requested angle, and recent posts (to avoid repetition). Key prompt rules:
+// ABSOLUTE ANTI-SPOILER RULE, hashtag base+specific.
 
 // Personaggi (concisi) da iniettare nel prompt: nome — ruolo/lavoro — carattere — aspetto.
 export interface CharacterBrief {

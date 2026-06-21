@@ -14,7 +14,7 @@ import { books, characters, generations, links, pages, posts, quotes } from "../
 import { CURRENT_PROMPT_VERSION, type Book, type MediaType } from "../domain.js";
 
 // Content orchestrator: import, one-time analysis (scheda), post generation.
-// "Analyze once, generate many." Ported from Java ContentService.
+// "Analyze once, generate many."
 
 export type ProgressFn = (msg: string) => void;
 
@@ -48,8 +48,8 @@ function profileIsFresh(
 export class ContentService {
   constructor(private readonly engine: ContentEngine) {}
 
-  // FASE 1 (veloce): importa/aggiorna il libro + capitoli. NON analizza.
-  // Ritorna il libro, se serve l'analisi, e i dati parsati (imp) per la fase 2.
+  // Import veloce: importa/aggiorna il libro + capitoli. NON analizza.
+  // Ritorna il libro, se serve l'analisi, e i dati parsati (imp) per l'analisi successiva.
   async importBook(
     sourcePath: string,
     fileContent: string,
@@ -104,7 +104,7 @@ export class ContentService {
     return { book, needsAnalysis, imp };
   }
 
-  // FASE 2 (lenta): analisi col modello e salvataggio scheda. Pensata per girare in BACKGROUND,
+  // Analisi lenta: analisi col modello e salvataggio scheda. Pensata per girare in BACKGROUND,
   // cosi' la richiesta HTTP di import non resta appesa su libri grandi.
   async analyzeProfile(book: Book, imp: ImportedBook): Promise<void> {
     const fullText = joinChapters(imp.chapters);

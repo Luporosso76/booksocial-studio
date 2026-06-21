@@ -37,18 +37,11 @@ logs/
 *.iml
 .DS_Store
 
-# Agent / tooling state (not part of the project)
+# Local tooling state (not part of the project)
 .omc/
 .serena/
 .claude/
 .remember/
 
-# Legacy Java build (not used by this project)
-target/
-*.class
-.classpath
-.project
-.settings/
-
-# Internal deploy tooling (maintainer-specific, not for end users)
+# Local deploy scripts (not part of the app)
 deploy/

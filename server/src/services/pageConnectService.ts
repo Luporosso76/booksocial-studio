@@ -7,7 +7,6 @@ import { pageSecretKeyFor, type FacebookPage } from "../domain.js";
 // Connects the app to the user's Facebook pages. Given a (System User / long-lived)
 // token, lists managed pages; when one is selected, saves the page row in the DB
 // and the Page token in the keyring (key fb.page.<id>). Token never in the DB or logs.
-// Ported from Java PageConnectService.
 
 // Lists pages managed from a user token (already long-lived / system-user).
 export async function loadManagedPages(userToken: string): Promise<fb.ManagedPage[]> {
