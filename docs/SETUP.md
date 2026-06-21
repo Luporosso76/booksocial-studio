@@ -15,7 +15,7 @@ computer in a local SQLite database.
 You need **one** of the following:
 
 - **Docker** (recommended for the easiest start) — [install Docker](https://docs.docker.com/get-docker/), or
-- **Node.js 24** for a manual install (see `.nvmrc`).
+- **Node.js 22 or 24** for a manual install (tested on both in CI; `.nvmrc` pins 24).
 
 To publish to Facebook you will also need (later, optional at first):
 

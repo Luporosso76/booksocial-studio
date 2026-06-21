@@ -2,7 +2,7 @@
 
 ![CI](https://github.com/Luporosso76/booksocial-studio/actions/workflows/ci.yml/badge.svg)
 ![License: PolyForm Noncommercial 1.0.0](https://img.shields.io/badge/license-PolyForm%20Noncommercial%201.0.0-blue)
-![Node](https://img.shields.io/badge/node-%3E%3D24-green)
+![Node](https://img.shields.io/badge/node-22%20%7C%2024-green)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue)
 
 Turn a book (Markdown) into ready-to-publish **social media content** — spoiler‑aware posts, reels and
@@ -47,7 +47,7 @@ The user manual is also available in Italian, Spanish, French, Portuguese and Ge
 
 ## Prerequisites
 
-- **Node.js 24** (see `.nvmrc`). Native modules (`better-sqlite3`) are
+- **Node.js 22 or 24** (tested on both in CI; `.nvmrc` pins 24). Native modules (`better-sqlite3`) are
   built for your Node version — if you switch Node, run `npm rebuild better-sqlite3`.
 - An **AI text engine** — choose any: an **API key** (OpenAI, Anthropic, Google, or any
   OpenAI‑compatible endpoint like OpenRouter/Groq, plus local **Ollama**), or a **subscription CLI**
