@@ -4,7 +4,6 @@ import { ContentError } from "./engine.js";
 // Reads a full Markdown book and prepares it for analysis: computes the SHA-256
 // of the content (to know when to re-analyze) and splits into chapters by
 // Markdown headings (# / ##). If there are no headings, the book is one chapter.
-// Ported from Java BookImporter.
 
 export interface ImportedChapter {
   index: number;

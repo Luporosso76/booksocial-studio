@@ -1,4 +1,4 @@
-// Domain types mirroring the Java records. Timestamps are epoch ms (number).
+// Domain types. Timestamps are epoch ms (number).
 
 export type MediaType = "TEXT" | "LINK" | "PHOTO" | "REEL" | "STORY";
 export const MEDIA_TYPES: MediaType[] = ["TEXT", "LINK", "PHOTO", "REEL", "STORY"];

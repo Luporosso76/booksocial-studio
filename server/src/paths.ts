@@ -2,8 +2,8 @@ import { homedir } from "node:os";
 import { join, isAbsolute, relative } from "node:path";
 import { mkdirSync } from "node:fs";
 
-// XDG-conformant paths, mirroring the Java AppPaths.
-// Books are stored under ~/.local/share/book-social/books as per the migration spec.
+// XDG-conformant paths.
+// Books are stored under ~/.local/share/book-social/books by default.
 
 const APP_DIR = "book-social";
 

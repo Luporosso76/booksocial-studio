@@ -1,6 +1,6 @@
 import { appConfig } from "../config.js";
 
-// Minimal real Graph API client (pages), ported from Java FacebookClient.
+// Minimal real Graph API client (pages).
 // The Page token is passed per call (taken from the keyring by the caller), never logged.
 // API v21.0 by default.
 

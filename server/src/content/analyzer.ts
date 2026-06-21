@@ -2,9 +2,9 @@ import type { ContentEngine } from "./engine.js";
 import { parseModelJson } from "./modelJson.js";
 import { CURRENT_PROMPT_VERSION } from "../domain.js";
 
-// One-time book analysis -> compact BookProfile (scheda). This is the ONLY phase
+// One-time book analysis -> compact BookProfile (scheda). This is the only point
 // where the model sees the full text; every later generation uses only the scheda.
-// Prompt ported almost verbatim from Java BookAnalyzer (the quality depends on it).
+// The prompt is carefully tuned: analysis quality depends on it.
 
 export interface AnalyzedProfile {
   synopsisShort: string | null;

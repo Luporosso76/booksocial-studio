@@ -1,8 +1,7 @@
 # BookSocial Studio — Frontend (web/)
 
 UI in React + Vite + TypeScript + Tailwind per BookSocial Studio. Tema scuro,
-motion intenzionale (principi Emil Kowalski), contro il contratto API in
-`../MIGRATION_SPEC.md`.
+motion intenzionale, basata sul contratto API REST del backend.
 
 ## Avvio in sviluppo
 
