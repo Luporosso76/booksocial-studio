@@ -14,7 +14,6 @@ Closes #
 
 ## How it was tested
 
-- [ ] `cd server && npm test` passes
 - [ ] `cd server && npm run typecheck` is green
 - [ ] `cd web && npm run build` succeeds
 - [ ] Manually verified the change (describe below)
