@@ -61,7 +61,10 @@
   "language": {
     "label": "Language",
     "it": "IT",
-    "en": "EN"
+    "en": "EN",
+    "fr": "FR",
+    "es": "ES",
+    "de": "DE"
   },
   "books": {
     "libraryTitle": "Your library",
