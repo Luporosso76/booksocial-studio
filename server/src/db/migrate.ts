@@ -1,10 +1,8 @@
 import { pool, query, execute } from "./pool.js";
 
-// Migrations in dialetto SQLite (better-sqlite3). Stesse colonne/semantiche dello schema MySQL:
-//  - id BIGINT AUTO_INCREMENT PRIMARY KEY -> id INTEGER PRIMARY KEY AUTOINCREMENT
-//  - niente ENGINE=InnoDB / CHARSET
-//  - tipi: LONGTEXT|MEDIUMTEXT|TEXT|VARCHAR(n) -> TEXT ; BIGINT|INT|TINYINT(n) -> INTEGER ;
-//    DOUBLE|FLOAT|DECIMAL -> REAL ; i DEFAULT restano
+// Migrazioni SQLite (better-sqlite3). Convenzioni dello schema:
+//  - id INTEGER PRIMARY KEY AUTOINCREMENT
+//  - tipi: testo -> TEXT ; interi -> INTEGER ; decimali -> REAL ; i DEFAULT restano
 //  - indici/UNIQUE: estratti in CREATE [UNIQUE] INDEX separati DOPO la CREATE TABLE
 //  - FOREIGN KEY: inline (SQLite con foreign_keys=ON)
 //  - timestamps come INTEGER epoch ms
@@ -272,10 +270,10 @@ const MIGRATIONS: Migration[] = [
         added_at     INTEGER NOT NULL
       )`,
 
-      // MySQL aggiungeva qui la FK scheduled_post.music_id -> music_track via ALTER TABLE ADD
-      // CONSTRAINT. SQLite NON supporta ADD CONSTRAINT su una tabella esistente (richiederebbe il
-      // rebuild della tabella). La colonna music_id resta INTEGER NULL senza FK enforced: questa
-      // singola FK viene OMESSA per non ricostruire scheduled_post. La semantica applicativa è
+      // La FK scheduled_post.music_id -> music_track non è enforced: SQLite NON supporta ADD
+      // CONSTRAINT su una tabella esistente (richiederebbe il rebuild della tabella). La colonna
+      // music_id resta INTEGER NULL senza FK enforced: questa singola FK viene OMESSA per non
+      // ricostruire scheduled_post. La semantica applicativa è
       // identica (ON DELETE SET NULL gestito a livello logico/app).
 
       `CREATE TABLE IF NOT EXISTS content_usage (
@@ -331,9 +329,9 @@ const MIGRATIONS: Migration[] = [
     // V10: musica PER-LIBRO. La libreria musicale diventa specifica del libro (come le
     // immagini): il motore di varietà sceglie le tracce del libro. book_id NULL = traccia
     // globale/legacy (usabile da tutti i libri).
-    // NOTA: MySQL aggiungeva qui la FK music_track.book_id -> book via ALTER ADD CONSTRAINT.
-    // SQLite NON supporta ADD CONSTRAINT su tabella esistente: la colonna viene aggiunta senza
-    // FK enforced (semantica app invariata). ON DELETE CASCADE gestito a livello logico.
+    // NOTA: la FK music_track.book_id -> book non è enforced: SQLite NON supporta ADD CONSTRAINT
+    // su tabella esistente, quindi la colonna viene aggiunta senza FK enforced (semantica app
+    // invariata). ON DELETE CASCADE gestito a livello logico.
     version: 10,
     statements: [`ALTER TABLE music_track ADD COLUMN book_id INTEGER NULL`],
   },
@@ -355,10 +353,10 @@ const MIGRATIONS: Migration[] = [
   },
   {
     // V13: prompt dei visual generati in un campo DEDICATO (non nella caption user-facing,
-    // che rischierebbe di comparire nei post/libreria). Backfill dalle caption "scene … · …".
-    // MySQL usava SUBSTRING_INDEX(caption, ' · ', -1) per prendere la parte DOPO l'ultimo ' · '.
-    // Equivalente SQLite: substr(caption, instr(caption, ' · ') + 3). Le caption "scene …·…" hanno
-    // un solo ' · ' (formato "scene <n> · <prompt>"), quindi instr (prima occorrenza) basta.
+    // che rischierebbe di comparire nei post/libreria). Backfill dalle caption "scene … · …"
+    // prendendo la parte DOPO ' · ' con substr(caption, instr(caption, ' · ') + 3). Le caption
+    // "scene …·…" hanno un solo ' · ' (formato "scene <n> · <prompt>"), quindi instr (prima
+    // occorrenza) basta.
     version: 13,
     statements: [
       `ALTER TABLE media_asset ADD COLUMN gen_prompt TEXT NULL`,

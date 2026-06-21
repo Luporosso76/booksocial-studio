@@ -3,9 +3,8 @@ import { join } from "node:path";
 import { dataDir } from "../paths.js";
 import { norm } from "./normalizeParams.js";
 
-// Embedded SQLite database (better-sqlite3), single file on disk under dataDir().
-// File NUOVO `booksocial.sqlite` (il vecchio book-social.db residuo Java NON va toccato).
-// Timestamps are stored as BIGINT epoch ms (INTEGER in SQLite).
+// Embedded SQLite database (better-sqlite3), single file `booksocial.sqlite` on disk under dataDir().
+// Timestamps are stored as epoch ms (INTEGER in SQLite).
 const db = new Database(join(dataDir(), "booksocial.sqlite"));
 db.pragma("journal_mode = WAL");
 db.pragma("foreign_keys = ON");

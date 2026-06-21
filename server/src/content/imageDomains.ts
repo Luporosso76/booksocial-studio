@@ -1,11 +1,8 @@
-// MODULI-DOMINIO del prompt immagine, SCOPPIATI per libro.
-// Storicamente questi blocchi (windsurf, porta-rossa simbolica, pratica spirituale, set
-// cinematografico, veicoli/luoghi) erano hardcodati nel prompt e applicati a OGNI libro: bastava che
-// un capitolo NOMINASSE il windsurf perché il modello sfornasse un windsurf, anche in un libro che col
-// mare non c'entra nulla. Ora ogni blocco è un MODULO attivabile per-libro (book.visualDomains) e
-// incluso SOLO se è davvero pertinente alla scena del capitolo (match keyword sulla scheda visiva).
-// Così: il libro del mare riceve le regole windsurf solo nei capitoli che mostrano davvero il windsurf;
-// il libro della porta rossa riceve la porta solo dove la porta c'è; e i due non si contaminano.
+// MODULI-DOMINIO del prompt immagine, attivabili per-libro.
+// Ogni blocco tematico (sport, oggetti simbolici, ambientazioni, veicoli/luoghi, ecc.) è un MODULO
+// abilitabile per-libro (book.visualDomains) e incluso nel prompt SOLO quando è davvero pertinente
+// alla scena del capitolo (match keyword sulla scheda visiva). Così le regole di un dominio si
+// applicano solo ai capitoli che lo mostrano davvero, e libri diversi non si contaminano.
 
 export interface VisualDomain {
   key: string;
