@@ -5,6 +5,8 @@ node_modules/
 # Build output
 dist/
 **/dist/
+*.tsbuildinfo
+**/*.tsbuildinfo
 
 # Environment & secrets — NEVER commit (only .env.example is tracked)
 .env
@@ -45,3 +47,6 @@ logs/
 
 # Local deploy scripts (not part of the app)
 deploy/
+
+# Local repo-review notes (not part of the app)
+REPO_PUBLIC_REVIEW.md
