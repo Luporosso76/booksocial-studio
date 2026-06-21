@@ -10,8 +10,8 @@
     "lint": "eslint \"server/src/**/*.{ts,tsx}\" \"web/src/**/*.{ts,tsx}\""
   },
   "devDependencies": {
-    "eslint": "^9.17.0",
-    "eslint-plugin-react-hooks": "^5.2.0",
+    "eslint": "^10.5.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
     "prettier": "^3.4.2",
     "typescript-eslint": "^8.18.2"
   }
