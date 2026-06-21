@@ -33,7 +33,7 @@ See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for how these fit together.
 
 ## Running in development
 
-Prerequisite: **Node.js 24** (see `.nvmrc`).
+Prerequisite: **Node.js 22 or 24** (see `.nvmrc`).
 
 ```bash
 # Backend (hot reload, tsx watch on :8770)
