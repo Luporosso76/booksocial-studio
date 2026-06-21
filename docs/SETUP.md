@@ -189,8 +189,8 @@ This is original, fictional text provided so you can try the app without using y
 
 ## 7. Where your data lives & how to back up
 
-Everything is stored under the **data directory** (`BOOKSOCIAL_DATA_DIR`, default
-`~/.local/share/book-social`; with Docker it's the `./data` folder next to the project):
+Everything is stored under the **data directory** (`BOOKSOCIAL_DATA_DIR`, default `./data` inside the
+project folder, git-ignored; Docker maps the same `./data`):
 
 ```
 <data>/booksocial.sqlite   # the database

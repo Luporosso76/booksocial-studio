@@ -1,17 +1,15 @@
-import { homedir } from "node:os";
-import { join, isAbsolute, relative } from "node:path";
+import { join, isAbsolute, relative, resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import { mkdirSync } from "node:fs";
 
-// XDG-conformant paths.
-// Books are stored under ~/.local/share/book-social/books by default.
+// All app data (DB + media + generated + books + music + sdcpp) lives under ONE data directory.
+// Default: <project-root>/data — the folder that ships with the project, so the data sits next to
+// the app and a manual run agrees with Docker (docker-compose maps ./data). Override anywhere with
+// BOOKSOCIAL_DATA_DIR (absolute path recommended).
 
-const APP_DIR = "book-social";
-
-function xdgBase(envName: string, fallback: string): string {
-  const v = process.env[envName];
-  if (v && v.trim() !== "") return v;
-  return join(homedir(), fallback);
-}
+// paths.ts lives in server/src (dev/tsx) or server/dist (build); two levels up is the project root.
+const here = dirname(fileURLToPath(import.meta.url));
+const PROJECT_ROOT = resolve(here, "..", "..");
 
 function ensureDir(p: string): string {
   mkdirSync(p, { recursive: true });
@@ -19,12 +17,12 @@ function ensureDir(p: string): string {
 }
 
 // Radice di TUTTI i dati dell'app (media, generated, books, music, sdcpp).
-// Se BOOKSOCIAL_DATA_DIR è impostata, È la cartella dati (così si può collocare ovunque, es.
-// ~/booksocial/data); altrimenti default XDG (~/.local/share/book-social).
+// Se BOOKSOCIAL_DATA_DIR è impostata, È la cartella dati (collocabile ovunque); altrimenti il
+// default è <project-root>/data.
 export function dataDir(): string {
   const explicit = process.env.BOOKSOCIAL_DATA_DIR;
   if (explicit && explicit.trim() !== "") return ensureDir(explicit);
-  return ensureDir(join(xdgBase("XDG_DATA_HOME", ".local/share"), APP_DIR));
+  return ensureDir(join(PROJECT_ROOT, "data"));
 }
 
 export function booksDir(): string {

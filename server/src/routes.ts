@@ -601,7 +601,7 @@ export function buildApi(deps: AppDeps): Hono {
 
   // ---------------- books CRUD / import ----------------
 
-  // Multipart upload of a .md file -> save to ~/.local/share/book-social/books/<name>.md
+  // Multipart upload of a .md file -> save to <data>/books/<name>.md (see booksDir() in paths.ts)
   // -> import + one-time analysis -> Book.
   api.post("/books/import", async (c) => {
     const form = await c.req.parseBody();

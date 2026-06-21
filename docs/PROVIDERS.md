@@ -102,7 +102,7 @@ IMAGE_PROVIDER=local
 SDCPP_CLI=/path/to/sd-cli
 SDCPP_BACKEND=te=cpu,vae=cpu,diffusion=vulkan0   # devices for text-encoder / VAE / diffusion
 SDCPP_TIMEOUT_MS=900000
-SDCPP_DIR=~/.local/share/book-social/sdcpp        # root for models
+SDCPP_DIR=./data/sdcpp                             # root for models (default: <data>/sdcpp)
 # --- swap Z-Image for another model: point these at YOUR model files ---
 SDCPP_ZIMAGE_DIR=$SDCPP_DIR/models/zimage
 SDCPP_ZIMAGE_MODEL=$SDCPP_ZIMAGE_DIR/z_image_turbo-Q8_0.gguf   # → your .gguf/.safetensors

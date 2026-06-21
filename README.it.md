@@ -77,7 +77,7 @@ Tutta la configurazione avviene tramite variabili d'ambiente — vedi [`server/.
 | Variable | Purpose | Default |
 |---|---|---|
 | `PORT` / `HOST` | API/server bind | `8770` / `127.0.0.1` |
-| `BOOKSOCIAL_DATA_DIR` | data folder (DB + media + music + books) | `~/.local/share/book-social` |
+| `BOOKSOCIAL_DATA_DIR` | data folder (DB + media + music + books) | `./data` (inside the project) |
 | `CONTENT_PROVIDER` | AI text engine (or `none`, then configure in Settings) | `none` |
 | `FB_API_VERSION` | Meta Graph API version | `v21.0` |
 

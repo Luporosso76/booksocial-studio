@@ -6,6 +6,7 @@ import { join, delimiter, dirname } from "node:path";
 import { appConfig } from "../config.js";
 import * as aiSettings from "../content/aiSettings.js";
 import { dimsForAspect, type SceneAspect } from "./imageGen.js";
+import { dataDir } from "../paths.js";
 
 // Astrazione PLUGGABLE del motore IMMAGINI (analoga a ContentEngine per il testo).
 // Un solo ImageEngine attivo, scelto da `createImageEngine()` in base a IMAGE_PROVIDER.
@@ -38,7 +39,7 @@ export interface ImageEngine {
 // =====================================================================================
 
 function sdRoot(): string {
-  return process.env.SDCPP_DIR || join(homedir(), ".local", "share", "book-social", "sdcpp");
+  return process.env.SDCPP_DIR || join(dataDir(), "sdcpp");
 }
 function sdCliPath(): string {
   return process.env.SDCPP_CLI || join(sdRoot(), "sd-cli");

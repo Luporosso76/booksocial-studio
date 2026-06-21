@@ -103,9 +103,14 @@ All config is via environment variables — see [`server/.env.example`](server/.
 | Variable | Purpose | Default |
 |---|---|---|
 | `PORT` / `HOST` | API/server bind | `8770` / `127.0.0.1` |
-| `BOOKSOCIAL_DATA_DIR` | data folder (DB + media + music + books) | `~/.local/share/book-social` |
+| `BOOKSOCIAL_DATA_DIR` | data folder (DB + media + music + books) | `./data` (inside the project) |
 | `CONTENT_PROVIDER` | AI text engine (or `none`, then configure in Settings) | `none` |
 | `FB_API_VERSION` | Meta Graph API version | `v21.0` |
+
+> **Where is the data folder?** By default it lives in `./data` inside the project folder (it is
+> git-ignored, so it is never committed) — one place for the DB, media, music and books. Set
+> `BOOKSOCIAL_DATA_DIR` to put it anywhere else (an absolute path is recommended for production). The
+> bundled Docker setup uses `BOOKSOCIAL_DATA_DIR=/data` mapped to `./data`, so it matches the default.
 
 Pick your text provider and model in **Settings → AI**, or set them via the matching `*_MODEL` env
 vars — see [`server/.env.example`](server/.env.example) and [`docs/PROVIDERS.md`](docs/PROVIDERS.md).

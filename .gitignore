@@ -14,6 +14,10 @@ dist/
 daemon.env
 secrets.enc
 
+# Runtime data directory (default BOOKSOCIAL_DATA_DIR = <project-root>/data):
+# DB + media + generated + books + music + sdcpp. NEVER commit.
+/data/
+
 # Local database (SQLite) & local data
 *.db
 *.db-wal
