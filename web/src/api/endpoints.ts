@@ -115,7 +115,7 @@ export const renameBook = (
   },
 ) => apiPut<Book>(`/books/${id}`, patch);
 
-// --- Canone visivo (Phase 5): generazione testuale di aspetti/abiti/oggetti/minori ---
+// --- Canone visivo: generazione testuale di aspetti/abiti/oggetti/minori ---
 // NB: queste rigenerano SOLO il canone testuale, non immagini. generate-minors è lenta
 // (scansione per capitolo, può richiedere qualche minuto).
 export const generateCharacterAppearance = (bookId: string, onlyWeak = false) =>

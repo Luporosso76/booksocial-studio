@@ -47,7 +47,7 @@ export interface Book {
   visualExtras?: BookVisualExtras;
 }
 
-// Canone visivo per-libro (Phase 5): abiti dei personaggi, oggetti/mondo
+// Canone visivo per-libro: abiti dei personaggi, oggetti/mondo
 // ricorrenti e personaggi minori incidentali.
 export interface CharacterOutfit {
   when: string;

@@ -3737,7 +3737,7 @@ function CharacterEditorModal({
 }
 
 /**
- * Canone visivo "Oggetti & mondo" (Phase 5): oggetti/veicoli ricorrenti resi sempre uguali,
+ * Canone visivo "Oggetti & mondo": oggetti/veicoli ricorrenti resi sempre uguali,
  * lato di guida e paese. Mirror di VisualDirectivesCard: stato locale, sync da props, salva
  * via renameBook(visualProps) e propaga al detail tramite onUpdated.
  */
@@ -3918,7 +3918,7 @@ function VisualPropsCard({
 }
 
 /**
- * Canone visivo "Personaggi minori" (Phase 5): figure incidentali (non nel cast) con un look
+ * Canone visivo "Personaggi minori": figure incidentali (non nel cast) con un look
  * fisso per le scene dove compaiono. La generazione è LENTA (scansione per capitolo): mostra
  * uno stato d'attesa esplicito.
  */
