@@ -36,7 +36,7 @@ Il manuale utente è disponibile anche in italiano, spagnolo, francese, portoghe
 
 ## Prerequisites
 
-- **Node.js 20–24** (vedi `.nvmrc`; il progetto blocca `>=20 <25`). I moduli nativi (`better-sqlite3`) sono compilati per la tua versione di Node — se cambi Node, esegui `npm rebuild better-sqlite3`.
+- **Node.js 24** (vedi `.nvmrc`). I moduli nativi (`better-sqlite3`) sono compilati per la tua versione di Node — se cambi Node, esegui `npm rebuild better-sqlite3`.
 - Un **motore di testo AI** — scegline uno qualsiasi: una **API key** (OpenAI, Anthropic, Google, o qualsiasi endpoint compatibile con OpenAI come OpenRouter/Groq, oltre a **Ollama** locale), oppure una **CLI in abbonamento** a cui accedi con un pulsante **Authenticate** (`opencode`, Codex/ChatGPT, Gemini). Vedi [`docs/PROVIDERS.md`](docs/PROVIDERS.md).
 - Una **App Business Meta (Facebook) + Pagina** per pubblicare: incolli un **token Utente di sistema** nella schermata di Connessione (mantenuto crittografato in `secrets.enc`). Vedi [`docs/SETUP.md`](docs/SETUP.md).
 - *Opzionale*: un **motore di immagini** per le immagini di scena AI — locale `sd-cli` (GPU), o un cloud provider (OpenAI, Google Imagen, Stability, Black Forest Labs/FLUX, Replicate, fal.ai). Senza di esso, l'app funziona in modalità **solo caricamento** (tu fornisci le immagini). Vedi [`docs/PROVIDERS.md`](docs/PROVIDERS.md).
