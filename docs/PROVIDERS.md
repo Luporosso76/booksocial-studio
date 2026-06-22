@@ -5,13 +5,15 @@ BookSocial Studio uses **two independent, pluggable AI engines**:
 - **Text engine** (`ContentEngine`) — analysis, canon, post text. Selected by `CONTENT_PROVIDER`.
 - **Image engine** (`ImageEngine`) — AI scene images. Selected by `IMAGE_PROVIDER`.
 
-Both support three access models, so anyone can run the app the way that suits them:
+The **text** engine runs through subscription **CLI tools** you log into, or a **local** Ollama
+server. The **image** engine adds **API‑key** cloud providers and a **local** GPU backend. So anyone
+can run the app the way that suits them:
 
-| Access model | How you pay / authenticate | Examples |
-|---|---|---|
-| **API key** | per‑token, your provider key | OpenAI, Anthropic, Google, OpenRouter, Groq… |
-| **Subscription / login** | your existing plan, via a local CLI tool | opencode, Codex (ChatGPT), Gemini (Google) |
-| **Local / free** | runs on your machine, no key | Ollama (text), sd‑cli/Z‑Image (images) |
+| Access model             | How you pay / authenticate               | Used by                                                                 |
+| ------------------------ | ---------------------------------------- | ----------------------------------------------------------------------- |
+| **Subscription / login** | your existing plan, via a local CLI tool | text: opencode, Codex, Claude, agy (Gemini) · images: agy               |
+| **API key**              | per‑token, your provider key             | images: OpenAI, Google, Stability, Black Forest Labs, Replicate, fal.ai |
+| **Local / free**         | runs on your machine, no key             | text: Ollama · images: sd‑cli/Z‑Image                                   |
 
 All configuration is via environment variables — see [`server/.env.example`](../server/.env.example).
 
@@ -21,32 +23,24 @@ All configuration is via environment variables — see [`server/.env.example`](.
 
 Default is `none` (unset) — pick a provider in **Settings → AI** or set `CONTENT_PROVIDER` here.
 
-| `CONTENT_PROVIDER` | Engine | Auth | Key env vars |
-|---|---|---|---|
-| `opencode` | local CLI | subscription login | `OPENCODE_BINARY`, `OPENCODE_MODEL` |
-| `codex` | local CLI (ChatGPT) | subscription login | `CODEX_BINARY`, `CODEX_MODEL` |
-| `gemini` | local CLI (Google) | subscription login | `GEMINI_BINARY`, `GEMINI_CLI_MODEL` |
-| `openai` | HTTP API | `OPENAI_API_KEY` | `OPENAI_BASE_URL`, `OPENAI_MODEL` |
-| `openai-compatible` (= `compatible`) | HTTP API | `OPENAI_API_KEY` | `OPENAI_BASE_URL`, `OPENAI_MODEL` |
-| `anthropic` | HTTP API | `ANTHROPIC_API_KEY` | `ANTHROPIC_MODEL` |
-| `google` | HTTP API | `GOOGLE_API_KEY` | `GOOGLE_MODEL`, `GOOGLE_BASE_URL` |
-| `ollama` | local HTTP | none | `OLLAMA_BASE_URL`, `OLLAMA_MODEL` |
+| `CONTENT_PROVIDER` | Engine                              | Auth               | Key env vars                        |
+| ------------------ | ----------------------------------- | ------------------ | ----------------------------------- |
+| `opencode`         | local CLI                           | subscription login | `OPENCODE_BINARY`, `OPENCODE_MODEL` |
+| `codex`            | local CLI (ChatGPT / OpenAI)        | subscription login | `CODEX_BINARY`, `CODEX_MODEL`       |
+| `claude`           | local CLI (Claude Code / Anthropic) | subscription login | `CLAUDE_BINARY`, `CLAUDE_MODEL`     |
+| `agy`              | local CLI (Gemini / Antigravity)    | subscription login | `AGY_BINARY`                        |
+| `ollama`           | local HTTP                          | none               | `OLLAMA_BASE_URL`, `OLLAMA_MODEL`   |
 
-**Any OpenAI‑compatible endpoint** (OpenRouter, Groq, Together, LM Studio, vLLM, …) works with one
-setting — point `OPENAI_BASE_URL` at it:
+> The text engine runs through **CLI tools you log into** or a **local** Ollama server — there is no
+> per‑token HTTP API mode for text (the CLIs already cover OpenAI, Anthropic and Google accounts).
+> Default models: `codex` → `gpt-5.5`; `claude` → `opus`/`sonnet`/`haiku`/`fable`; `opencode`/`agy`/`ollama`
+> read the list from the tool. All are editable in **Settings → AI** — nothing is hardcoded.
 
-```bash
-CONTENT_PROVIDER=openai-compatible
-OPENAI_BASE_URL=https://openrouter.ai/api/v1
-OPENAI_API_KEY=sk-or-...
-OPENAI_MODEL=meta-llama/llama-3.1-70b-instruct
-```
-
-**Subscription via CLI** — if you already pay for ChatGPT or a Google plan, use the matching CLI tool:
-the app just runs it (e.g. `opencode run --pure -m <model>`, `codex exec …`, `gemini -p …`) and the
-tool handles auth with your account. You can trigger the login from **Settings → AI** with the
-**Authenticate** button. The tool's own configuration (models) lives in that tool's config, not in this
-app. opencode is invoked with `--pure` (no external plugins) for reproducible output.
+**Subscription via CLI** — if you already pay for ChatGPT, Claude or a Gemini plan, use the matching
+CLI tool: the app just runs it (e.g. `opencode run -m <model>`, `codex exec …`, `claude -p …`,
+`agy --model <model> --print …`) and the tool handles auth with your account. You can trigger the
+login from **Settings → AI** with the **Authenticate** button. The tool's own configuration (models)
+lives in that tool's config, not in this app.
 
 **Local & free** — run [Ollama](https://ollama.com) and point the app at it:
 
@@ -60,17 +54,18 @@ OLLAMA_MODEL=llama3.1
 
 ## Image engine (`IMAGE_PROVIDER`)
 
-| `IMAGE_PROVIDER` | Engine | Auth | Key env vars |
-|---|---|---|---|
-| `auto` *(default)* | local if available, else upload‑only | — | (falls back automatically) |
-| `local` | sd‑cli (stable‑diffusion.cpp) | none, local GPU | `SDCPP_*` (see below) |
-| `openai` | OpenAI Images API | `OPENAI_API_KEY` (shared with text) | `OPENAI_IMAGE_MODEL` (e.g. `gpt-image-1`) |
-| `google` | Google Imagen API | `GOOGLE_API_KEY` (shared with text) | `GOOGLE_IMAGE_MODEL` (e.g. `imagen-3.0-generate-002`) |
-| `stability` | Stability AI (Stable Image) | `STABILITY_API_KEY` | `STABILITY_IMAGE_MODEL` (e.g. `core`, `sd3`, `ultra`) |
-| `bfl` | Black Forest Labs (FLUX) | `BFL_API_KEY` | `BFL_IMAGE_MODEL` (e.g. `flux-dev`, `flux-pro-1.1`) |
-| `replicate` | Replicate (any `owner/name` model) | `REPLICATE_API_TOKEN` | `REPLICATE_IMAGE_MODEL` (e.g. `black-forest-labs/flux-schnell`) |
-| `fal` | fal.ai | `FAL_API_KEY` | `FAL_IMAGE_MODEL` (e.g. `fal-ai/flux/schnell`) |
-| `none` | upload‑only (no generation) | — | — |
+| `IMAGE_PROVIDER`   | Engine                               | Auth                                | Key env vars                                                          |
+| ------------------ | ------------------------------------ | ----------------------------------- | --------------------------------------------------------------------- |
+| `auto` _(default)_ | local if available, else upload‑only | —                                   | (falls back automatically)                                            |
+| `local`            | sd‑cli (stable‑diffusion.cpp)        | none, local GPU                     | `SDCPP_*` (see below)                                                 |
+| `agy`              | Gemini image agent (CLI)             | subscription login                  | `AGY_BINARY`, `AGY_IMAGE_MODEL` (default `Gemini 3.5 Flash (Medium)`) |
+| `openai`           | OpenAI Images API                    | `OPENAI_API_KEY` (shared with text) | `OPENAI_IMAGE_MODEL` (e.g. `gpt-image-1`)                             |
+| `google`           | Google Imagen API                    | `GOOGLE_API_KEY` (shared with text) | `GOOGLE_IMAGE_MODEL` (e.g. `imagen-3.0-generate-002`)                 |
+| `stability`        | Stability AI (Stable Image)          | `STABILITY_API_KEY`                 | `STABILITY_IMAGE_MODEL` (e.g. `core`, `sd3`, `ultra`)                 |
+| `bfl`              | Black Forest Labs (FLUX)             | `BFL_API_KEY`                       | `BFL_IMAGE_MODEL` (e.g. `flux-dev`, `flux-pro-1.1`)                   |
+| `replicate`        | Replicate (any `owner/name` model)   | `REPLICATE_API_TOKEN`               | `REPLICATE_IMAGE_MODEL` (e.g. `black-forest-labs/flux-schnell`)       |
+| `fal`              | fal.ai                               | `FAL_API_KEY`                       | `FAL_IMAGE_MODEL` (e.g. `fal-ai/flux/schnell`)                        |
+| `none`             | upload‑only (no generation)          | —                                   | —                                                                     |
 
 > **Keys are per provider (account).** `openai`/`google` images **reuse the same key as the text
 > engine** (`OPENAI_API_KEY` / `GOOGLE_API_KEY`). The four dedicated image providers
@@ -89,6 +84,8 @@ images, everything else (text, scheduling, publishing) works.
 - fal `image_size`: `1:1`→`square_hd`, `4:5`→`portrait_4_3`, `9:16`→`portrait_16_9`,
   `1.91:1`/`16:9`→`landscape_16_9`.
 - Local: exact pixel dimensions per aspect.
+- agy: best‑effort — it is an image _agent_, not a txt2img model, so the requested aspect/scene may not
+  be honored exactly. Use a cloud provider or `local` when fidelity matters.
 
 ### Local image generation & swapping the model (Z‑Image)
 
@@ -155,10 +152,10 @@ export interface ImageEngine {
   name(): string;
   available(): boolean; // can this engine run right now? (key present / binary installed)
   generate(input: {
-    prompt: string;        // full, styled prompt
-    aspect: SceneAspect;   // "1:1" | "4:5" | "1.91:1" | "9:16" | "16:9"
-    outPath: string;       // write the resulting image here (PNG)
-    signal?: AbortSignal;  // honor cancellation
+    prompt: string; // full, styled prompt
+    aspect: SceneAspect; // "1:1" | "4:5" | "1.91:1" | "9:16" | "16:9"
+    outPath: string; // write the resulting image here (PNG)
+    signal?: AbortSignal; // honor cancellation
   }): Promise<string | null>; // outPath on success, null on failure/unavailable
 }
 ```
