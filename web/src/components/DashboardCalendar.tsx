@@ -608,8 +608,8 @@ export function DashboardCalendar() {
 
   const [selectedBookId, setSelectedBookId] = useState<string | null>(null);
 
-  const books = booksState.data ?? [];
-  const posts = postsState.data ?? [];
+  const books = useMemo(() => booksState.data ?? [], [booksState.data]);
+  const posts = useMemo(() => postsState.data ?? [], [postsState.data]);
 
   // Mappa bookId → colore: libri ordinati per id, indice % palette (deterministico).
   const colorMap = useMemo(() => {

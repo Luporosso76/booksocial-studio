@@ -396,7 +396,7 @@ function mapPost(r: Row): ScheduledPost {
     platform: r.platform === "instagram" ? "instagram" : "facebook",
     linkedPostId: r.linked_post_id == null ? null : Number(r.linked_post_id),
     igMediaId: (r.ig_media_id as string | null) ?? null,
-    dashboardHidden: (Number(r.dashboard_hidden) ?? 0) === 1,
+    dashboardHidden: Number(r.dashboard_hidden ?? 0) === 1,
     createdAt: Number(r.created_at),
     updatedAt: Number(r.updated_at),
   };
