@@ -516,6 +516,14 @@ export const scheduleDrafts = (pageId: string) =>
 export const getPagePosts = (pageId: string, signal?: AbortSignal) =>
   apiGet<ScheduledPost[]>(`/pages/${pageId}/posts`, signal);
 
+// Tutti i post SCHEDULED di ogni pagina (calendario Dashboard).
+export const getScheduledPosts = (signal?: AbortSignal) =>
+  apiGet<ScheduledPost[]>("/posts/scheduled", signal);
+
+// Nasconde un post pubblicato dalle viste Dashboard (non lo elimina, resta su FB/IG).
+export const hidePostFromDashboard = (id: number) =>
+  apiPost<{ ok: boolean }>(`/posts/${id}/dashboard-hidden`, { hidden: true });
+
 export const generatePost = (input: {
   bookId: string;
   pageId?: string;

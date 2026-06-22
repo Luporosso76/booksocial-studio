@@ -51,6 +51,13 @@ export class PublishScheduler {
   }
 
   private async tick(): Promise<void> {
+    // Riallinea i post programmati su FB (fb_post_id) la cui data è passata: FB li ha già
+    // pubblicati, lo stato locale resta SCHEDULED -> li marchiamo PUBLISHED (non li ripubblica).
+    const reconciled = await posts.reconcileNativeScheduled(Date.now());
+    if (reconciled > 0) {
+      // eslint-disable-next-line no-console
+      console.log(`[scheduler] ${reconciled} post programmati su FB riallineati a PUBLISHED`);
+    }
     const due = await posts.findDue(Date.now(), DUE_BATCH);
     for (const post of due) {
       if (await posts.claimForPublishing(post.id, Date.now())) {

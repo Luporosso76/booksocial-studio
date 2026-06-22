@@ -60,6 +60,7 @@ export async function createInstagramJob(fromPost: ScheduledPost): Promise<Sched
     platform: "instagram",
     linkedPostId: fromPost.id,
     igMediaId: null,
+    dashboardHidden: false,
     createdAt: now,
     updatedAt: now,
   });

@@ -259,6 +259,8 @@ export function postDto(p: ScheduledPost) {
     platform: p.platform,
     linkedPostId: p.linkedPostId == null ? null : String(p.linkedPostId),
     igMediaId: p.igMediaId,
+    // Nascosto dalle viste Dashboard (post pubblicato che l'utente non vuole più vedere).
+    dashboardHidden: p.dashboardHidden,
   };
 }
 

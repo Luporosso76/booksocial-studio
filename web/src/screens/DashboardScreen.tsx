@@ -18,12 +18,17 @@ import {
   TrendingUp,
   Facebook,
   Instagram,
+  EyeOff,
 } from "lucide-react";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
+import { Modal } from "@/components/ui/Modal";
 import { Collapsible } from "@/components/ui/Collapsible";
+import { useToast } from "@/components/ui/toast";
 import { Badge, EmptyState, ErrorBanner, Skeleton, Spinner } from "@/components/ui/misc";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { PageTabs } from "@/components/PageTabs";
+import { DashboardCalendar } from "@/components/DashboardCalendar";
 import { UsageStatsCard } from "@/components/UsageStatsCard";
 import { cn } from "@/lib/cn";
 import { useAsync } from "@/lib/useAsync";
@@ -34,6 +39,7 @@ import {
   getPageInsights,
   getIgInsights,
   getIgAccount,
+  hidePostFromDashboard,
 } from "@/api/endpoints";
 import type {
   FacebookPage,
@@ -58,113 +64,82 @@ function metricValue(metrics: PageInsights["metrics"], name: string): number {
   return metrics.find((m) => m.metric === name)?.value ?? 0;
 }
 
-type KpiColor = "indigo" | "sky" | "rose" | "amber";
+// ─── KPI per pagina + account Instagram (niente totale aggregato) ───────────────
+//
+// Una PAGINA = UNA riga compatta: [Nome pagina] | [blocco Facebook] | [blocco Instagram].
+// Ogni metrica è ICONA + valore (niente etichette lunghe): l'icona è neutra
+// (text-content-tertiary), il valore porta il peso (text-content-secondary, ≥4.5:1).
+// Solo l'icona-brand è colorata (sky=FB, rose=IG) per ancorare il blocco senza
+// trasformare la riga in un "albero di Natale".
 
-const KPI_COLORS: Record<KpiColor, { chip: string; glow: string }> = {
-  indigo: {
-    chip: "bg-indigo-500/15 text-indigo-300",
-    glow: "hover:shadow-[0_0_36px_-12px_rgba(129,140,248,0.55)]",
-  },
-  sky: {
-    chip: "bg-sky-500/15 text-sky-300",
-    glow: "hover:shadow-[0_0_36px_-12px_rgba(56,189,248,0.55)]",
-  },
-  rose: {
-    chip: "bg-rose-500/15 text-rose-300",
-    glow: "hover:shadow-[0_0_36px_-12px_rgba(251,113,133,0.55)]",
-  },
-  amber: {
-    chip: "bg-amber-500/15 text-amber-300",
-    glow: "hover:shadow-[0_0_36px_-12px_rgba(251,191,36,0.55)]",
-  },
-};
-
-interface KpiTileProps {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  color: KpiColor;
-}
-
-function KpiTile({ icon, label, value, color }: KpiTileProps) {
-  const c = KPI_COLORS[color];
-  return (
-    <div
-      className={cn(
-        "group flex flex-col gap-3 rounded-xl border border-border-subtle bg-bg-card p-4 shadow-card",
-        "transition-[transform,box-shadow] duration-200 ease-out-strong",
-        "hover:-translate-y-0.5 hover:border-border",
-        c.glow,
-      )}
-    >
-      <div className={cn("flex h-9 w-9 items-center justify-center rounded-lg", c.chip)}>
-        {icon}
-      </div>
-      <div className="flex flex-col gap-1">
-        <span className="text-2xl font-bold leading-none text-content-primary tabular-nums">
-          {value}
-        </span>
-        <span className="text-xs font-medium uppercase tracking-wide text-content-tertiary">
-          {label}
-        </span>
-      </div>
-    </div>
-  );
-}
-
-function KpiRow({
-  followers,
-  coverage,
-  interactions,
-  scheduled,
+// Singola metrica icona+valore. `title` mostra il nome completo in hover/screen-reader.
+function KpiMetric({
+  icon: Icon,
+  value,
+  title,
 }: {
-  followers: string;
-  coverage: string;
-  interactions: string;
-  scheduled: string;
+  icon: typeof Users;
+  value: string;
+  title: string;
 }) {
-  const { t } = useTranslation();
   return (
-    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-      <KpiTile
-        icon={<Users className="h-5 w-5" />}
-        label={t("dashboard.kpiFollowers")}
-        value={followers}
-        color="indigo"
-      />
-      <KpiTile
-        icon={<Eye className="h-5 w-5" />}
-        label={t("dashboard.kpiCoverage")}
-        value={coverage}
-        color="sky"
-      />
-      <KpiTile
-        icon={<Zap className="h-5 w-5" />}
-        label={t("dashboard.kpiEngagements")}
-        value={interactions}
-        color="rose"
-      />
-      <KpiTile
-        icon={<CalendarClock className="h-5 w-5" />}
-        label={t("dashboard.kpiScheduled")}
-        value={scheduled}
-        color="amber"
-      />
+    <span className="flex items-center gap-1" title={title}>
+      <Icon className="h-3.5 w-3.5 shrink-0 text-content-tertiary" aria-hidden />
+      <span className="text-sm font-medium tabular-nums text-content-secondary">{value}</span>
+    </span>
+  );
+}
+
+// Blocco per piattaforma: icona-brand colorata + (opzionale) @username + metriche.
+function KpiPlatformBlock({
+  brandIcon: BrandIcon,
+  brandClass,
+  handle,
+  children,
+}: {
+  brandIcon: typeof Facebook;
+  brandClass: string;
+  handle?: string | null;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex min-w-0 items-center gap-2.5">
+      <BrandIcon className={cn("h-4 w-4 shrink-0", brandClass)} aria-hidden />
+      {handle && <span className="truncate text-xs text-content-tertiary">{handle}</span>}
+      <div className="flex items-center gap-3 sm:gap-4">{children}</div>
     </div>
   );
 }
 
-function KpiSkeletonRow() {
+// Skeleton compatto di un blocco-piattaforma: icona-brand + N pill metrica.
+function KpiBlockSkeleton({
+  count,
+  brandIcon: BrandIcon,
+  brandClass,
+}: {
+  count: number;
+  brandIcon: typeof Facebook;
+  brandClass: string;
+}) {
   return (
-    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-      {Array.from({ length: 4 }).map((_, i) => (
-        <Skeleton key={i} className="h-[5.75rem] w-full rounded-xl" />
-      ))}
+    <div className="flex items-center gap-2.5">
+      <BrandIcon className={cn("h-4 w-4 shrink-0 opacity-40", brandClass)} aria-hidden />
+      <div className="flex items-center gap-3 sm:gap-4">
+        {Array.from({ length: count }).map((_, i) => (
+          <span key={i} className="flex items-center gap-1">
+            <Skeleton className="h-3.5 w-3.5 rounded" />
+            <Skeleton className="h-3.5 w-8 rounded" />
+          </span>
+        ))}
+      </div>
     </div>
   );
 }
 
+// Una pagina = una riga: nome pagina + blocco FB + (se collegato) blocco IG.
+// Su <lg diventa una card a 2 livelli: riga1 nome, riga2 grid-cols-2 FB | IG.
 function PageKpiSection({ page }: { page: FacebookPage }) {
+  const { t } = useTranslation();
   const insState = useAsync<PageInsights>((s) => getPageInsights(page.id, "day", s), [page.id]);
   const postsState = useAsync<ScheduledPost[]>((s) => getPagePosts(page.id, s), [page.id]);
   const hasIg = !!page.igUserId;
@@ -189,55 +164,112 @@ function PageKpiSection({ page }: { page: FacebookPage }) {
     igInsState.data?.metrics.find((m) => m.metric === name)?.value ?? 0;
   const igUsername = igAccState.data?.account?.username ?? null;
 
+  const fbLoading = insState.loading || postsState.loading;
+  const igLoading = igAccState.loading || igInsState.loading || postsState.loading;
+
+  const fbBlock = fbLoading ? (
+    <KpiBlockSkeleton count={4} brandClass="text-sky-300" brandIcon={Facebook} />
+  ) : (
+    <KpiPlatformBlock brandIcon={Facebook} brandClass="text-sky-300">
+      <KpiMetric
+        icon={Users}
+        title={t("dashboard.kpiFollowers")}
+        value={compactNumber(insState.data?.totals?.followersCount ?? 0)}
+      />
+      <KpiMetric
+        icon={Eye}
+        title={t("dashboard.kpiCoverage")}
+        value={compactNumber(metricValue(fbMetrics, "page_total_media_view_unique"))}
+      />
+      <KpiMetric
+        icon={Zap}
+        title={t("dashboard.kpiEngagements")}
+        value={compactNumber(metricValue(fbMetrics, "page_post_engagements"))}
+      />
+      <KpiMetric
+        icon={CalendarClock}
+        title={t("dashboard.kpiScheduled")}
+        value={compactNumber(fbScheduled)}
+      />
+    </KpiPlatformBlock>
+  );
+
+  const igBlock = igLoading ? (
+    <KpiBlockSkeleton count={3} brandClass="text-rose-300" brandIcon={Instagram} />
+  ) : (
+    <KpiPlatformBlock
+      brandIcon={Instagram}
+      brandClass="text-rose-300"
+      handle={igUsername ? `@${igUsername}` : null}
+    >
+      <KpiMetric
+        icon={Users}
+        title={t("dashboard.kpiFollowers")}
+        value={compactNumber(igAccState.data?.account?.followersCount ?? 0)}
+      />
+      <KpiMetric
+        icon={Eye}
+        title={t("dashboard.kpiCoverage")}
+        value={compactNumber(igMetric("reach"))}
+      />
+      <KpiMetric
+        icon={CalendarClock}
+        title={t("dashboard.kpiScheduled")}
+        value={compactNumber(igScheduled)}
+      />
+    </KpiPlatformBlock>
+  );
+
   return (
-    <div className="flex flex-col gap-4">
-      <div>
-        <div className="mb-2.5 flex items-center gap-2 text-sm">
-          <Facebook className="h-4 w-4 text-sky-300" />
-          <span className="truncate font-semibold text-content-primary">{page.name}</span>
-          <span className="text-content-tertiary">· Facebook</span>
-        </div>
-        {insState.loading || postsState.loading ? (
-          <KpiSkeletonRow />
-        ) : (
-          <KpiRow
-            followers={compactNumber(insState.data?.totals?.followersCount ?? 0)}
-            coverage={compactNumber(metricValue(fbMetrics, "page_total_media_view_unique"))}
-            interactions={compactNumber(metricValue(fbMetrics, "page_post_engagements"))}
-            scheduled={compactNumber(fbScheduled)}
-          />
+    <div
+      className={cn(
+        "rounded-lg bg-bg-inset px-3 py-2.5 transition-colors duration-150 ease-out hover:bg-bg-hover",
+        // Desktop: una riga sola. Mobile: card a 2 livelli (nome sopra, blocchi sotto).
+        "lg:flex lg:items-center lg:gap-4",
+      )}
+    >
+      <span className="block min-w-0 truncate text-sm font-semibold text-content-primary lg:w-44 lg:shrink-0">
+        {page.name}
+      </span>
+      <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-2 lg:mt-0 lg:flex lg:flex-1 lg:items-center lg:gap-0">
+        <div className="min-w-0 lg:flex-1">{fbBlock}</div>
+        {hasIg && (
+          <div className="min-w-0 border-l border-border-subtle/60 pl-4 lg:flex-1">{igBlock}</div>
         )}
       </div>
-
-      {hasIg && (
-        <div>
-          <div className="mb-2.5 flex items-center gap-2 text-sm">
-            <Instagram className="h-4 w-4 text-rose-300" />
-            <span className="truncate font-semibold text-content-primary">
-              {igUsername ? `@${igUsername}` : page.name}
-            </span>
-            <span className="text-content-tertiary">· Instagram</span>
-          </div>
-          {igAccState.loading || igInsState.loading || postsState.loading ? (
-            <KpiSkeletonRow />
-          ) : (
-            <KpiRow
-              followers={compactNumber(igAccState.data?.account?.followersCount ?? 0)}
-              coverage={compactNumber(igMetric("reach"))}
-              interactions="—"
-              scheduled={compactNumber(igScheduled)}
-            />
-          )}
-        </div>
-      )}
     </div>
   );
 }
 
+// Skeleton dell'intera barra KPI mentre si carica l'elenco pagine: 2 righe compatte.
+function KpiTopBarSkeleton() {
+  return (
+    <div className="flex flex-col gap-2">
+      {Array.from({ length: 2 }).map((_, i) => (
+        <div
+          key={i}
+          className="rounded-lg bg-bg-inset px-3 py-2.5 lg:flex lg:items-center lg:gap-4"
+        >
+          <Skeleton className="h-4 w-32 rounded lg:w-44 lg:shrink-0" />
+          <div className="mt-2 grid grid-cols-2 gap-x-4 lg:mt-0 lg:flex lg:flex-1 lg:items-center lg:gap-0">
+            <div className="lg:flex-1">
+              <KpiBlockSkeleton count={4} brandClass="text-sky-300" brandIcon={Facebook} />
+            </div>
+            <div className="border-l border-border-subtle/60 pl-4 lg:flex-1">
+              <KpiBlockSkeleton count={3} brandClass="text-rose-300" brandIcon={Instagram} />
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// KPI per ogni pagina/account, impilate in righe compatte. Nessun conteggio totale.
 function KpiTopBar({ pages }: { pages: FacebookPage[] }) {
   if (pages.length === 0) return null;
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-2">
       {pages.map((p) => (
         <PageKpiSection key={p.id} page={p} />
       ))}
@@ -539,60 +571,143 @@ function IgInsightRow({ page }: { page: FacebookPage }) {
   );
 }
 
-function PostList({ posts }: { posts: ScheduledPost[] }) {
-  const { t } = useTranslation();
+// Lista dei post: nasconde quelli rimossi dalla vista (published nascosti), poi ordina i
+// SCHEDULED per data CRESCENTE (il prossimo programmato per primo), gli altri in coda.
+function PostList({ posts, onChanged }: { posts: ScheduledPost[]; onChanged: () => void }) {
+  const visible = posts
+    .filter((p) => p.dashboardHidden !== true)
+    .sort((a, b) => {
+      const aSched = a.status === "SCHEDULED";
+      const bSched = b.status === "SCHEDULED";
+      if (aSched && bSched) {
+        return (
+          (a.scheduledAt ?? Number.POSITIVE_INFINITY) - (b.scheduledAt ?? Number.POSITIVE_INFINITY)
+        );
+      }
+      if (aSched) return -1;
+      if (bSched) return 1;
+      return 0;
+    });
+
   return (
     <div className="flex flex-col gap-3 stagger">
-      {posts.map((p) => {
-        const when = formatWhen(p.scheduledAt);
-        return (
-          <div key={p.id} className="rounded-lg border border-border-subtle bg-bg-inset p-4">
-            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <Badge tone={statusTone(p.status)}>{statusLabel(p.status)}</Badge>
-                {p.angle && <Badge tone="accent">{p.angle}</Badge>}
-                {p.mediaType && <Badge>{mediaTypeLabel(p.mediaType)}</Badge>}
-              </div>
-              {when && (
-                <span className="inline-flex items-center gap-1 text-xs text-content-tertiary">
-                  <Calendar className="h-3 w-3" />
-                  {when}
-                </span>
-              )}
-            </div>
-            {p.body && (
-              <p className="whitespace-pre-wrap text-sm leading-relaxed text-content-secondary">
-                {p.body}
-              </p>
-            )}
-            {p.errorMessage && (
-              <p className="mt-2 flex items-center gap-1.5 rounded-md border border-danger/30 bg-danger-soft px-3 py-2 text-xs text-danger">
-                <AlertCircle className="h-3 w-3 shrink-0" />
-                {p.errorMessage}
-              </p>
-            )}
-            {p.baseHashtags?.length || p.specificHashtags?.length || p.finalHashtags?.length ? (
-              <Collapsible
-                title={t("dashboard.hashtagsTitle")}
-                summary={p.finalHashtags?.slice(0, 3).join(" ")}
-                className="mt-2"
-              >
-                <HashtagBreakdown
-                  base={p.baseHashtags}
-                  specific={p.specificHashtags}
-                  final={p.finalHashtags}
-                />
-              </Collapsible>
-            ) : (
-              <HashtagBreakdown
-                base={p.baseHashtags}
-                specific={p.specificHashtags}
-                final={p.finalHashtags}
-              />
-            )}
-          </div>
-        );
-      })}
+      {visible.map((p) => (
+        <DashboardPostCard key={p.id} post={p} onChanged={onChanged} />
+      ))}
+    </div>
+  );
+}
+
+function DashboardPostCard({ post: p, onChanged }: { post: ScheduledPost; onChanged: () => void }) {
+  const { t } = useTranslation();
+  const toast = useToast();
+  const [confirmHide, setConfirmHide] = useState(false);
+  const [hiding, setHiding] = useState(false);
+  const when = formatWhen(p.scheduledAt);
+  const canHide = p.status === "PUBLISHED";
+
+  async function handleHide() {
+    setHiding(true);
+    try {
+      await hidePostFromDashboard(Number(p.id));
+      toast.success(t("dashboard.removeFromViewDone"));
+      setConfirmHide(false);
+      onChanged();
+    } catch {
+      toast.error(t("dashboard.removeFromViewFailed"));
+      setHiding(false);
+    }
+  }
+
+  return (
+    <div className="rounded-lg border border-border-subtle bg-bg-inset p-4">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <Badge tone={statusTone(p.status)}>{statusLabel(p.status)}</Badge>
+          {p.angle && <Badge tone="accent">{p.angle}</Badge>}
+          {p.mediaType && <Badge>{mediaTypeLabel(p.mediaType)}</Badge>}
+        </div>
+        <div className="flex items-center gap-2">
+          {when && (
+            <span className="inline-flex items-center gap-1 text-xs text-content-tertiary">
+              <Calendar className="h-3 w-3" />
+              {when}
+            </span>
+          )}
+          {canHide && (
+            <button
+              type="button"
+              onClick={() => setConfirmHide(true)}
+              title={t("dashboard.removeFromView")}
+              aria-label={t("dashboard.removeFromView")}
+              className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-content-tertiary transition-colors hover:text-danger"
+            >
+              <EyeOff className="h-3.5 w-3.5" />
+              {t("dashboard.removeFromView")}
+            </button>
+          )}
+        </div>
+      </div>
+      {p.body && (
+        <p className="whitespace-pre-wrap text-sm leading-relaxed text-content-secondary">
+          {p.body}
+        </p>
+      )}
+      {p.errorMessage && (
+        <p className="mt-2 flex items-center gap-1.5 rounded-md border border-danger/30 bg-danger-soft px-3 py-2 text-xs text-danger">
+          <AlertCircle className="h-3 w-3 shrink-0" />
+          {p.errorMessage}
+        </p>
+      )}
+      {p.baseHashtags?.length || p.specificHashtags?.length || p.finalHashtags?.length ? (
+        <Collapsible
+          title={t("dashboard.hashtagsTitle")}
+          summary={p.finalHashtags?.slice(0, 3).join(" ")}
+          className="mt-2"
+        >
+          <HashtagBreakdown
+            base={p.baseHashtags}
+            specific={p.specificHashtags}
+            final={p.finalHashtags}
+          />
+        </Collapsible>
+      ) : (
+        <HashtagBreakdown
+          base={p.baseHashtags}
+          specific={p.specificHashtags}
+          final={p.finalHashtags}
+        />
+      )}
+
+      {/* Conferma: nasconde il post pubblicato dalla vista SENZA cancellarlo (resta su FB/IG). */}
+      <Modal
+        open={confirmHide}
+        onClose={() => {
+          if (hiding) return;
+          setConfirmHide(false);
+        }}
+        size="sm"
+        title={t("dashboard.removeFromView")}
+        description={t("dashboard.removeFromViewConfirm")}
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setConfirmHide(false)} disabled={hiding}>
+              {t("dashboard.removeFromViewCancel")}
+            </Button>
+            <Button variant="danger" onClick={handleHide} loading={hiding}>
+              <EyeOff className="h-4 w-4" />
+              {t("dashboard.removeFromViewConfirmBtn")}
+            </Button>
+          </>
+        }
+      >
+        <div className="flex items-start gap-2 rounded-lg border border-border-subtle bg-bg-inset px-3 py-2.5">
+          <EyeOff className="mt-0.5 h-4 w-4 shrink-0 text-content-tertiary" />
+          <p className="text-sm leading-snug text-content-primary">
+            {t("dashboard.removeFromViewNote")}
+          </p>
+        </div>
+      </Modal>
     </div>
   );
 }
@@ -637,9 +752,14 @@ export function DashboardScreen() {
     <div className="flex flex-col gap-6">
       <PageHeader title={t("dashboard.title")} description={t("dashboard.headerDescription")} />
 
-      {pagesState.loading ? <KpiSkeletonRow /> : <KpiTopBar pages={pages} />}
+      {/* KPI per ogni pagina Facebook + account Instagram (niente totale aggregato). */}
+      {pagesState.loading ? <KpiTopBarSkeleton /> : <KpiTopBar pages={pages} />}
 
+      {/* Attività in background in corso (es. analisi AI): nascosta se nessuna. */}
       <ActiveJobsCard />
+
+      {/* Calendario dei post programmati (tutte le pagine), colorati per libro. */}
+      <DashboardCalendar />
 
       <Card>
         <CardHeader
@@ -745,7 +865,7 @@ export function DashboardScreen() {
                     }
                   />
                 ) : (
-                  <PostList posts={shownPosts} />
+                  <PostList posts={shownPosts} onChanged={postsState.reload} />
                 )}
               </CardBody>
             </Card>

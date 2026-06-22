@@ -294,6 +294,9 @@ export interface ScheduledPost {
   linkedPostId: number | null;
   // Id del media Instagram dopo la pubblicazione (o null).
   igMediaId: string | null;
+  // Nascosto dalle viste della Dashboard (post pubblicato che l'utente non vuole più vedere).
+  // La riga resta nel DB e il post resta su FB/IG: è solo un filtro lato UI.
+  dashboardHidden: boolean;
   createdAt: number;
   updatedAt: number;
 }

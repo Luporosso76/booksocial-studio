@@ -286,6 +286,14 @@ const MIGRATIONS: Migration[] = [
       )`,
     ],
   },
+  {
+    // dashboard_hidden=1 → la riga resta nel DB e su FB/IG, ma NON compare più nelle liste
+    // della Dashboard. Serve a "togliere dalla vista" un post già pubblicato senza eliminarlo.
+    version: 2,
+    statements: [
+      `ALTER TABLE scheduled_post ADD COLUMN dashboard_hidden INTEGER NOT NULL DEFAULT 0`,
+    ],
+  },
 ];
 
 async function currentVersion(): Promise<number> {

@@ -396,6 +396,7 @@ function mapPost(r: Row): ScheduledPost {
     platform: r.platform === "instagram" ? "instagram" : "facebook",
     linkedPostId: r.linked_post_id == null ? null : Number(r.linked_post_id),
     igMediaId: (r.ig_media_id as string | null) ?? null,
+    dashboardHidden: (Number(r.dashboard_hidden) ?? 0) === 1,
     createdAt: Number(r.created_at),
     updatedAt: Number(r.updated_at),
   };
@@ -1111,9 +1112,27 @@ export const posts = {
     return rows.map(mapPost);
   },
 
+  // Tutti i post SCHEDULED di ogni pagina, ordinati per data crescente (calendario Dashboard).
+  async scheduledAll(limit = 500): Promise<ScheduledPost[]> {
+    const rows = await query(
+      "SELECT * FROM scheduled_post WHERE status='SCHEDULED' ORDER BY scheduled_at ASC LIMIT ?",
+      [limit],
+    );
+    return rows.map(mapPost);
+  },
+
   async get(id: number): Promise<ScheduledPost | null> {
     const rows = await query("SELECT * FROM scheduled_post WHERE id=?", [id]);
     return rows.length ? mapPost(rows[0]) : null;
+  },
+
+  // Nasconde (o ri-mostra) un post dalle viste Dashboard. NON elimina la riga né tocca FB/IG.
+  async setDashboardHidden(id: number, hidden: boolean): Promise<void> {
+    await execute("UPDATE scheduled_post SET dashboard_hidden=?, updated_at=? WHERE id=?", [
+      hidden ? 1 : 0,
+      Date.now(),
+      id,
+    ]);
   },
 
   async insert(p: Omit<ScheduledPost, "id">): Promise<ScheduledPost> {
@@ -1231,6 +1250,19 @@ export const posts = {
       [linkedPostId],
     );
     return rows.length ? mapPost(rows[0]) : null;
+  },
+
+  // Riallinea i post programmati NATIVAMENTE su Facebook (hanno già un fb_post_id) la cui data
+  // è passata: FB li ha pubblicati ma lo stato locale resta SCHEDULED per sempre. Li marchiamo
+  // PUBLISHED (lo scheduler non li ripubblica) così non appaiono come "programmati nel passato".
+  async reconcileNativeScheduled(now: number): Promise<number> {
+    const r = await execute(
+      `UPDATE scheduled_post SET status='PUBLISHED',
+              published_at_actual=COALESCE(published_at_actual, scheduled_at), updated_at=?
+       WHERE status='SCHEDULED' AND fb_post_id IS NOT NULL AND fb_post_id != '' AND scheduled_at <= ?`,
+      [now, now],
+    );
+    return r.affectedRows;
   },
 
   // Crash recovery: only re-schedule PUBLISHING posts WITHOUT an fb_post_id.

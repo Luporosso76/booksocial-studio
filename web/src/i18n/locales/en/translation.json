@@ -525,7 +525,27 @@
     "hashtagsTitle": "Hashtags",
     "hashtagsBase": "Base",
     "hashtagsSpecific": "Specific",
-    "hashtagsFinal": "Final"
+    "hashtagsFinal": "Final",
+    "calendar": {
+      "title": "Calendar",
+      "description": "Scheduled posts by month and week.",
+      "weekdaysShort": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+      "legend": "Books",
+      "noScheduled": "No scheduled posts.",
+      "prevMonth": "Previous month",
+      "nextMonth": "Next month",
+      "prevWeek": "Previous week",
+      "nextWeek": "Next week",
+      "morePosts": "{{count}} more posts",
+      "noBook": "No book"
+    },
+    "removeFromView": "Remove from view",
+    "removeFromViewConfirm": "Hide this published post from the dashboard?",
+    "removeFromViewNote": "The post stays published on Facebook/Instagram: it is only hidden from this list, not deleted.",
+    "removeFromViewConfirmBtn": "Hide",
+    "removeFromViewCancel": "Cancel",
+    "removeFromViewDone": "Post removed from view",
+    "removeFromViewFailed": "Could not remove the post from view"
   },
   "planner": {
     "publishFailed": "Publishing failed.",

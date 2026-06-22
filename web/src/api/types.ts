@@ -527,6 +527,8 @@ export interface ScheduledPost {
   linkedPostId?: string | null;
   // Solo per le righe IG: id del media pubblicato su Instagram (quando presente).
   igMediaId?: string | null;
+  // Nascosto dalle viste Dashboard: post pubblicato che l'utente non vuole più vedere.
+  dashboardHidden?: boolean;
 }
 
 // Periodo di generazione passato a POST /planner/generate-week. `week`=7 giorni,

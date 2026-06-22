@@ -325,7 +325,7 @@ function ProgrammatiList({ page }: { page: FacebookPage }) {
 
   const all = postsState.data ?? [];
   const programmati = all
-    .filter((p) => p.status === "SCHEDULED" && !p.fbPostId)
+    .filter((p) => p.status === "SCHEDULED" && !p.fbPostId && p.dashboardHidden !== true)
     .sort(
       (a, b) =>
         (a.scheduledAt ?? Number.POSITIVE_INFINITY) - (b.scheduledAt ?? Number.POSITIVE_INFINITY),

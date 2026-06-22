@@ -2479,6 +2479,11 @@ export function buildApi(deps: AppDeps): Hono {
     return c.json((await posts.byPage(c.req.param("id"))).map(postDto));
   });
 
+  // Tutti i post SCHEDULED di tutte le pagine (calendario Dashboard).
+  api.get("/posts/scheduled", async (c) => {
+    return c.json((await posts.scheduledAll()).map(postDto));
+  });
+
   // Generate a draft post (shows base + specific + final hashtags).
   api.post("/posts/generate", async (c) => {
     const body = await c.req.json().catch(() => ({}));
@@ -2546,6 +2551,17 @@ export function buildApi(deps: AppDeps): Hono {
       await unlink(resolveDataPath(post.mediaPath)).catch(() => {});
     }
     await posts.delete(id);
+    return c.json({ ok: true });
+  });
+
+  // POST /posts/:id/dashboard-hidden — NASCONDE (o ri-mostra) un post dalle viste della
+  // Dashboard SENZA cancellarlo: la riga resta nel DB e il post resta su FB/IG. Diverso dal
+  // DELETE reale qui sopra (bozze SCHEDULED/DRAFT). body { hidden?: boolean } (default true).
+  api.post("/posts/:id/dashboard-hidden", async (c) => {
+    const id = Number(c.req.param("id"));
+    const body = await c.req.json<{ hidden?: boolean }>().catch(() => ({}) as { hidden?: boolean });
+    const hidden = body?.hidden ?? true;
+    await posts.setDashboardHidden(id, hidden);
     return c.json({ ok: true });
   });
 

@@ -525,7 +525,27 @@
     "hashtagsTitle": "Hashtag",
     "hashtagsBase": "Base",
     "hashtagsSpecific": "Spécifiques",
-    "hashtagsFinal": "Finaux"
+    "hashtagsFinal": "Finaux",
+    "calendar": {
+      "title": "Calendrier",
+      "description": "Posts programmés par mois et semaine.",
+      "weekdaysShort": ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"],
+      "legend": "Livres",
+      "noScheduled": "Aucun post programmé.",
+      "prevMonth": "Mois précédent",
+      "nextMonth": "Mois suivant",
+      "prevWeek": "Semaine précédente",
+      "nextWeek": "Semaine suivante",
+      "morePosts": "{{count}} posts de plus",
+      "noBook": "Sans livre"
+    },
+    "removeFromView": "Retirer de la vue",
+    "removeFromViewConfirm": "Masquer ce post publié du tableau de bord ?",
+    "removeFromViewNote": "Le post reste publié sur Facebook/Instagram : il est seulement masqué de cette liste, pas supprimé.",
+    "removeFromViewConfirmBtn": "Masquer",
+    "removeFromViewCancel": "Annuler",
+    "removeFromViewDone": "Post retiré de la vue",
+    "removeFromViewFailed": "Impossible de retirer le post de la vue"
   },
   "planner": {
     "publishFailed": "Échec de la publication.",

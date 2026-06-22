@@ -245,6 +245,7 @@ export class WeekPlanner {
           platform: "facebook",
           linkedPostId: null,
           igMediaId: null,
+          dashboardHidden: false,
           createdAt: now,
           updatedAt: now,
         });

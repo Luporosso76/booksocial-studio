@@ -525,7 +525,27 @@
     "hashtagsTitle": "Hashtag",
     "hashtagsBase": "Basis",
     "hashtagsSpecific": "Spezifisch",
-    "hashtagsFinal": "Finale"
+    "hashtagsFinal": "Finale",
+    "calendar": {
+      "title": "Kalender",
+      "description": "Geplante Beiträge nach Monat und Woche.",
+      "weekdaysShort": ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"],
+      "legend": "Bücher",
+      "noScheduled": "Keine geplanten Beiträge.",
+      "prevMonth": "Voriger Monat",
+      "nextMonth": "Nächster Monat",
+      "prevWeek": "Vorige Woche",
+      "nextWeek": "Nächste Woche",
+      "morePosts": "{{count}} weitere Beiträge",
+      "noBook": "Ohne Buch"
+    },
+    "removeFromView": "Aus der Ansicht entfernen",
+    "removeFromViewConfirm": "Diesen veröffentlichten Beitrag aus dem Dashboard ausblenden?",
+    "removeFromViewNote": "Der Beitrag bleibt auf Facebook/Instagram veröffentlicht: er wird nur aus dieser Liste ausgeblendet, nicht gelöscht.",
+    "removeFromViewConfirmBtn": "Ausblenden",
+    "removeFromViewCancel": "Abbrechen",
+    "removeFromViewDone": "Beitrag aus der Ansicht entfernt",
+    "removeFromViewFailed": "Beitrag konnte nicht aus der Ansicht entfernt werden"
   },
   "planner": {
     "publishFailed": "Veröffentlichung fehlgeschlagen.",
