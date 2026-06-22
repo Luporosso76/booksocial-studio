@@ -13,6 +13,40 @@ stories with real text, AI visuals and music — and schedule/publish them to Fa
 It runs **locally and self‑hosted**: your data stays on your machine in an embedded SQLite database.
 AI providers are pluggable (API key or subscription CLI) and the UI is bilingual (Italian/English).
 
+## Screenshots
+
+> The interface is bilingual (Italian/English); screenshots are in English.
+
+<table>
+  <tr>
+    <td width="50%" valign="top"><img src="docs/screenshots/dashboard.png" alt="Dashboard — KPIs, calendar & post status"><br/><sub><b>Dashboard — KPIs, calendar & post status</b></sub></td>
+    <td width="50%" valign="top"><img src="docs/screenshots/books.png" alt="Library — your imported books"><br/><sub><b>Library — your imported books</b></sub></td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><img src="docs/screenshots/book_profile.png" alt="Book profile — AI analysis"><br/><sub><b>Book profile — AI analysis</b></sub></td>
+    <td width="50%" valign="top"><img src="docs/screenshots/book_chapters.png" alt="Chapters & scene cards"><br/><sub><b>Chapters & scene cards</b></sub></td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><img src="docs/screenshots/book_characters.png" alt="Characters & visual bible"><br/><sub><b>Characters & visual bible</b></sub></td>
+    <td width="50%" valign="top"><img src="docs/screenshots/book_image.png" alt="AI scene images"><br/><sub><b>AI scene images</b></sub></td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><img src="docs/screenshots/book_music.png" alt="Music library"><br/><sub><b>Music library</b></sub></td>
+    <td width="50%" valign="top"><img src="docs/screenshots/planner.png" alt="Weekly planner"><br/><sub><b>Weekly planner</b></sub></td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><img src="docs/screenshots/page_management.png" alt="Page management (Facebook/Instagram)"><br/><sub><b>Page management (Facebook/Instagram)</b></sub></td>
+    <td width="50%" valign="top"><img src="docs/screenshots/settings_text_ai.png" alt="Settings — Text AI"><br/><sub><b>Settings — Text AI</b></sub></td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><img src="docs/screenshots/settings_image_ai.png" alt="Settings — Image AI"><br/><sub><b>Settings — Image AI</b></sub></td>
+    <td width="50%" valign="top"><img src="docs/screenshots/settings_content_images.png" alt="Settings — Content images"><br/><sub><b>Settings — Content images</b></sub></td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><img src="docs/screenshots/settings_quality_images.png" alt="Settings — Image quality check"><br/><sub><b>Settings — Image quality check</b></sub></td>
+  </tr>
+</table>
+
 ## Documentation
 
 - 📘 **[User manual](docs/MANUAL.md)** — complete operational guide to every screen (book loading, planning, publishing, settings).

@@ -11,6 +11,40 @@ Verwandle ein Buch (Markdown) in veröffentlichungsfertigen **Social-Media-Conte
 
 Es läuft **lokal und selbstgehostet**: Deine Daten bleiben auf deiner Maschine in einer eingebetteten SQLite-Datenbank. KI-Provider sind steckbar (API-Schlüssel oder Abonnement-CLI) und die UI ist zweisprachig (Italienisch/Englisch).
 
+## Screenshots
+
+> Die Oberfläche ist zweisprachig (Italienisch/Englisch); die Screenshots sind auf Englisch.
+
+<table>
+  <tr>
+    <td width="50%" valign="top"><img src="docs/screenshots/dashboard.png" alt="Dashboard — KPIs, Kalender und Beitragsstatus"><br/><sub><b>Dashboard — KPIs, Kalender und Beitragsstatus</b></sub></td>
+    <td width="50%" valign="top"><img src="docs/screenshots/books.png" alt="Bibliothek — deine importierten Bücher"><br/><sub><b>Bibliothek — deine importierten Bücher</b></sub></td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><img src="docs/screenshots/book_profile.png" alt="Buchprofil — KI-Analyse"><br/><sub><b>Buchprofil — KI-Analyse</b></sub></td>
+    <td width="50%" valign="top"><img src="docs/screenshots/book_chapters.png" alt="Kapitel und Szenenkarten"><br/><sub><b>Kapitel und Szenenkarten</b></sub></td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><img src="docs/screenshots/book_characters.png" alt="Figuren und visuelle Bibel"><br/><sub><b>Figuren und visuelle Bibel</b></sub></td>
+    <td width="50%" valign="top"><img src="docs/screenshots/book_image.png" alt="KI-Szenenbilder"><br/><sub><b>KI-Szenenbilder</b></sub></td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><img src="docs/screenshots/book_music.png" alt="Musikbibliothek"><br/><sub><b>Musikbibliothek</b></sub></td>
+    <td width="50%" valign="top"><img src="docs/screenshots/planner.png" alt="Wochenplaner"><br/><sub><b>Wochenplaner</b></sub></td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><img src="docs/screenshots/page_management.png" alt="Seitenverwaltung (Facebook/Instagram)"><br/><sub><b>Seitenverwaltung (Facebook/Instagram)</b></sub></td>
+    <td width="50%" valign="top"><img src="docs/screenshots/settings_text_ai.png" alt="Einstellungen — Text-KI"><br/><sub><b>Einstellungen — Text-KI</b></sub></td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><img src="docs/screenshots/settings_image_ai.png" alt="Einstellungen — Bild-KI"><br/><sub><b>Einstellungen — Bild-KI</b></sub></td>
+    <td width="50%" valign="top"><img src="docs/screenshots/settings_content_images.png" alt="Einstellungen — Inhaltsbilder"><br/><sub><b>Einstellungen — Inhaltsbilder</b></sub></td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><img src="docs/screenshots/settings_quality_images.png" alt="Einstellungen — Bildqualitätsprüfung"><br/><sub><b>Einstellungen — Bildqualitätsprüfung</b></sub></td>
+  </tr>
+</table>
+
 ## Dokumentation
 
 - 📘 **[Benutzerhandbuch](docs/MANUAL.md)** — vollständige Bedienungsanleitung für jeden Bildschirm (Buch laden, Planung, Veröffentlichung, Einstellungen).

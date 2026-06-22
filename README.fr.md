@@ -11,6 +11,40 @@ Transformez un livre (Markdown) en **contenu pour réseaux sociaux** prêt à ê
 
 Il s'exécute **localement et auto-hébergé** : vos données restent sur votre machine dans une base de données SQLite embarquée. Les fournisseurs d'IA sont modulables (clé API ou CLI par abonnement) et l'interface utilisateur est bilingue (italien/anglais).
 
+## Captures d'écran
+
+> L'interface est bilingue (italien/anglais) ; les captures d'écran sont en anglais.
+
+<table>
+  <tr>
+    <td width="50%" valign="top"><img src="docs/screenshots/dashboard.png" alt="Tableau de bord — KPI, calendrier et statut des posts"><br/><sub><b>Tableau de bord — KPI, calendrier et statut des posts</b></sub></td>
+    <td width="50%" valign="top"><img src="docs/screenshots/books.png" alt="Bibliothèque — vos livres importés"><br/><sub><b>Bibliothèque — vos livres importés</b></sub></td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><img src="docs/screenshots/book_profile.png" alt="Profil du livre — analyse IA"><br/><sub><b>Profil du livre — analyse IA</b></sub></td>
+    <td width="50%" valign="top"><img src="docs/screenshots/book_chapters.png" alt="Chapitres et fiches de scène"><br/><sub><b>Chapitres et fiches de scène</b></sub></td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><img src="docs/screenshots/book_characters.png" alt="Personnages et bible visuelle"><br/><sub><b>Personnages et bible visuelle</b></sub></td>
+    <td width="50%" valign="top"><img src="docs/screenshots/book_image.png" alt="Images de scène IA"><br/><sub><b>Images de scène IA</b></sub></td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><img src="docs/screenshots/book_music.png" alt="Bibliothèque musicale"><br/><sub><b>Bibliothèque musicale</b></sub></td>
+    <td width="50%" valign="top"><img src="docs/screenshots/planner.png" alt="Planificateur hebdomadaire"><br/><sub><b>Planificateur hebdomadaire</b></sub></td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><img src="docs/screenshots/page_management.png" alt="Gestion de page (Facebook/Instagram)"><br/><sub><b>Gestion de page (Facebook/Instagram)</b></sub></td>
+    <td width="50%" valign="top"><img src="docs/screenshots/settings_text_ai.png" alt="Paramètres — IA texte"><br/><sub><b>Paramètres — IA texte</b></sub></td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><img src="docs/screenshots/settings_image_ai.png" alt="Paramètres — IA images"><br/><sub><b>Paramètres — IA images</b></sub></td>
+    <td width="50%" valign="top"><img src="docs/screenshots/settings_content_images.png" alt="Paramètres — Images de contenu"><br/><sub><b>Paramètres — Images de contenu</b></sub></td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><img src="docs/screenshots/settings_quality_images.png" alt="Paramètres — Contrôle qualité des images"><br/><sub><b>Paramètres — Contrôle qualité des images</b></sub></td>
+  </tr>
+</table>
+
 ## Documentation
 
 - 📘 **[Manuel utilisateur](docs/MANUAL.md)** — guide opérationnel complet pour chaque écran (chargement de livre, planification, publication, paramètres).

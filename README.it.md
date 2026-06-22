@@ -6,6 +6,40 @@ Trasforma un libro (Markdown) in **contenuti per social media** pronti da pubbli
 
 Funziona **in locale e self-hosted**: i tuoi dati restano sulla tua macchina in un database SQLite integrato. I provider AI sono collegabili (tramite API key o CLI in abbonamento) e l'interfaccia utente è bilingue (italiano/inglese).
 
+## Screenshot
+
+> L'interfaccia è bilingue (italiano/inglese); gli screenshot sono in inglese.
+
+<table>
+  <tr>
+    <td width="50%" valign="top"><img src="docs/screenshots/dashboard.png" alt="Dashboard — KPI, calendario e stato dei post"><br/><sub><b>Dashboard — KPI, calendario e stato dei post</b></sub></td>
+    <td width="50%" valign="top"><img src="docs/screenshots/books.png" alt="Libreria — i tuoi libri importati"><br/><sub><b>Libreria — i tuoi libri importati</b></sub></td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><img src="docs/screenshots/book_profile.png" alt="Profilo libro — analisi AI"><br/><sub><b>Profilo libro — analisi AI</b></sub></td>
+    <td width="50%" valign="top"><img src="docs/screenshots/book_chapters.png" alt="Capitoli e schede scena"><br/><sub><b>Capitoli e schede scena</b></sub></td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><img src="docs/screenshots/book_characters.png" alt="Personaggi e bibbia visiva"><br/><sub><b>Personaggi e bibbia visiva</b></sub></td>
+    <td width="50%" valign="top"><img src="docs/screenshots/book_image.png" alt="Immagini di scena AI"><br/><sub><b>Immagini di scena AI</b></sub></td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><img src="docs/screenshots/book_music.png" alt="Libreria musicale"><br/><sub><b>Libreria musicale</b></sub></td>
+    <td width="50%" valign="top"><img src="docs/screenshots/planner.png" alt="Pianificatore settimanale"><br/><sub><b>Pianificatore settimanale</b></sub></td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><img src="docs/screenshots/page_management.png" alt="Gestione pagina (Facebook/Instagram)"><br/><sub><b>Gestione pagina (Facebook/Instagram)</b></sub></td>
+    <td width="50%" valign="top"><img src="docs/screenshots/settings_text_ai.png" alt="Impostazioni — AI testo"><br/><sub><b>Impostazioni — AI testo</b></sub></td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><img src="docs/screenshots/settings_image_ai.png" alt="Impostazioni — AI immagini"><br/><sub><b>Impostazioni — AI immagini</b></sub></td>
+    <td width="50%" valign="top"><img src="docs/screenshots/settings_content_images.png" alt="Impostazioni — Immagini contenuto"><br/><sub><b>Impostazioni — Immagini contenuto</b></sub></td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><img src="docs/screenshots/settings_quality_images.png" alt="Impostazioni — Controllo qualità immagini"><br/><sub><b>Impostazioni — Controllo qualità immagini</b></sub></td>
+  </tr>
+</table>
+
 ## Documentation
 
 - 📘 **[Manuale utente](docs/MANUAL.md)** — guida operativa completa per ogni schermata (caricamento libro, pianificazione, pubblicazione, impostazioni).
