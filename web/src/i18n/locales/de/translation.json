@@ -529,7 +529,15 @@
     "calendar": {
       "title": "Kalender",
       "description": "Geplante Beiträge nach Monat und Woche.",
-      "weekdaysShort": ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"],
+      "weekdaysShort": [
+        "Mo",
+        "Di",
+        "Mi",
+        "Do",
+        "Fr",
+        "Sa",
+        "So"
+      ],
       "legend": "Bücher",
       "noScheduled": "Keine geplanten Beiträge.",
       "prevMonth": "Voriger Monat",
@@ -545,7 +553,18 @@
     "removeFromViewConfirmBtn": "Ausblenden",
     "removeFromViewCancel": "Abbrechen",
     "removeFromViewDone": "Beitrag aus der Ansicht entfernt",
-    "removeFromViewFailed": "Beitrag konnte nicht aus der Ansicht entfernt werden"
+    "removeFromViewFailed": "Beitrag konnte nicht aus der Ansicht entfernt werden",
+    "jobAnalysis": "Buchanalyse",
+    "jobWeekgen": "Wochengenerierung",
+    "weekgenInProgress": "Wochengenerierung läuft",
+    "jobScenegen": "Bildgenerierung",
+    "scenegenInProgress": "Szenenbild-Generierung läuft",
+    "jobMediaRegen": "Bildregenerierung",
+    "mediaRegenInProgress": "Regenerierung läuft",
+    "regenImage": "Bild #{{id}}",
+    "jobQueued": "{{count}} in Warteschlange",
+    "jobVisualBible": "Visuelle Bibel",
+    "visualBibleInProgress": "Visuelle Bibel wird erstellt"
   },
   "planner": {
     "publishFailed": "Veröffentlichung fehlgeschlagen.",
@@ -1293,5 +1312,12 @@
       "label": "Fahrzeuge und Orte (Auto/Krankenhaus/Haus)",
       "description": "Plausible Darstellung von Autos auf See-/Bergstraßen, Krankenzimmern, ruhigen häuslichen Szenen. Nur aktiv in den entsprechenden Kapiteln."
     }
+  },
+  "bookDetail": {
+    "regenBannerCurrent": "Bild #{{id}} wird regeneriert",
+    "regenBannerPending": "Regenerierung in Warteschlange",
+    "regenBannerQueued": "{{n}} in Warteschlange",
+    "regenCancelAll": "Alle abbrechen",
+    "regenCancelAllFailed": "Abbruch fehlgeschlagen."
   }
 }

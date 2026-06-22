@@ -529,7 +529,15 @@
     "calendar": {
       "title": "Calendario",
       "description": "Post programmati per mese e settimana.",
-      "weekdaysShort": ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"],
+      "weekdaysShort": [
+        "Lun",
+        "Mar",
+        "Mer",
+        "Gio",
+        "Ven",
+        "Sab",
+        "Dom"
+      ],
       "legend": "Libri",
       "noScheduled": "Nessun post programmato.",
       "prevMonth": "Mese precedente",
@@ -545,7 +553,18 @@
     "removeFromViewConfirmBtn": "Nascondi",
     "removeFromViewCancel": "Annulla",
     "removeFromViewDone": "Post rimosso dalla vista",
-    "removeFromViewFailed": "Impossibile rimuovere il post dalla vista"
+    "removeFromViewFailed": "Impossibile rimuovere il post dalla vista",
+    "jobAnalysis": "Analisi libro",
+    "jobWeekgen": "Generazione settimana",
+    "weekgenInProgress": "Generazione settimana in corso",
+    "jobScenegen": "Generazione immagini",
+    "scenegenInProgress": "Generazione immagini di scena in corso",
+    "jobMediaRegen": "Rigenerazione immagini",
+    "mediaRegenInProgress": "Rigenerazione in corso",
+    "regenImage": "Immagine #{{id}}",
+    "jobQueued": "{{count}} in coda",
+    "jobVisualBible": "Bibbia visiva",
+    "visualBibleInProgress": "Costruzione bibbia visiva in corso"
   },
   "planner": {
     "publishFailed": "Pubblicazione non riuscita.",
@@ -1293,5 +1312,12 @@
       "label": "Veicoli e luoghi (auto/ospedale/casa)",
       "description": "Resa plausibile di auto su strade di lago/montagna, stanze d'ospedale, scene domestiche quiete. Attiva solo nei capitoli pertinenti."
     }
+  },
+  "bookDetail": {
+    "regenBannerCurrent": "Rigenerazione immagine #{{id}}",
+    "regenBannerPending": "Rigenerazione in coda",
+    "regenBannerQueued": "{{n}} in coda",
+    "regenCancelAll": "Annulla tutto",
+    "regenCancelAllFailed": "Annullamento non riuscito."
   }
 }

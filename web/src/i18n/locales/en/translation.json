@@ -529,7 +529,15 @@
     "calendar": {
       "title": "Calendar",
       "description": "Scheduled posts by month and week.",
-      "weekdaysShort": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+      "weekdaysShort": [
+        "Mon",
+        "Tue",
+        "Wed",
+        "Thu",
+        "Fri",
+        "Sat",
+        "Sun"
+      ],
       "legend": "Books",
       "noScheduled": "No scheduled posts.",
       "prevMonth": "Previous month",
@@ -545,7 +553,18 @@
     "removeFromViewConfirmBtn": "Hide",
     "removeFromViewCancel": "Cancel",
     "removeFromViewDone": "Post removed from view",
-    "removeFromViewFailed": "Could not remove the post from view"
+    "removeFromViewFailed": "Could not remove the post from view",
+    "jobAnalysis": "Book analysis",
+    "jobWeekgen": "Week generation",
+    "weekgenInProgress": "Week generation in progress",
+    "jobScenegen": "Image generation",
+    "scenegenInProgress": "Scene image generation in progress",
+    "jobMediaRegen": "Image regeneration",
+    "mediaRegenInProgress": "Regeneration in progress",
+    "regenImage": "Image #{{id}}",
+    "jobQueued": "{{count}} queued",
+    "jobVisualBible": "Visual bible",
+    "visualBibleInProgress": "Building visual bible"
   },
   "planner": {
     "publishFailed": "Publishing failed.",
@@ -1293,5 +1312,12 @@
       "label": "Vehicles and places (car/hospital/home)",
       "description": "Plausible rendering of cars on lakeside/mountain roads, hospital rooms, quiet domestic scenes. Active only in relevant chapters."
     }
+  },
+  "bookDetail": {
+    "regenBannerCurrent": "Regenerating image #{{id}}",
+    "regenBannerPending": "Regeneration queued",
+    "regenBannerQueued": "{{n}} in queue",
+    "regenCancelAll": "Cancel all",
+    "regenCancelAllFailed": "Could not cancel."
   }
 }

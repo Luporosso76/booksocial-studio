@@ -529,7 +529,15 @@
     "calendar": {
       "title": "Calendrier",
       "description": "Posts programmés par mois et semaine.",
-      "weekdaysShort": ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"],
+      "weekdaysShort": [
+        "Lun",
+        "Mar",
+        "Mer",
+        "Jeu",
+        "Ven",
+        "Sam",
+        "Dim"
+      ],
       "legend": "Livres",
       "noScheduled": "Aucun post programmé.",
       "prevMonth": "Mois précédent",
@@ -545,7 +553,18 @@
     "removeFromViewConfirmBtn": "Masquer",
     "removeFromViewCancel": "Annuler",
     "removeFromViewDone": "Post retiré de la vue",
-    "removeFromViewFailed": "Impossible de retirer le post de la vue"
+    "removeFromViewFailed": "Impossible de retirer le post de la vue",
+    "jobAnalysis": "Analyse du livre",
+    "jobWeekgen": "Génération de semaine",
+    "weekgenInProgress": "Génération de semaine en cours",
+    "jobScenegen": "Génération d’images",
+    "scenegenInProgress": "Génération d’images de scène en cours",
+    "jobMediaRegen": "Régénération d’images",
+    "mediaRegenInProgress": "Régénération en cours",
+    "regenImage": "Image n°{{id}}",
+    "jobQueued": "{{count}} en file",
+    "jobVisualBible": "Bible visuelle",
+    "visualBibleInProgress": "Construction de la bible visuelle"
   },
   "planner": {
     "publishFailed": "Échec de la publication.",
@@ -1293,5 +1312,12 @@
       "label": "Véhicules et lieux (auto/hôpital/maison)",
       "description": "Rendu plausible de voitures sur des routes de lac/montagne, de chambres d'hôpital, de scènes domestiques calmes. Active uniquement dans les chapitres pertinents."
     }
+  },
+  "bookDetail": {
+    "regenBannerCurrent": "Régénération de l’image n°{{id}}",
+    "regenBannerPending": "Régénération en file",
+    "regenBannerQueued": "{{n}} en file",
+    "regenCancelAll": "Tout annuler",
+    "regenCancelAllFailed": "Annulation impossible."
   }
 }

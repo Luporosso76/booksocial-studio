@@ -60,6 +60,7 @@ import {
   setChapterExcluded,
   updateChapterScene,
   getMediaRegenStatusGlobal,
+  cancelAllMediaRegen,
   getVisualDomains,
   regenerateMediaBatch,
   getPages,
@@ -1342,6 +1343,70 @@ function LinkEditorModal({
   );
 }
 
+// Banner riassuntivo della coda di rigenerazione immagini (stato GLOBALE): immagine in corso +
+// quante in coda + cronometro live + "Annulla tutto". Mostrato in cima alla sezione Immagini
+// quando una rigenerazione è attiva, così l'utente vede cosa sta succedendo e la coda anche
+// fuori dal lightbox (prima l'informazione viveva solo dentro l'anteprima).
+function RegenQueueBanner({
+  regen,
+  onCancelled,
+}: {
+  regen: MediaRegenStatusGlobal;
+  onCancelled: () => void;
+}) {
+  const { t } = useTranslation();
+  const toast = useToast();
+  const [now, setNow] = useState(() => Date.now());
+  const [cancelling, setCancelling] = useState(false);
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, []);
+  const startedAt = regen.current?.startedAt;
+  let elapsed = "";
+  if (startedAt) {
+    const s = Math.max(0, Math.floor((now - startedAt) / 1000));
+    elapsed = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+  }
+  const queuedCount = regen.queued.length;
+
+  async function cancelAll() {
+    setCancelling(true);
+    try {
+      await cancelAllMediaRegen();
+      onCancelled();
+    } catch {
+      toast.error(t("bookDetail.regenCancelAllFailed"));
+      setCancelling(false);
+    }
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-3 rounded-lg border border-accent/40 bg-accent-soft px-4 py-3">
+      <Spinner className="h-4 w-4 shrink-0" />
+      <div className="flex min-w-0 flex-1 flex-col">
+        <span className="text-sm font-medium text-content-primary">
+          {regen.current
+            ? t("bookDetail.regenBannerCurrent", { id: regen.current.mediaId })
+            : t("bookDetail.regenBannerPending")}
+        </span>
+        {queuedCount > 0 && (
+          <span className="text-xs text-content-secondary">
+            {t("bookDetail.regenBannerQueued", { n: queuedCount })}
+          </span>
+        )}
+      </div>
+      {elapsed && (
+        <span className="shrink-0 text-xs tabular-nums text-content-tertiary">{elapsed}</span>
+      )}
+      <Button variant="ghost" size="sm" onClick={cancelAll} loading={cancelling}>
+        <X className="h-4 w-4" />
+        {t("bookDetail.regenCancelAll")}
+      </Button>
+    </div>
+  );
+}
+
 function MediaCard({
   bookId,
   media,
@@ -1552,6 +1617,9 @@ function MediaCard({
       />
       <CardBody className="flex flex-col gap-5">
         <SceneGenSection bookId={bookId} chapters={chapters} onGenerated={onChange} />
+        {regen && (regen.current || regen.queued.length > 0) && (
+          <RegenQueueBanner regen={regen} onCancelled={onChange} />
+        )}
         <input
           ref={inputRef}
           type="file"

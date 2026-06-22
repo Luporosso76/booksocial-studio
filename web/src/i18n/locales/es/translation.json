@@ -529,7 +529,15 @@
     "calendar": {
       "title": "Calendario",
       "description": "Publicaciones programadas por mes y semana.",
-      "weekdaysShort": ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"],
+      "weekdaysShort": [
+        "Lun",
+        "Mar",
+        "Mié",
+        "Jue",
+        "Vie",
+        "Sáb",
+        "Dom"
+      ],
       "legend": "Libros",
       "noScheduled": "No hay publicaciones programadas.",
       "prevMonth": "Mes anterior",
@@ -545,7 +553,18 @@
     "removeFromViewConfirmBtn": "Ocultar",
     "removeFromViewCancel": "Cancelar",
     "removeFromViewDone": "Publicación quitada de la vista",
-    "removeFromViewFailed": "No se pudo quitar la publicación de la vista"
+    "removeFromViewFailed": "No se pudo quitar la publicación de la vista",
+    "jobAnalysis": "Análisis del libro",
+    "jobWeekgen": "Generación de semana",
+    "weekgenInProgress": "Generación de semana en curso",
+    "jobScenegen": "Generación de imágenes",
+    "scenegenInProgress": "Generación de imágenes de escena en curso",
+    "jobMediaRegen": "Regeneración de imágenes",
+    "mediaRegenInProgress": "Regeneración en curso",
+    "regenImage": "Imagen n.º {{id}}",
+    "jobQueued": "{{count}} en cola",
+    "jobVisualBible": "Biblia visual",
+    "visualBibleInProgress": "Construyendo la biblia visual"
   },
   "planner": {
     "publishFailed": "Publicación fallida.",
@@ -1293,5 +1312,12 @@
       "label": "Vehículos y lugares (auto/hospital/casa)",
       "description": "Representación plausible de autos en carreteras de lago/montaña, habitaciones de hospital, escenas domésticas tranquilas. Activa solo en los capítulos pertinentes."
     }
+  },
+  "bookDetail": {
+    "regenBannerCurrent": "Regenerando imagen n.º {{id}}",
+    "regenBannerPending": "Regeneración en cola",
+    "regenBannerQueued": "{{n}} en cola",
+    "regenCancelAll": "Cancelar todo",
+    "regenCancelAllFailed": "No se pudo cancelar."
   }
 }

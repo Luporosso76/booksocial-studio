@@ -19,13 +19,17 @@ import {
   Facebook,
   Instagram,
   EyeOff,
+  Images,
+  RefreshCw,
+  BookOpen,
+  Clock,
 } from "lucide-react";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { Collapsible } from "@/components/ui/Collapsible";
 import { useToast } from "@/components/ui/toast";
-import { Badge, EmptyState, ErrorBanner, Skeleton, Spinner } from "@/components/ui/misc";
+import { Badge, EmptyState, ErrorBanner, Skeleton } from "@/components/ui/misc";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { PageTabs } from "@/components/PageTabs";
 import { DashboardCalendar } from "@/components/DashboardCalendar";
@@ -358,13 +362,79 @@ function formatWhen(ts?: number | null): string | null {
   }
 }
 
+// Tempo trascorso da `startedAt` in mm:ss (o h:mm:ss oltre l'ora), aggiornato ogni secondo.
+// Deriva da un timestamp del server, quindi sopravvive ai cambi pagina (si riallinea al mount).
+function useElapsed(startedAt?: number): string {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, []);
+  if (!startedAt) return "";
+  const s = Math.max(0, Math.floor((now - startedAt) / 1000));
+  const hh = Math.floor(s / 3600);
+  const mm = Math.floor((s % 3600) / 60);
+  const ss = s % 60;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return hh > 0 ? `${hh}:${pad(mm)}:${pad(ss)}` : `${mm}:${pad(ss)}`;
+}
+
+// Riga di un'attività in background: icona-tipo (pulsa) + titolo + dettaglio (cosa sta facendo)
+// + avanzamento (fatte/totali) + cronometro live. Una riga per ogni job attivo.
+function JobRow({
+  icon: Icon,
+  title,
+  detail,
+  progress,
+  startedAt,
+}: {
+  icon: typeof Sparkles;
+  title: string;
+  detail: string;
+  progress?: string;
+  startedAt?: number;
+}) {
+  const elapsed = useElapsed(startedAt);
+  return (
+    <div className="flex items-center gap-3 py-2.5">
+      <Icon
+        className="h-4 w-4 shrink-0 text-accent-light animate-pulse motion-reduce:animate-none"
+        aria-hidden
+      />
+      <div className="flex min-w-0 flex-1 flex-col">
+        <span className="truncate text-sm font-medium text-content-primary" title={title}>
+          {title}
+        </span>
+        <span className="truncate text-xs text-content-secondary" title={detail}>
+          {detail}
+        </span>
+      </div>
+      <div className="flex shrink-0 flex-col items-end gap-0.5">
+        {progress && (
+          <span className="text-xs font-medium tabular-nums text-content-secondary">
+            {progress}
+          </span>
+        )}
+        {elapsed && (
+          <span className="inline-flex items-center gap-1 text-xs tabular-nums text-content-tertiary">
+            <Clock className="h-3 w-3" aria-hidden />
+            {elapsed}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /**
- * Sezione "Attività in corso": elenca i job in background (es. analisi AI dei
- * libri) presi dal contesto globale. Nascosta quando non ci sono attività.
+ * Sezione "Attività in corso": elenca TUTTE le operazioni in background (analisi libro,
+ * generazione settimana, generazione e rigenerazione immagini, render visual, bibbia visiva)
+ * dal contesto globale, ognuna con cosa sta facendo, l'avanzamento e un cronometro live.
+ * Nascosta quando non ci sono attività.
  */
 function ActiveJobsCard() {
   const { t } = useTranslation();
-  const { jobs, analysisJobs, renderJobs } = useJobs();
+  const { jobs } = useJobs();
   if (jobs.length === 0) return null;
 
   return (
@@ -375,41 +445,96 @@ function ActiveJobsCard() {
         action={<Badge tone="accent">{jobs.length}</Badge>}
       />
       <CardBody>
-        <div className="flex flex-col gap-2 stagger">
-          {analysisJobs.map((job) => (
-            <div
-              key={`a-${job.bookId}-${job.startedAt}`}
-              className="flex items-center gap-3 rounded-lg border border-accent/20 bg-accent-soft px-4 py-3"
-            >
-              <Spinner className="h-4 w-4 shrink-0" />
-              <div className="flex min-w-0 flex-col">
-                <span className="truncate text-sm font-medium text-content-primary">
-                  {job.title}
-                </span>
-                <span className="inline-flex items-center gap-1 text-xs text-content-tertiary">
-                  <Sparkles className="h-3 w-3" />
-                  {t("dashboard.bookAnalysisRunning")}
-                </span>
-              </div>
-            </div>
-          ))}
-          {renderJobs.map((job) => (
-            <div
-              key={`r-${job.jobId ?? job.postId}-${job.startedAt}`}
-              className="flex items-center gap-3 rounded-lg border border-accent/20 bg-accent-soft px-4 py-3"
-            >
-              <Spinner className="h-4 w-4 shrink-0" />
-              <div className="flex min-w-0 flex-col">
-                <span className="truncate text-sm font-medium text-content-primary">
-                  {job.renderKind ? visualKindLabel(job.renderKind) : t("dashboard.visual")}
-                </span>
-                <span className="inline-flex items-center gap-1 text-xs text-content-tertiary">
-                  <Clapperboard className="h-3 w-3" />
-                  {t("dashboard.visualRendering")}
-                </span>
-              </div>
-            </div>
-          ))}
+        <div role="status" aria-live="polite" className="divide-y divide-border-subtle stagger">
+          {jobs.map((job, i) => {
+            const key = `${job.kind}-${job.bookId ?? job.pageId ?? job.postId ?? job.mediaId ?? i}-${job.startedAt}`;
+            const progress =
+              job.planned != null && job.created != null
+                ? `${job.created}/${job.planned}`
+                : undefined;
+            switch (job.kind) {
+              case "analysis":
+                return (
+                  <JobRow
+                    key={key}
+                    icon={Sparkles}
+                    title={job.title ?? t("dashboard.jobAnalysis")}
+                    detail={t("dashboard.bookAnalysisRunning")}
+                    startedAt={job.startedAt}
+                  />
+                );
+              case "render":
+                return (
+                  <JobRow
+                    key={key}
+                    icon={Clapperboard}
+                    title={job.renderKind ? visualKindLabel(job.renderKind) : t("dashboard.visual")}
+                    detail={t("dashboard.visualRendering")}
+                    startedAt={job.startedAt}
+                  />
+                );
+              case "weekgen":
+                return (
+                  <JobRow
+                    key={key}
+                    icon={CalendarClock}
+                    title={t("dashboard.jobWeekgen")}
+                    detail={t("dashboard.weekgenInProgress")}
+                    progress={progress}
+                    startedAt={job.startedAt}
+                  />
+                );
+              case "scenegen":
+                return (
+                  <JobRow
+                    key={key}
+                    icon={Images}
+                    title={t("dashboard.jobScenegen")}
+                    detail={t("dashboard.scenegenInProgress")}
+                    progress={progress}
+                    startedAt={job.startedAt}
+                  />
+                );
+              case "mediaRegen": {
+                const queued =
+                  job.planned != null && job.created != null
+                    ? Math.max(0, job.planned - job.created - 1)
+                    : 0;
+                const detail =
+                  (job.mediaId != null
+                    ? t("dashboard.regenImage", { id: job.mediaId })
+                    : t("dashboard.mediaRegenInProgress")) +
+                  (queued > 0 ? ` · ${t("dashboard.jobQueued", { count: queued })}` : "");
+                return (
+                  <JobRow
+                    key={key}
+                    icon={RefreshCw}
+                    title={t("dashboard.jobMediaRegen")}
+                    detail={detail}
+                    progress={progress}
+                    startedAt={job.startedAt}
+                  />
+                );
+              }
+              case "visualBible": {
+                const running = job.steps?.find((s) => s.status === "running");
+                const detail = running
+                  ? `${running.label} (${running.done}/${running.total})`
+                  : t("dashboard.visualBibleInProgress");
+                return (
+                  <JobRow
+                    key={key}
+                    icon={BookOpen}
+                    title={t("dashboard.jobVisualBible")}
+                    detail={detail}
+                    startedAt={job.startedAt}
+                  />
+                );
+              }
+              default:
+                return null;
+            }
+          })}
         </div>
       </CardBody>
     </Card>
