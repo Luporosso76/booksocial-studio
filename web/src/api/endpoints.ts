@@ -23,7 +23,6 @@ import type {
   AiModelsResponse,
   AiSettings,
   AiSettingsPatch,
-  CliLoginResponse,
   CliStatus,
   FacebookPage,
   GenerateImagesResult,
@@ -318,26 +317,26 @@ export const testAiText = (signal?: AbortSignal) =>
   apiPost<AiTestResult>("/settings/ai/test-text", {}, signal);
 
 // Prova la raggiungibilità/auth del provider IMMAGINI corrente (nessuna generazione vera).
-export const testAiImage = (signal?: AbortSignal) =>
-  apiPost<AiTestResult>("/settings/ai/test-image", {}, signal);
+// Il provider in prova è quello correntemente salvato lato server; lo passiamo per chiarezza.
+export const testAiImage = (provider?: string, signal?: AbortSignal) =>
+  apiPost<AiTestResult>("/settings/ai/test-image", provider ? { provider } : {}, signal);
 
-// Elenca i modelli disponibili per un provider testo a connessione. La chiave/baseUrl
-// opzionali permettono di interrogare il provider anche prima di salvarli.
-export const listAiModels = (provider: string, apiKey?: string, baseUrl?: string) =>
-  apiPost<AiModelsResponse>("/settings/ai/models", {
-    provider,
-    ...(apiKey ? { apiKey } : {}),
-    ...(baseUrl ? { baseUrl } : {}),
-  });
+// Elenca i modelli disponibili per un provider. Per opencode/agy/ollama la lista e
+// automatica; per gli altri e l'unione dei default con i modelli aggiunti a mano (DB).
+export const listAiModels = (params: { provider: string }) =>
+  apiPost<AiModelsResponse>("/settings/ai/models", { provider: params.provider });
 
-// Stato del CLI di un provider ad abbonamento (opencode|codex|gemini): installato + versione.
+// Aggiunge un modello alla lista DB di un provider (codex/claude/openai/google/...).
+export const addAiModel = (provider: string, model: string) =>
+  apiPost<AiModelsResponse>("/settings/ai/models/add", { provider, model });
+
+// Rimuove un modello dalla lista DB di un provider.
+export const removeAiModel = (provider: string, model: string) =>
+  apiPost<AiModelsResponse>("/settings/ai/models/remove", { provider, model });
+
+// Stato del CLI di un provider agentico (opencode|codex|claude|agy): installato + versione.
 export const getCliStatus = (tool: string, signal?: AbortSignal) =>
   apiGet<CliStatus>(`/settings/ai/cli-status?tool=${encodeURIComponent(tool)}`, signal);
-
-// Avvia il login OAuth di un CLI ad abbonamento (opencode|codex|gemini). L'auth vive nel CLI:
-// l'app non salva token. La risposta può portare un `url` da aprire e autorizzare nel browser.
-export const cliLogin = (tool: string) =>
-  apiPost<CliLoginResponse>("/settings/ai/cli-login", { tool });
 
 // --- Capitoli (testo completo) ---
 export const getChapters = (bookId: string, signal?: AbortSignal) =>

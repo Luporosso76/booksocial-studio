@@ -910,7 +910,9 @@
         "anthropic": "Anthropic",
         "google": "Google",
         "openai-compatible": "Compatibile OpenAI",
-        "ollama": "Ollama"
+        "ollama": "Ollama",
+        "agy": "Agy (CLI)",
+        "claude": "Claude (CLI)"
       },
       "imageProvider": {
         "auto": "Automatico",
@@ -921,8 +923,22 @@
         "bfl": "Black Forest Labs (FLUX)",
         "replicate": "Replicate",
         "fal": "fal.ai",
-        "none": "Nessuno"
-      }
+        "none": "Nessuno",
+        "agy": "Agy (agente)"
+      },
+      "fallbackText": "Fallback testo",
+      "fallbackImage": "Fallback immagini",
+      "fallbackNone": "Nessuno",
+      "fallbackNote": "Provider di ripiego usato se il primario esaurisce quota o limiti di frequenza.",
+      "addModel": "Aggiungi modello",
+      "addModelPlaceholder": "Nome del modello da aggiungere",
+      "removeModel": "Rimuovi modello",
+      "agentImageNote": "Genera le immagini tramite il CLI agentico (nessuna chiave: usa il login del CLI).",
+      "tabText": "AI Testo",
+      "tabImage": "AI Immagini",
+      "tabContentImages": "Immagini contenuto",
+      "tabQuality": "Controllo qualità",
+      "fallbackModel": "Modello fallback"
     },
     "imageMode": {
       "title": "Immagini dei contenuti",

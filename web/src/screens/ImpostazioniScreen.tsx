@@ -5,7 +5,6 @@ import {
   Check,
   Images,
   KeyRound,
-  LogIn,
   Plug,
   ShieldCheck,
   SlidersHorizontal,
@@ -29,73 +28,120 @@ import {
   testAiText,
   testAiImage,
   listAiModels,
+  addAiModel,
+  removeAiModel,
   getCliStatus,
-  cliLogin,
   type AiTestResult,
 } from "@/api/endpoints";
 import type {
   AiImageMode,
   AiImageModeState,
+  AiImageFallback,
   AiImageProvider,
   AiSettings,
   AiSettingsPatch,
+  AiTextFallback,
   AiTextProvider,
-  CliLoginResponse,
   CliStatus,
 } from "@/api/types";
 import { cn } from "@/lib/cn";
 
+type AiTab = "text" | "image" | "contentImages" | "quality";
+
 export function ImpostazioniScreen() {
   const { t } = useTranslation();
+  const [tab, setTab] = useState<AiTab>("text");
+
+  const tabs: { id: AiTab; label: string }[] = [
+    { id: "text", label: t("settings.ai.tabText") },
+    { id: "image", label: t("settings.ai.tabImage") },
+    { id: "contentImages", label: t("settings.ai.tabContentImages") },
+    { id: "quality", label: t("settings.ai.tabQuality") },
+  ];
+
   return (
     <div className="flex flex-col gap-6">
       <PageHeader title={t("settings.title")} description={t("settings.subtitle")} />
 
-      <AiProvidersCard />
-      <AiImageModeCard />
-      <QaCheckCard />
+      <div className="flex flex-wrap items-center gap-1" role="tablist">
+        {tabs.map((tb) => (
+          <button
+            key={tb.id}
+            type="button"
+            role="tab"
+            aria-selected={tab === tb.id}
+            onClick={() => setTab(tb.id)}
+            className={cn(
+              "rounded-md px-3 py-1.5 text-sm font-medium transition-colors duration-150",
+              tab === tb.id
+                ? "bg-accent-soft text-accent"
+                : "text-content-tertiary hover:bg-bg-hover hover:text-content-secondary",
+            )}
+          >
+            {tb.label}
+          </button>
+        ))}
+      </div>
+
+      {(tab === "text" || tab === "image") && <AiProvidersCard section={tab} />}
+      {tab === "contentImages" && <AiImageModeCard />}
+      {tab === "quality" && <QaCheckCard />}
     </div>
   );
 }
 
-// Provider testo ad ABBONAMENTO (login via CLI, nessuna chiave API).
-const CLI_TEXT_PROVIDERS = ["opencode", "codex", "gemini"] as const;
-type CliTextProvider = (typeof CLI_TEXT_PROVIDERS)[number];
+// Provider TESTO: tutti agentici via CLI (opencode/codex/claude/agy) tranne ollama (locale).
+const TEXT_PROVIDERS: AiTextProvider[] = ["opencode", "codex", "claude", "agy", "ollama"];
 
-// Provider testo ad API a consumo (chiave API).
-const API_TEXT_PROVIDERS: AiTextProvider[] = [
-  "openai",
-  "anthropic",
-  "google",
-  "openai-compatible",
-  "ollama",
-];
+// Provider testo che girano via CLI agente: mostrano stato CLI + modello, mai una chiave.
+const CLI_TEXT_PROVIDERS = ["opencode", "codex", "claude", "agy"] as const;
+type CliTextProvider = (typeof CLI_TEXT_PROVIDERS)[number];
 
 function isCliTextProvider(p: AiTextProvider): p is CliTextProvider {
   return (CLI_TEXT_PROVIDERS as readonly string[]).includes(p);
 }
 
+// Provider CLI testo per cui la lista modelli e editabile a mano (default unione DB).
+const TEXT_MODEL_EDITABLE: CliTextProvider[] = ["codex", "claude"];
+
 // Mappa provider CLI → campo modello (string) da salvare nel patch text.*.
-type CliModelField = "opencodeModel" | "codexModel" | "geminiModel";
+type CliModelField = "opencodeModel" | "codexModel" | "claudeModel" | "agyModel";
 const CLI_MODEL_FIELD: Record<CliTextProvider, CliModelField> = {
   opencode: "opencodeModel",
   codex: "codexModel",
-  gemini: "geminiModel",
+  claude: "claudeModel",
+  agy: "agyModel",
 };
 
+// Provider testo di FALLBACK selezionabili ('none' = nessuno).
+const TEXT_FALLBACKS: AiTextFallback[] = ["none", "opencode", "codex", "claude", "agy", "ollama"];
+
+// Provider IMMAGINI: locale, agentico (agy) e API a chiave dedicata.
 const IMAGE_PROVIDERS: AiImageProvider[] = [
-  "auto",
   "local",
+  "agy",
   "openai",
   "google",
   "stability",
   "bfl",
   "replicate",
   "fal",
-  "none",
 ];
 
-// Quale provider testo usa quale "famiglia" di chiave (per badge + invio chiavi).
+// Provider immagini di FALLBACK selezionabili ('none' = nessuno).
+const IMAGE_FALLBACKS: AiImageFallback[] = [
+  "none",
+  "local",
+  "agy",
+  "openai",
+  "google",
+  "stability",
+  "bfl",
+  "replicate",
+  "fal",
+];
+
+// Quale provider usa quale "famiglia" di chiave (per badge + invio chiavi).
 type KeyName = "openai" | "anthropic" | "google" | "stability" | "bfl" | "replicate" | "fal";
 
 const ALL_KEY_NAMES: KeyName[] = [
@@ -108,7 +154,7 @@ const ALL_KEY_NAMES: KeyName[] = [
   "fal",
 ];
 
-function AiProvidersCard() {
+function AiProvidersCard({ section }: { section: "text" | "image" }) {
   const { t } = useTranslation();
   const toast = useToast();
   const state = useAsync<AiSettings>((s) => getAiSettings(s), []);
@@ -216,280 +262,282 @@ function AiProvidersCard() {
         ) : text && image ? (
           <>
             {/* --- Provider TESTO --- */}
-            <section className="flex flex-col gap-3">
-              <h4 className="text-sm font-semibold text-content-primary">
-                {t("settings.ai.textSection")}
-              </h4>
-              <Field label={t("settings.ai.provider")}>
-                <select
-                  className={selectClass}
-                  value={text.provider}
-                  onChange={(e) => setTextField("provider", e.target.value as AiTextProvider)}
-                >
-                  <optgroup label={t("settings.ai.textGroupCli")}>
-                    {CLI_TEXT_PROVIDERS.map((p) => (
+            {section === "text" && (
+              <section className="flex flex-col gap-3">
+                <h4 className="text-sm font-semibold text-content-primary">
+                  {t("settings.ai.textSection")}
+                </h4>
+                <Field label={t("settings.ai.provider")}>
+                  <select
+                    className={selectClass}
+                    value={text.provider}
+                    onChange={(e) => setTextField("provider", e.target.value as AiTextProvider)}
+                  >
+                    {TEXT_PROVIDERS.map((p) => (
                       <option key={p} value={p}>
                         {t(`settings.ai.textProvider.${p}`)}
                       </option>
                     ))}
-                  </optgroup>
-                  <optgroup label={t("settings.ai.textGroupApi")}>
-                    {API_TEXT_PROVIDERS.map((p) => (
+                  </select>
+                </Field>
+
+                {isCliTextProvider(text.provider) &&
+                  (() => {
+                    const provider = text.provider;
+                    const field = CLI_MODEL_FIELD[provider];
+                    return (
+                      <CliProviderSection
+                        tool={provider}
+                        model={text[field] ?? ""}
+                        onModelChange={(v) => setTextField(field, v)}
+                        editable={TEXT_MODEL_EDITABLE.includes(provider)}
+                      />
+                    );
+                  })()}
+
+                {text.provider === "ollama" && (
+                  <>
+                    <Field label={t("settings.ai.baseUrl")}>
+                      <Input
+                        value={text.ollamaBaseUrl}
+                        onChange={(e) => setTextField("ollamaBaseUrl", e.target.value)}
+                        placeholder="http://127.0.0.1:11434"
+                      />
+                    </Field>
+                    <ModelSelectField
+                      provider="ollama"
+                      value={text.ollamaModel}
+                      onChange={(v) => setTextField("ollamaModel", v)}
+                      autoLoad
+                    />
+                  </>
+                )}
+
+                <Field label={t("settings.ai.fallbackText")} hint={t("settings.ai.fallbackNote")}>
+                  <select
+                    className={selectClass}
+                    value={text.fallbackProvider}
+                    onChange={(e) =>
+                      setTextField("fallbackProvider", e.target.value as AiTextFallback)
+                    }
+                  >
+                    {TEXT_FALLBACKS.map((p) => (
                       <option key={p} value={p}>
-                        {t(`settings.ai.textProvider.${p}`)}
+                        {p === "none"
+                          ? t("settings.ai.fallbackNone")
+                          : t(`settings.ai.textProvider.${p}`)}
                       </option>
                     ))}
-                  </optgroup>
-                </select>
-              </Field>
+                  </select>
+                </Field>
 
-              {(text.provider === "openai" || text.provider === "openai-compatible") && (
-                <>
-                  <Field label={t("settings.ai.baseUrl")}>
-                    <Input
-                      value={text.openaiBaseUrl}
-                      onChange={(e) => setTextField("openaiBaseUrl", e.target.value)}
-                      placeholder="https://api.openai.com/v1"
-                    />
-                  </Field>
+                {text.fallbackProvider !== "none" && (
                   <ModelSelectField
-                    provider={text.provider}
-                    value={text.openaiModel}
-                    onChange={(v) => setTextField("openaiModel", v)}
-                    apiKey={keyInputs.openai}
-                    baseUrl={text.openaiBaseUrl}
-                    keyConfigured={keyConfigured("openai")}
+                    label={t("settings.ai.fallbackModel")}
+                    provider={text.fallbackProvider}
+                    value={text.fallbackModel}
+                    onChange={(v) => setTextField("fallbackModel", v)}
+                    autoLoad={
+                      !TEXT_MODEL_EDITABLE.includes(text.fallbackProvider as CliTextProvider)
+                    }
+                    editable={TEXT_MODEL_EDITABLE.includes(
+                      text.fallbackProvider as CliTextProvider,
+                    )}
                   />
-                  <ApiKeyField
-                    label={t("settings.ai.apiKey")}
-                    configured={keyConfigured("openai")}
-                    value={keyInputs.openai}
-                    onChange={(v) => onKeyInput("openai", v)}
-                    onRemove={() => removeKey("openai")}
-                  />
-                </>
-              )}
+                )}
 
-              {text.provider === "anthropic" && (
-                <>
-                  <ModelSelectField
-                    provider={text.provider}
-                    value={text.anthropicModel}
-                    onChange={(v) => setTextField("anthropicModel", v)}
-                    apiKey={keyInputs.anthropic}
-                    keyConfigured={keyConfigured("anthropic")}
-                  />
-                  <ApiKeyField
-                    label={t("settings.ai.apiKey")}
-                    configured={keyConfigured("anthropic")}
-                    value={keyInputs.anthropic}
-                    onChange={(v) => onKeyInput("anthropic", v)}
-                    onRemove={() => removeKey("anthropic")}
-                  />
-                </>
-              )}
-
-              {text.provider === "google" && (
-                <>
-                  <Field label={t("settings.ai.baseUrl")}>
-                    <Input
-                      value={text.googleBaseUrl}
-                      onChange={(e) => setTextField("googleBaseUrl", e.target.value)}
-                    />
-                  </Field>
-                  <ModelSelectField
-                    provider={text.provider}
-                    value={text.googleModel}
-                    onChange={(v) => setTextField("googleModel", v)}
-                    apiKey={keyInputs.google}
-                    baseUrl={text.googleBaseUrl}
-                    keyConfigured={keyConfigured("google")}
-                  />
-                  <ApiKeyField
-                    label={t("settings.ai.apiKey")}
-                    configured={keyConfigured("google")}
-                    value={keyInputs.google}
-                    onChange={(v) => onKeyInput("google", v)}
-                    onRemove={() => removeKey("google")}
-                  />
-                </>
-              )}
-
-              {text.provider === "ollama" && (
-                <>
-                  <Field label={t("settings.ai.baseUrl")}>
-                    <Input
-                      value={text.ollamaBaseUrl}
-                      onChange={(e) => setTextField("ollamaBaseUrl", e.target.value)}
-                      placeholder="http://127.0.0.1:11434"
-                    />
-                  </Field>
-                  <ModelSelectField
-                    provider={text.provider}
-                    value={text.ollamaModel}
-                    onChange={(v) => setTextField("ollamaModel", v)}
-                    baseUrl={text.ollamaBaseUrl}
-                    keyConfigured={false}
-                  />
-                </>
-              )}
-
-              {isCliTextProvider(text.provider) &&
-                (() => {
-                  const field = CLI_MODEL_FIELD[text.provider as CliTextProvider];
-                  return (
-                    <CliProviderSection
-                      tool={text.provider}
-                      model={text[field]}
-                      onModelChange={(v) => setTextField(field, v)}
-                    />
-                  );
-                })()}
-
-              <TestConnectionButton run={testAiText} />
-            </section>
+                <TestConnectionButton run={() => testAiText()} />
+              </section>
+            )}
 
             {/* --- Provider IMMAGINI --- */}
-            <section className="flex flex-col gap-3 border-t border-border-subtle pt-4">
-              <h4 className="text-sm font-semibold text-content-primary">
-                {t("settings.ai.imageSection")}
-              </h4>
-              <Field label={t("settings.ai.provider")}>
-                <select
-                  className={selectClass}
-                  value={image.provider}
-                  onChange={(e) => setImageField("provider", e.target.value as AiImageProvider)}
-                >
-                  {IMAGE_PROVIDERS.map((p) => (
-                    <option key={p} value={p}>
-                      {t(`settings.ai.imageProvider.${p}`)}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-
-              {image.provider === "openai" && (
-                <>
-                  <Field
-                    label={t("settings.ai.imageModel")}
-                    hint={t("settings.ai.sharedOpenaiKey")}
+            {section === "image" && (
+              <section className="flex flex-col gap-3">
+                <h4 className="text-sm font-semibold text-content-primary">
+                  {t("settings.ai.imageSection")}
+                </h4>
+                <Field label={t("settings.ai.provider")}>
+                  <select
+                    className={selectClass}
+                    value={image.provider}
+                    onChange={(e) => setImageField("provider", e.target.value as AiImageProvider)}
                   >
-                    <Input
+                    {IMAGE_PROVIDERS.map((p) => (
+                      <option key={p} value={p}>
+                        {t(`settings.ai.imageProvider.${p}`)}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+
+                {image.provider === "local" && (
+                  <p className="text-xs leading-snug text-content-tertiary">
+                    {t("settings.ai.localImageNote")}
+                  </p>
+                )}
+
+                {image.provider === "agy" && (
+                  <>
+                    <p className="text-xs leading-snug text-content-tertiary">
+                      {t("settings.ai.agentImageNote")}
+                    </p>
+                    <ModelSelectField
+                      provider="agy"
+                      value={image.agyImageModel ?? ""}
+                      onChange={(v) => setImageField("agyImageModel", v)}
+                      autoLoad
+                    />
+                  </>
+                )}
+
+                {image.provider === "openai" && (
+                  <>
+                    <Field label={t("settings.ai.baseUrl")}>
+                      <Input
+                        value={image.openaiBaseUrl}
+                        onChange={(e) => setImageField("openaiBaseUrl", e.target.value)}
+                        placeholder="https://api.openai.com/v1"
+                      />
+                    </Field>
+                    <ModelSelectField
+                      provider="openai"
                       value={image.openaiImageModel}
-                      onChange={(e) => setImageField("openaiImageModel", e.target.value)}
-                      placeholder={t("settings.ai.imageModelPlaceholder")}
+                      onChange={(v) => setImageField("openaiImageModel", v)}
+                      editable
                     />
-                  </Field>
-                  <ApiKeyField
-                    label={t("settings.ai.apiKey")}
-                    configured={keyConfigured("openai")}
-                    value={keyInputs.openai}
-                    onChange={(v) => onKeyInput("openai", v)}
-                    onRemove={() => removeKey("openai")}
-                  />
-                </>
-              )}
-              {image.provider === "google" && (
-                <>
-                  <Field
-                    label={t("settings.ai.imageModel")}
-                    hint={t("settings.ai.sharedGoogleKey")}
-                  >
-                    <Input
+                    <ApiKeyField
+                      label={t("settings.ai.apiKey")}
+                      configured={keyConfigured("openai")}
+                      value={keyInputs.openai}
+                      onChange={(v) => onKeyInput("openai", v)}
+                      onRemove={() => removeKey("openai")}
+                    />
+                  </>
+                )}
+                {image.provider === "google" && (
+                  <>
+                    <Field label={t("settings.ai.baseUrl")}>
+                      <Input
+                        value={image.googleBaseUrl}
+                        onChange={(e) => setImageField("googleBaseUrl", e.target.value)}
+                      />
+                    </Field>
+                    <ModelSelectField
+                      provider="google"
                       value={image.googleImageModel}
-                      onChange={(e) => setImageField("googleImageModel", e.target.value)}
-                      placeholder={t("settings.ai.imageModelPlaceholder")}
+                      onChange={(v) => setImageField("googleImageModel", v)}
+                      editable
                     />
-                  </Field>
-                  <ApiKeyField
-                    label={t("settings.ai.apiKey")}
-                    configured={keyConfigured("google")}
-                    value={keyInputs.google}
-                    onChange={(v) => onKeyInput("google", v)}
-                    onRemove={() => removeKey("google")}
-                  />
-                </>
-              )}
-              {image.provider === "stability" && (
-                <>
-                  <Field label={t("settings.ai.imageModel")} hint={t("settings.ai.imageModelHint")}>
-                    <Input
+                    <ApiKeyField
+                      label={t("settings.ai.apiKey")}
+                      configured={keyConfigured("google")}
+                      value={keyInputs.google}
+                      onChange={(v) => onKeyInput("google", v)}
+                      onRemove={() => removeKey("google")}
+                    />
+                  </>
+                )}
+                {image.provider === "stability" && (
+                  <>
+                    <ModelSelectField
+                      provider="stability"
                       value={image.stabilityImageModel}
-                      onChange={(e) => setImageField("stabilityImageModel", e.target.value)}
-                      placeholder={t("settings.ai.imageModelPlaceholder")}
+                      onChange={(v) => setImageField("stabilityImageModel", v)}
+                      editable
                     />
-                  </Field>
-                  <ApiKeyField
-                    label={t("settings.ai.apiKey")}
-                    configured={keyConfigured("stability")}
-                    value={keyInputs.stability}
-                    onChange={(v) => onKeyInput("stability", v)}
-                    onRemove={() => removeKey("stability")}
-                  />
-                </>
-              )}
-              {image.provider === "bfl" && (
-                <>
-                  <Field label={t("settings.ai.imageModel")} hint={t("settings.ai.imageModelHint")}>
-                    <Input
+                    <ApiKeyField
+                      label={t("settings.ai.apiKey")}
+                      configured={keyConfigured("stability")}
+                      value={keyInputs.stability}
+                      onChange={(v) => onKeyInput("stability", v)}
+                      onRemove={() => removeKey("stability")}
+                    />
+                  </>
+                )}
+                {image.provider === "bfl" && (
+                  <>
+                    <ModelSelectField
+                      provider="bfl"
                       value={image.bflImageModel}
-                      onChange={(e) => setImageField("bflImageModel", e.target.value)}
-                      placeholder={t("settings.ai.imageModelPlaceholder")}
+                      onChange={(v) => setImageField("bflImageModel", v)}
+                      editable
                     />
-                  </Field>
-                  <ApiKeyField
-                    label={t("settings.ai.apiKey")}
-                    configured={keyConfigured("bfl")}
-                    value={keyInputs.bfl}
-                    onChange={(v) => onKeyInput("bfl", v)}
-                    onRemove={() => removeKey("bfl")}
-                  />
-                </>
-              )}
-              {image.provider === "replicate" && (
-                <>
-                  <Field label={t("settings.ai.imageModel")}>
-                    <Input
+                    <ApiKeyField
+                      label={t("settings.ai.apiKey")}
+                      configured={keyConfigured("bfl")}
+                      value={keyInputs.bfl}
+                      onChange={(v) => onKeyInput("bfl", v)}
+                      onRemove={() => removeKey("bfl")}
+                    />
+                  </>
+                )}
+                {image.provider === "replicate" && (
+                  <>
+                    <ModelSelectField
+                      provider="replicate"
                       value={image.replicateImageModel}
-                      onChange={(e) => setImageField("replicateImageModel", e.target.value)}
-                      placeholder="black-forest-labs/flux-schnell"
+                      onChange={(v) => setImageField("replicateImageModel", v)}
+                      editable
                     />
-                  </Field>
-                  <ApiKeyField
-                    label={t("settings.ai.apiKey")}
-                    configured={keyConfigured("replicate")}
-                    value={keyInputs.replicate}
-                    onChange={(v) => onKeyInput("replicate", v)}
-                    onRemove={() => removeKey("replicate")}
-                  />
-                </>
-              )}
-              {image.provider === "fal" && (
-                <>
-                  <Field label={t("settings.ai.imageModel")}>
-                    <Input
+                    <ApiKeyField
+                      label={t("settings.ai.apiKey")}
+                      configured={keyConfigured("replicate")}
+                      value={keyInputs.replicate}
+                      onChange={(v) => onKeyInput("replicate", v)}
+                      onRemove={() => removeKey("replicate")}
+                    />
+                  </>
+                )}
+                {image.provider === "fal" && (
+                  <>
+                    <ModelSelectField
+                      provider="fal"
                       value={image.falImageModel}
-                      onChange={(e) => setImageField("falImageModel", e.target.value)}
-                      placeholder="fal-ai/flux/schnell"
+                      onChange={(v) => setImageField("falImageModel", v)}
+                      editable
                     />
-                  </Field>
-                  <ApiKeyField
-                    label={t("settings.ai.apiKey")}
-                    configured={keyConfigured("fal")}
-                    value={keyInputs.fal}
-                    onChange={(v) => onKeyInput("fal", v)}
-                    onRemove={() => removeKey("fal")}
-                  />
-                </>
-              )}
-              {(image.provider === "local" || image.provider === "auto") && (
-                <p className="text-xs leading-snug text-content-tertiary">
-                  {t("settings.ai.localImageNote")}
-                </p>
-              )}
+                    <ApiKeyField
+                      label={t("settings.ai.apiKey")}
+                      configured={keyConfigured("fal")}
+                      value={keyInputs.fal}
+                      onChange={(v) => onKeyInput("fal", v)}
+                      onRemove={() => removeKey("fal")}
+                    />
+                  </>
+                )}
 
-              <TestConnectionButton run={testAiImage} />
-            </section>
+                <Field label={t("settings.ai.fallbackImage")} hint={t("settings.ai.fallbackNote")}>
+                  <select
+                    className={selectClass}
+                    value={image.fallbackProvider}
+                    onChange={(e) =>
+                      setImageField("fallbackProvider", e.target.value as AiImageFallback)
+                    }
+                  >
+                    {IMAGE_FALLBACKS.map((p) => (
+                      <option key={p} value={p}>
+                        {p === "none"
+                          ? t("settings.ai.fallbackNone")
+                          : t(`settings.ai.imageProvider.${p}`)}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+
+                {image.fallbackProvider !== "none" && image.fallbackProvider !== "local" && (
+                  <ModelSelectField
+                    label={t("settings.ai.fallbackModel")}
+                    provider={image.fallbackProvider}
+                    value={image.fallbackModel}
+                    onChange={(v) => setImageField("fallbackModel", v)}
+                    autoLoad={image.fallbackProvider === "agy"}
+                    editable={image.fallbackProvider !== "agy"}
+                  />
+                )}
+
+                <TestConnectionButton run={() => testAiImage(image.provider)} />
+              </section>
+            )}
 
             <div className="flex justify-end border-t border-border-subtle pt-4">
               <Button variant="primary" loading={saving} disabled={saving} onClick={save}>
@@ -554,24 +602,25 @@ function ApiKeyField({
   );
 }
 
-// Campo modello con SELECT popolata da listAiModels + fallback manuale "Altro…".
-// Carica automaticamente la lista quando la chiave risulta già presente (keyConfigured)
-// o quando l'utente la digita; mantiene sempre il valore corrente.
+// Campo modello con SELECT popolata da listAiModels + opzione manuale "Altro…".
+// `autoLoad` carica la lista al mount (provider con lista automatica: opencode/agy/ollama).
+// `editable` abilita il mini-editor "Aggiungi modello" (input + ✓) e la ✕ per rimuovere ogni
+// voce (provider con lista DB: codex/claude/openai/google/stability/bfl/replicate/fal).
 const MANUAL_OPTION = "__manual__";
 function ModelSelectField({
   provider,
   value,
   onChange,
-  apiKey,
-  baseUrl,
-  keyConfigured,
+  autoLoad = false,
+  editable = false,
+  label,
 }: {
-  provider: AiTextProvider;
+  provider: string;
   value: string;
   onChange: (value: string) => void;
-  apiKey?: string;
-  baseUrl?: string;
-  keyConfigured: boolean;
+  autoLoad?: boolean;
+  editable?: boolean;
+  label?: string;
 }) {
   const { t } = useTranslation();
   const [models, setModels] = useState<string[]>([]);
@@ -579,17 +628,20 @@ function ModelSelectField({
   const [error, setError] = useState<string | null>(null);
   // true = l'utente ha scelto l'inserimento manuale (o la lista non contiene il valore).
   const [manual, setManual] = useState(false);
+  // Input del mini-editor "Aggiungi modello" (solo provider editabili).
+  const [newModel, setNewModel] = useState("");
+  const [mutating, setMutating] = useState(false);
 
   async function load() {
     setLoading(true);
     setError(null);
     try {
-      const res = await listAiModels(provider, apiKey || undefined, baseUrl || undefined);
+      const res = await listAiModels({ provider });
       setModels(res.models);
       if (res.error) setError(res.error);
       if (!res.models.length) {
         setManual(true);
-        setError(res.error || t("settings.ai.modelsEmpty"));
+        if (!editable) setError(res.error || t("settings.ai.modelsEmpty"));
       } else if (value && !res.models.includes(value)) {
         setManual(true);
       }
@@ -601,9 +653,42 @@ function ModelSelectField({
     }
   }
 
-  // Carica automaticamente quando la chiave è già impostata o non serve (ollama).
+  async function addModel() {
+    const name = newModel.trim();
+    if (!name || mutating) return;
+    setMutating(true);
+    setError(null);
+    try {
+      const res = await addAiModel(provider, name);
+      setModels(res.models);
+      setNewModel("");
+      setManual(false);
+      onChange(name);
+    } catch {
+      setError(t("settings.ai.modelsLoadFailed"));
+    } finally {
+      setMutating(false);
+    }
+  }
+
+  async function dropModel(name: string) {
+    if (mutating) return;
+    setMutating(true);
+    setError(null);
+    try {
+      const res = await removeAiModel(provider, name);
+      setModels(res.models);
+      if (value === name) onChange(res.models[0] ?? "");
+    } catch {
+      setError(t("settings.ai.modelsLoadFailed"));
+    } finally {
+      setMutating(false);
+    }
+  }
+
+  // Carica al mount per i provider a lista automatica.
   useEffect(() => {
-    if (keyConfigured || provider === "ollama") void load();
+    if (autoLoad) void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [provider]);
 
@@ -611,7 +696,7 @@ function ModelSelectField({
   const selectValue = manual || !models.includes(value) ? MANUAL_OPTION : value;
 
   return (
-    <Field label={t("settings.ai.modelSelect")}>
+    <Field label={label ?? t("settings.ai.modelSelect")}>
       <div className="flex flex-col gap-2">
         {hasList && (
           <select
@@ -654,27 +739,75 @@ function ModelSelectField({
           </Button>
           {error && <span className="text-xs text-content-tertiary">{error}</span>}
         </div>
+
+        {editable && (
+          <div className="flex flex-col gap-1.5 rounded-md border border-border-subtle bg-bg-inset px-2.5 py-2">
+            {hasList && (
+              <ul className="flex flex-col gap-1">
+                {models.map((m) => (
+                  <li key={m} className="flex items-center justify-between gap-2 text-xs">
+                    <span className="truncate text-content-secondary">{m}</span>
+                    <button
+                      type="button"
+                      aria-label={t("settings.ai.removeModel")}
+                      disabled={mutating}
+                      onClick={() => void dropModel(m)}
+                      className="shrink-0 rounded p-0.5 text-content-faint transition-colors hover:text-danger disabled:opacity-50"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="flex items-center gap-2">
+              <Input
+                value={newModel}
+                onChange={(e) => setNewModel(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    void addModel();
+                  }
+                }}
+                placeholder={t("settings.ai.addModelPlaceholder")}
+              />
+              <Button
+                variant="secondary"
+                size="sm"
+                type="button"
+                aria-label={t("settings.ai.addModel")}
+                loading={mutating}
+                disabled={mutating || !newModel.trim()}
+                onClick={() => void addModel()}
+              >
+                <Check className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
     </Field>
   );
 }
 
-// Provider ad ABBONAMENTO (opencode/codex/gemini): stato CLI + login OAuth + verifica, senza
-// chiave API. L'auth vive nel CLI; l'app non salva alcun token. Opzionale: nome modello del CLI.
+// Provider TESTO agentico (opencode/codex/claude/agy): stato CLI + verifica, senza chiave API.
+// L'auth vive nel CLI (login da terminale); l'app non salva alcun token. Il modello passa per
+// ModelSelectField: lista automatica (opencode/agy) o lista DB editabile (codex/claude).
 function CliProviderSection({
   tool,
   model,
   onModelChange,
+  editable,
 }: {
   tool: string;
   model: string;
   onModelChange: (value: string) => void;
+  editable: boolean;
 }) {
   const { t } = useTranslation();
   const [status, setStatus] = useState<CliStatus | null>(null);
   const [loading, setLoading] = useState(true);
-  const [login, setLogin] = useState<CliLoginResponse | null>(null);
-  const [authenticating, setAuthenticating] = useState(false);
 
   async function check() {
     setLoading(true);
@@ -690,7 +823,6 @@ function CliProviderSection({
   useEffect(() => {
     let active = true;
     setLoading(true);
-    setLogin(null);
     getCliStatus(tool)
       .then((res) => {
         if (active) setStatus(res);
@@ -705,22 +837,6 @@ function CliProviderSection({
       active = false;
     };
   }, [tool]);
-
-  async function authenticate() {
-    setAuthenticating(true);
-    setLogin(null);
-    try {
-      setLogin(await cliLogin(tool));
-    } catch (err) {
-      setLogin({
-        tool,
-        started: false,
-        error: errorMessage(err) || t("settings.ai.testFailed"),
-      });
-    } finally {
-      setAuthenticating(false);
-    }
-  }
 
   return (
     <>
@@ -750,17 +866,6 @@ function CliProviderSection({
           variant="secondary"
           size="sm"
           type="button"
-          loading={authenticating}
-          disabled={authenticating}
-          onClick={() => void authenticate()}
-        >
-          <LogIn className="h-4 w-4" />
-          {t("settings.ai.cliAuthenticate")}
-        </Button>
-        <Button
-          variant="secondary"
-          size="sm"
-          type="button"
           loading={loading}
           disabled={loading}
           onClick={() => void check()}
@@ -769,46 +874,20 @@ function CliProviderSection({
         </Button>
       </div>
 
-      {login && (
-        <div className="flex flex-col gap-1.5 rounded-lg border border-border-subtle bg-bg-inset px-3 py-2.5 text-xs text-content-tertiary">
-          {login.error ? (
-            <span className="text-danger">{login.error}</span>
-          ) : (
-            <>
-              {login.url ? (
-                <a
-                  href={login.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="font-medium text-accent underline"
-                >
-                  {t("settings.ai.cliOpenAndAuthorize")}
-                </a>
-              ) : login.output || login.hint ? (
-                <span className="whitespace-pre-wrap break-words text-content-secondary">
-                  {login.output || login.hint}
-                </span>
-              ) : null}
-              <span>{t("settings.ai.cliLoginGuide")}</span>
-            </>
-          )}
-        </div>
-      )}
-
-      <Field label={t("settings.ai.cliModelOptional")}>
-        <Input
-          value={model}
-          onChange={(e) => onModelChange(e.target.value)}
-          placeholder={t("settings.ai.cliModelPlaceholder")}
-        />
-      </Field>
+      <ModelSelectField
+        provider={tool}
+        value={model}
+        onChange={onModelChange}
+        autoLoad={!editable}
+        editable={editable}
+      />
     </>
   );
 }
 
 // Pulsante "Prova connessione" riusabile (testo o immagini). Chiama `run`, mostra spinner e
 // poi l'esito inline (✓ + anteprima/provider, oppure ✗ + errore). Stato locale, nessun toast.
-function TestConnectionButton({ run }: { run: (signal?: AbortSignal) => Promise<AiTestResult> }) {
+function TestConnectionButton({ run }: { run: () => Promise<AiTestResult> }) {
   const { t } = useTranslation();
   const [testing, setTesting] = useState(false);
   const [result, setResult] = useState<AiTestResult | null>(null);

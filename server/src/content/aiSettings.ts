@@ -5,12 +5,12 @@ import * as keyring from "../secrets/keyring.js";
 // ============================================================================
 // CONFIGURAZIONE RUNTIME dei provider AI (testo + immagini), persistita e
 // pilotata dalle Impostazioni. La config NON-segreta vive nel DB (app_setting),
-// le CHIAVI nel keyring cifrato. Qui teniamo una CACHE IN-MEMORY SINCRONA così
-// che `createEngine()` / `createImageEngine()` possano leggere la config a
+// le CHIAVI nel keyring (secret-tool). Qui teniamo una CACHE IN-MEMORY SINCRONA
+// così che createEngine() / createImageEngine() possano leggere la config a
 // runtime senza await e senza riavvio del server.
 //
 // FALLBACK ENV: per ogni campo, il valore EFFETTIVO è quello salvato (DB/keyring)
-// ?? `appConfig` (env). Così nessun .env esistente va perso.
+// ?? appConfig (env). Default app: testo opencode/openai/gpt-5.5, immagini local.
 //
 // SICUREZZA: le chiavi in cache sono in chiaro in memoria (servono a chiamare le
 // API). NON vanno MAI loggate né esposte via effectiveView() (solo boolean).
@@ -30,7 +30,10 @@ export interface TextCfg {
   ollamaModel: string;
   opencodeModel: string;
   codexModel: string | null;
-  geminiModel: string | null;
+  claudeModel: string | null;
+  agyModel: string | null;
+  fallbackProvider: string;
+  fallbackModel: string;
 }
 
 export interface ImageCfg {
@@ -50,6 +53,10 @@ export interface ImageCfg {
   replicateImageModel: string;
   falApiKey: string | null;
   falImageModel: string;
+  agyImageModel: string;
+  codexImageModel: string;
+  fallbackProvider: string;
+  fallbackModel: string;
 }
 
 export interface EffectiveView {
@@ -64,7 +71,10 @@ export interface EffectiveView {
     ollamaModel: string;
     opencodeModel: string;
     codexModel: string | null;
-    geminiModel: string | null;
+    claudeModel: string | null;
+    agyModel: string | null;
+    fallbackProvider: string;
+    fallbackModel: string;
   };
   image: {
     provider: string;
@@ -74,6 +84,10 @@ export interface EffectiveView {
     bflImageModel: string;
     replicateImageModel: string;
     falImageModel: string;
+    agyImageModel: string;
+    codexImageModel: string;
+    fallbackProvider: string;
+    fallbackModel: string;
   };
   keys: {
     openai: boolean;
@@ -100,7 +114,10 @@ export interface AiSettingsPatch {
     ollamaModel?: string;
     opencodeModel?: string;
     codexModel?: string;
-    geminiModel?: string;
+    claudeModel?: string;
+    agyModel?: string;
+    fallbackProvider?: string;
+    fallbackModel?: string;
   };
   image?: {
     provider?: string;
@@ -110,6 +127,10 @@ export interface AiSettingsPatch {
     bflImageModel?: string;
     replicateImageModel?: string;
     falImageModel?: string;
+    agyImageModel?: string;
+    codexImageModel?: string;
+    fallbackProvider?: string;
+    fallbackModel?: string;
   };
   keys?: {
     openai?: string | null;
@@ -136,7 +157,10 @@ const DB_KEYS = {
   ollamaModel: "ai.text.ollamaModel",
   opencodeModel: "ai.text.opencodeModel",
   codexModel: "ai.text.codexModel",
-  geminiModel: "ai.text.geminiModel",
+  claudeModel: "ai.text.claudeModel",
+  agyModel: "ai.text.agyModel",
+  textFallback: "ai.text.fallbackProvider",
+  textFallbackModel: "ai.text.fallbackModel",
   imageProvider: "ai.image.provider",
   openaiImageModel: "ai.image.openaiImageModel",
   googleImageModel: "ai.image.googleImageModel",
@@ -144,6 +168,10 @@ const DB_KEYS = {
   bflImageModel: "ai.image.bflImageModel",
   replicateImageModel: "ai.image.replicateImageModel",
   falImageModel: "ai.image.falImageModel",
+  agyImageModel: "ai.image.agyImageModel",
+  codexImageModel: "ai.image.codexImageModel",
+  imageFallback: "ai.image.fallbackProvider",
+  imageFallbackModel: "ai.image.fallbackModel",
 } as const;
 
 const KEY_KEYS = {
@@ -158,7 +186,7 @@ const KEY_KEYS = {
 
 // ---------------------------------------------------------------------------
 // CACHE IN-MEMORY. Mappa { chiave -> valore } caricata da DB + keyring.
-// `undefined` (chiave assente nella cache) => si applica il fallback env.
+// undefined (chiave assente nella cache) => si applica il fallback env.
 // ---------------------------------------------------------------------------
 interface Cache {
   db: Map<string, string | null>;
@@ -167,7 +195,7 @@ interface Cache {
 
 const cache: Cache = { db: new Map(), keys: new Map() };
 
-// Valore DB salvato per `k`, oppure il fallback fornito (env). Stringa vuota => fallback.
+// Valore DB salvato per k, oppure il fallback fornito (env). Stringa vuota => fallback.
 function dbVal(k: string, fallback: string): string {
   const v = cache.db.get(k);
   return v != null && v !== "" ? v : fallback;
@@ -228,7 +256,10 @@ export function getText(): TextCfg {
     ollamaModel: dbVal(DB_KEYS.ollamaModel, appConfig.ollamaModel),
     opencodeModel: dbVal(DB_KEYS.opencodeModel, appConfig.opencodeModel),
     codexModel: dbValNullable(DB_KEYS.codexModel, appConfig.codexModel),
-    geminiModel: dbValNullable(DB_KEYS.geminiModel, appConfig.geminiModel),
+    claudeModel: dbValNullable(DB_KEYS.claudeModel, appConfig.claudeModel),
+    agyModel: dbValNullable(DB_KEYS.agyModel, appConfig.agyModel),
+    fallbackProvider: dbVal(DB_KEYS.textFallback, appConfig.textFallbackProvider),
+    fallbackModel: dbVal(DB_KEYS.textFallbackModel, appConfig.textFallbackModel),
   };
 }
 
@@ -250,6 +281,10 @@ export function getImage(): ImageCfg {
     replicateImageModel: dbVal(DB_KEYS.replicateImageModel, appConfig.replicateImageModel),
     falApiKey: keyVal(KEY_KEYS.fal, appConfig.falApiKey),
     falImageModel: dbVal(DB_KEYS.falImageModel, appConfig.falImageModel),
+    agyImageModel: dbVal(DB_KEYS.agyImageModel, appConfig.agyImageModel),
+    codexImageModel: dbVal(DB_KEYS.codexImageModel, appConfig.codexImageModel),
+    fallbackProvider: dbVal(DB_KEYS.imageFallback, appConfig.imageFallbackProvider),
+    fallbackModel: dbVal(DB_KEYS.imageFallbackModel, appConfig.imageFallbackModel),
   };
 }
 
@@ -269,7 +304,10 @@ export function effectiveView(): EffectiveView {
       ollamaModel: t.ollamaModel,
       opencodeModel: t.opencodeModel,
       codexModel: t.codexModel,
-      geminiModel: t.geminiModel,
+      claudeModel: t.claudeModel,
+      agyModel: t.agyModel,
+      fallbackProvider: t.fallbackProvider,
+      fallbackModel: t.fallbackModel,
     },
     image: {
       provider: i.provider,
@@ -279,6 +317,10 @@ export function effectiveView(): EffectiveView {
       bflImageModel: i.bflImageModel,
       replicateImageModel: i.replicateImageModel,
       falImageModel: i.falImageModel,
+      agyImageModel: i.agyImageModel,
+      codexImageModel: i.codexImageModel,
+      fallbackProvider: i.fallbackProvider,
+      fallbackModel: i.fallbackModel,
     },
     keys: {
       openai: t.openaiApiKey != null && t.openaiApiKey !== "",
@@ -304,7 +346,10 @@ const TEXT_FIELD_KEYS: Record<string, string> = {
   ollamaModel: DB_KEYS.ollamaModel,
   opencodeModel: DB_KEYS.opencodeModel,
   codexModel: DB_KEYS.codexModel,
-  geminiModel: DB_KEYS.geminiModel,
+  claudeModel: DB_KEYS.claudeModel,
+  agyModel: DB_KEYS.agyModel,
+  fallbackProvider: DB_KEYS.textFallback,
+  fallbackModel: DB_KEYS.textFallbackModel,
 };
 
 const IMAGE_FIELD_KEYS: Record<string, string> = {
@@ -315,10 +360,14 @@ const IMAGE_FIELD_KEYS: Record<string, string> = {
   bflImageModel: DB_KEYS.bflImageModel,
   replicateImageModel: DB_KEYS.replicateImageModel,
   falImageModel: DB_KEYS.falImageModel,
+  agyImageModel: DB_KEYS.agyImageModel,
+  codexImageModel: DB_KEYS.codexImageModel,
+  fallbackProvider: DB_KEYS.imageFallback,
+  fallbackModel: DB_KEYS.imageFallbackModel,
 };
 
 /**
- * Persiste la `patch`: campi non-segreti nel DB (app_setting), chiavi nel keyring
+ * Persiste la patch: campi non-segreti nel DB (app_setting), chiavi nel keyring
  * (stringa => put, null => remove, assente => invariata). Poi RICARICA la cache e
  * ritorna la vista effettiva (SENZA i valori delle chiavi).
  */
@@ -352,4 +401,52 @@ export async function save(patch: AiSettingsPatch): Promise<EffectiveView> {
   }
   await load();
   return effectiveView();
+}
+
+// ---------------------------------------------------------------------------
+// LISTA MODELLI per-provider, gestita da DB (chiave `ai.models.<provider>`,
+// valore JSON array di stringhe). Letta/scritta on-demand via settings.get/set
+// (NON passa dalla cache in-memory sincrona: sono operazioni async occasionali).
+// ---------------------------------------------------------------------------
+function modelsKey(provider: string): string {
+  return `ai.models.${provider}`;
+}
+
+/** Lista modelli salvata per il provider (best-effort: [] se assente o JSON non valido). */
+export async function getModels(provider: string): Promise<string[]> {
+  let raw: string | null = null;
+  try {
+    raw = await settings.get(modelsKey(provider));
+  } catch {
+    return [];
+  }
+  if (raw == null || raw === "") return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((m): m is string => typeof m === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Aggiunge un modello (trim + dedup), salva l'array e lo ritorna. */
+export async function addModel(provider: string, model: string): Promise<string[]> {
+  const trimmed = model.trim();
+  const list = await getModels(provider);
+  if (trimmed !== "" && !list.includes(trimmed)) {
+    list.push(trimmed);
+    await settings.set(modelsKey(provider), JSON.stringify(list));
+  }
+  return list;
+}
+
+/** Rimuove un modello, salva l'array risultante e lo ritorna. */
+export async function removeModel(provider: string, model: string): Promise<string[]> {
+  const trimmed = model.trim();
+  const list = await getModels(provider);
+  const next = list.filter((m) => m !== trimmed);
+  if (next.length !== list.length) {
+    await settings.set(modelsKey(provider), JSON.stringify(next));
+  }
+  return next;
 }

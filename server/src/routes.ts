@@ -4,8 +4,16 @@ import { join, basename, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
-import { ContentError, type ContentEngine } from "./content/engine.js";
+import {
+  ContentError,
+  resolveBinary,
+  enginePath,
+  getLastTextEngine,
+  type ContentEngine,
+} from "./content/engine.js";
+import { createImageEngine, getLastImageEngine } from "./media/imageEngine.js";
 import { listTextModels } from "./content/engineApi.js";
+import { modelsFor } from "./content/defaultModels.js";
 import { spawn } from "node:child_process";
 import { ContentService } from "./services/contentService.js";
 import { WeekPlanner } from "./services/weekPlanner.js";
@@ -411,6 +419,10 @@ export function buildApi(deps: AppDeps): Hono {
     return c.json({
       secretsUnlocked: deps.secretsUnlocked,
       provider: deps.engine.name(),
+      textProvider: deps.engine.name(),
+      textActive: getLastTextEngine(),
+      imageProvider: createImageEngine().name(),
+      imageActive: getLastImageEngine(),
       pages: allPages.length,
       books: allBooks.length,
     });
@@ -1419,7 +1431,7 @@ export function buildApi(deps: AppDeps): Hono {
     const NO_PERSON_PLACE =
       "Composition: NO person in the frame — an atmospheric WIDE view of the LOCATION itself (the landscape, sea, sky, or street of THIS passage), letting light, weather and space carry the mood. Do NOT place sports equipment lying on the ground here.";
     const NO_PERSON_GEAR_REST =
-      "Composition: NO person in the frame — the iconic gear AT REST ON LAND/BEACH and physically plausible (the sail does NOT have to lean on the board): a board flat on the sand with the sail/rig DETACHED nearby, OR a fully rigged sail STANDING UPRIGHT on the beach (mast roughly vertical, set up on the sand), OR the rig leaning on the board. The boom must be COMPLETE and correctly shaped. A standing rig is fine ON LAND but NEVER an unmanned upright sail ON THE WATER, NEVER a board riding a wave by itself (no ghost riders). Use this resting-gear framing ONLY here.";
+      "Composition: NO person in the frame — a still, close or medium view of an ICONIC OBJECT or DETAIL that actually belongs to THIS passage, at rest on a plausible surface (a table, a shelf, a windowsill, the ground...), physically coherent with gravity and its setting. Choose an object the chapter REALLY describes; NEVER invent sports gear, beaches, sails or boards that the passage does not mention. Use this object-at-rest framing ONLY here.";
     // ANGOLI BILANCIATI: non sempre "di spalle". Si alterna behind / three-quarter FRONT (volto in parte
     // visibile) / profilo / candid frontale / figura distante. Resta vietato lo sguardo IN CAMERA e il
     // ritratto in posa: il volto può vedersi, ma lo sguardo è sull'azione/soggetto, mai sull'obiettivo.
@@ -1558,18 +1570,19 @@ export function buildApi(deps: AppDeps): Hono {
   });
   api.put("/settings/ai", async (c) => {
     const body = await c.req.json().catch(() => ({}));
-    const TEXT_PROVIDERS = new Set([
-      "opencode",
-      "codex",
-      "gemini",
+    const TEXT_PROVIDERS = new Set(["opencode", "codex", "claude", "agy", "ollama", "none"]);
+    const IMAGE_PROVIDERS = new Set([
+      "local",
+      "auto",
       "openai",
-      "anthropic",
       "google",
-      "openai-compatible",
-      "compatible",
-      "ollama",
+      "stability",
+      "bfl",
+      "replicate",
+      "fal",
+      "agy",
+      "none",
     ]);
-    const IMAGE_PROVIDERS = new Set(["auto", "local", "openai", "google", "none"]);
     if (body.text?.provider !== undefined && !TEXT_PROVIDERS.has(body.text.provider)) {
       return c.json(err(`Provider testo non valido: ${body.text.provider}`), 400);
     }
@@ -1584,49 +1597,140 @@ export function buildApi(deps: AppDeps): Hono {
     return c.json(view);
   });
 
-  // POST /settings/ai/models — elenca i MODELLI reali di un provider testo (per popolare la select).
-  // HTTP 200 sempre: { models, error? }. Se il body non porta la chiave, usa quella SALVATA per il
-  // provider richiesto (aiSettings.getText()). Best-effort: lista vuota => error leggibile.
+  // POST /settings/ai/models — elenca i modelli disponibili per un provider.
+  // HTTP 200 sempre: { models, error? }. Best-effort, mai eccezioni propagate.
+  // - opencode/agy: spawn CLI `<binary> models` (timeout 15s)
+  // - ollama: HTTP listTextModels
+  // - codex/claude/openai/google/stability/bfl/replicate/fal: default-codice ∪ DB
   api.post("/settings/ai/models", async (c) => {
     const body = await c.req.json().catch(() => ({}));
     const provider = typeof body.provider === "string" ? body.provider.trim() : "";
     if (provider === "") return c.json({ models: [], error: "provider mancante" });
-    let apiKey: string | null = typeof body.apiKey === "string" ? body.apiKey : null;
-    let baseUrl: string | null = typeof body.baseUrl === "string" ? body.baseUrl : null;
-    // Se manca la chiave nel body, ricava chiave/baseUrl SALVATI per il provider richiesto.
-    if (apiKey == null || apiKey === "") {
-      const cfg = aiSettings.getText();
-      if (provider === "openai" || provider === "openai-compatible" || provider === "compatible") {
-        apiKey = cfg.openaiApiKey;
-        baseUrl = baseUrl ?? cfg.openaiBaseUrl;
-      } else if (provider === "anthropic") {
-        apiKey = cfg.anthropicApiKey;
-      } else if (provider === "google" || provider === "gemini") {
-        apiKey = cfg.googleApiKey;
-        baseUrl = baseUrl ?? cfg.googleBaseUrl;
-      } else if (provider === "ollama") {
-        baseUrl = baseUrl ?? cfg.ollamaBaseUrl;
+
+    // Helper: esegue `binary models`, timeout 15s, ritorna righe non vuote.
+    const spawnModels = (binary: string): Promise<{ models: string[]; error?: string }> =>
+      new Promise((resolve) => {
+        let stdout = "";
+        let settled = false;
+        const finish = (r: { models: string[]; error?: string }): void => {
+          if (settled) return;
+          settled = true;
+          resolve(r);
+        };
+        let child: ReturnType<typeof spawn>;
+        try {
+          child = spawn(resolveBinary(binary), ["models"], {
+            stdio: ["ignore", "pipe", "ignore"],
+            env: { ...process.env, PATH: enginePath() },
+          });
+        } catch (e) {
+          finish({ models: [], error: e instanceof Error ? e.message : String(e) });
+          return;
+        }
+        const timer = setTimeout(() => {
+          child.kill("SIGKILL");
+          finish({ models: [], error: "Timeout avvio CLI" });
+        }, 15_000);
+        child.stdout?.on("data", (d: Buffer) => {
+          stdout += d.toString();
+        });
+        child.on("error", (e: Error) => {
+          clearTimeout(timer);
+          finish({ models: [], error: e.message });
+        });
+        child.on("close", () => {
+          clearTimeout(timer);
+          const models = stdout
+            .split("\n")
+            .map((l) => l.trim())
+            .filter((l) => l !== "");
+          finish({ models });
+        });
+      });
+
+    try {
+      if (provider === "opencode") {
+        const result = await spawnModels(appConfig.opencodeBinary);
+        return c.json(result);
       }
+
+      if (provider === "agy") {
+        const result = await spawnModels(appConfig.agyBinary);
+        return c.json(result);
+      }
+
+      if (provider === "ollama") {
+        const baseUrl: string | null = typeof body.baseUrl === "string" ? body.baseUrl : null;
+        const cfg = aiSettings.getText();
+        const resolvedBaseUrl = baseUrl ?? cfg.ollamaBaseUrl;
+        const models = await listTextModels({ provider: "ollama", baseUrl: resolvedBaseUrl });
+        if (models.length === 0) {
+          return c.json({ models: [], error: "Nessun modello: verifica la connessione Ollama." });
+        }
+        return c.json({ models });
+      }
+
+      const DB_PROVIDERS = new Set([
+        "codex",
+        "claude",
+        "openai",
+        "google",
+        "stability",
+        "bfl",
+        "replicate",
+        "fal",
+      ]);
+      if (DB_PROVIDERS.has(provider)) {
+        const models = await modelsFor(provider, aiSettings.getModels);
+        return c.json({ models });
+      }
+
+      return c.json({ models: [] });
+    } catch (e) {
+      return c.json({ models: [], error: e instanceof Error ? e.message : String(e) });
     }
-    const models = await listTextModels({ provider, apiKey, baseUrl });
-    if (models.length === 0) {
-      return c.json({ models: [], error: "Nessun modello: verifica la chiave/connessione." });
+  });
+
+  // POST /settings/ai/models/add — aggiunge un modello alla lista DB del provider.
+  // Body: { provider, model }. HTTP 200: { models }.
+  api.post("/settings/ai/models/add", async (c) => {
+    const body = await c.req.json().catch(() => ({}));
+    const provider = typeof body.provider === "string" ? body.provider.trim() : "";
+    const model = typeof body.model === "string" ? body.model.trim() : "";
+    if (provider === "" || model === "") {
+      return c.json(err("provider e model sono obbligatori"), 400);
     }
+    const models = await aiSettings.addModel(provider, model);
     return c.json({ models });
   });
 
-  // GET /settings/ai/cli-status?tool=opencode|codex|gemini — presenza del binario CLI (NON il login).
+  // POST /settings/ai/models/remove — rimuove un modello dalla lista DB del provider.
+  // Body: { provider, model }. HTTP 200: { models }.
+  api.post("/settings/ai/models/remove", async (c) => {
+    const body = await c.req.json().catch(() => ({}));
+    const provider = typeof body.provider === "string" ? body.provider.trim() : "";
+    const model = typeof body.model === "string" ? body.model.trim() : "";
+    if (provider === "" || model === "") {
+      return c.json(err("provider e model sono obbligatori"), 400);
+    }
+    const models = await aiSettings.removeModel(provider, model);
+    return c.json({ models });
+  });
+
+  // GET /settings/ai/cli-status?tool=opencode|codex|claude|agy — presenza del binario CLI (NON il login).
   // Esegue `<binary> --version` con timeout breve via spawn: installed=true se esce 0 (stdout=version).
   api.get("/settings/ai/cli-status", async (c) => {
     const tool = c.req.query("tool") ?? "";
     const binary =
       tool === "opencode"
         ? appConfig.opencodeBinary
-        : tool === "gemini"
-          ? appConfig.geminiBinary
-          : tool === "codex"
-            ? appConfig.codexBinary
-            : null;
+        : tool === "codex"
+          ? appConfig.codexBinary
+          : tool === "claude"
+            ? appConfig.claudeBinary
+            : tool === "agy"
+              ? appConfig.agyBinary
+              : null;
     if (binary == null) return c.json(err("tool non valido"), 400);
     // Helper spawn inline minimale: risolve con { installed, version, error }.
     const result = await new Promise<{
@@ -1643,7 +1747,10 @@ export function buildApi(deps: AppDeps): Hono {
       };
       let child: ReturnType<typeof spawn>;
       try {
-        child = spawn(binary, ["--version"], { stdio: ["ignore", "pipe", "ignore"] });
+        child = spawn(resolveBinary(binary), ["--version"], {
+          stdio: ["ignore", "pipe", "ignore"],
+          env: { ...process.env, PATH: enginePath() },
+        });
       } catch (e) {
         finish({
           installed: false,
@@ -1676,17 +1783,17 @@ export function buildApi(deps: AppDeps): Hono {
     return c.json({ tool, ...result });
   });
 
-  // POST /settings/ai/cli-login { tool: opencode|codex|gemini } — AVVIA il login del CLI ad
+  // POST /settings/ai/cli-login { tool: opencode|codex|claude|agy } — AVVIA il login del CLI ad
   // abbonamento. DIFENSIVO: non blocca MAI la richiesta. Cattura stdout+stderr per ~5s e poi
   // RISOLVE (il login OAuth prosegue nel browser/terminale per conto suo). Estrae la PRIMA URL
   // https:// dall'output (per mostrarla cliccabile). NON logga token o output oltre l'URL.
   // - codex → `codex login`
-  // - gemini → `gemini` (il primo avvio lancia l'OAuth); se non pilotabile l'utente completa a mano.
+  // - agy/claude → primo avvio interattivo che lancia l'OAuth; se non pilotabile l'utente completa a mano.
   // - opencode → `opencode auth login` è un picker TUI: ritorna started:false + hint (non pilotabile).
   api.post("/settings/ai/cli-login", async (c) => {
     const body = await c.req.json().catch(() => ({}));
     const tool = typeof body.tool === "string" ? body.tool : "";
-    if (tool !== "opencode" && tool !== "codex" && tool !== "gemini") {
+    if (tool !== "opencode" && tool !== "codex" && tool !== "claude" && tool !== "agy") {
       return c.json(err("tool non valido"), 400);
     }
 
@@ -1699,8 +1806,13 @@ export function buildApi(deps: AppDeps): Hono {
       });
     }
 
-    const binary = tool === "codex" ? appConfig.codexBinary : appConfig.geminiBinary;
-    // codex login; gemini: primo avvio in modalità interattiva fa l'OAuth.
+    const binary =
+      tool === "codex"
+        ? appConfig.codexBinary
+        : tool === "claude"
+          ? appConfig.claudeBinary
+          : appConfig.agyBinary;
+    // codex login; agy/claude: primo avvio in modalità interattiva fa l'OAuth.
     const args = tool === "codex" ? ["login"] : [];
 
     // Estrae la PRIMA URL https:// dall'output combinato (best-effort).
@@ -1733,7 +1845,11 @@ export function buildApi(deps: AppDeps): Hono {
       let child: ReturnType<typeof spawn>;
       try {
         // stdin ignorato: niente prompt interattivi pilotati; il login prosegue per conto suo.
-        child = spawn(binary, args, { stdio: ["ignore", "pipe", "pipe"], detached: true });
+        child = spawn(resolveBinary(binary), args, {
+          stdio: ["ignore", "pipe", "pipe"],
+          detached: true,
+          env: { ...process.env, PATH: enginePath() },
+        });
       } catch (e) {
         finish({
           started: false,
@@ -1741,7 +1857,7 @@ export function buildApi(deps: AppDeps): Hono {
           hint:
             tool === "codex"
               ? "Esegui `codex login` in un terminale."
-              : "Esegui `gemini` in un terminale e completa il login.",
+              : `Esegui \`${tool}\` in un terminale e completa il login.`,
         });
         return;
       }
@@ -1758,8 +1874,8 @@ export function buildApi(deps: AppDeps): Hono {
           url,
           output: url ?? undefined, // NON esponiamo l'output grezzo: solo l'URL.
           hint:
-            tool === "gemini" && url == null
-              ? "Se il login non si apre, esegui `gemini` in un terminale e completa l'OAuth."
+            (tool === "agy" || tool === "claude") && url == null
+              ? `Se il login non si apre, esegui \`${tool}\` in un terminale e completa l'OAuth.`
               : undefined,
         });
       }, 5_000);
@@ -1778,7 +1894,7 @@ export function buildApi(deps: AppDeps): Hono {
           hint:
             tool === "codex"
               ? "Esegui `codex login` in un terminale."
-              : "Esegui `gemini` in un terminale e completa il login.",
+              : `Esegui \`${tool}\` in un terminale e completa il login.`,
         });
       });
       child.on("close", () => {
@@ -1868,6 +1984,20 @@ export function buildApi(deps: AppDeps): Hono {
           provider,
           error: status == null ? "Endpoint non raggiungibile." : `HTTP ${status}`,
         });
+      }
+      // stability/bfl/replicate/fal: ok se la chiave è presente (best-effort).
+      const keyMap: Record<string, string | null | undefined> = {
+        stability: cfg.stabilityApiKey,
+        bfl: cfg.bflApiKey,
+        replicate: cfg.replicateApiKey,
+        fal: cfg.falApiKey,
+      };
+      if (provider in keyMap) {
+        const key = keyMap[provider];
+        if (key == null || key === "") {
+          return c.json({ ok: false, provider, error: `Chiave ${provider} non configurata.` });
+        }
+        return c.json({ ok: true, provider });
       }
       // none (o sconosciuto): nessun provider immagini configurato.
       return c.json({ ok: false, provider, error: "Nessun provider immagini configurato." });

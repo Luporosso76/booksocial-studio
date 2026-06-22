@@ -55,10 +55,26 @@ export function Header() {
           </Badge>
         ) : status ? (
           <>
-            <Badge tone="accent">
-              <Cpu className="h-3 w-3" />
-              {status.provider || t("header.engineFallback")}
-            </Badge>
+            {(() => {
+              const textEngine = status.textActive ?? status.textProvider ?? status.provider;
+              const textFallback = textEngine?.includes("(fallback)") ?? false;
+              return (
+                <Badge tone={textFallback ? "warning" : "accent"}>
+                  <Cpu className="h-3 w-3" />
+                  {textEngine || t("header.engineFallback")}
+                </Badge>
+              );
+            })()}
+            {(() => {
+              const imageEngine = status.imageActive ?? status.imageProvider;
+              const imageFallback = imageEngine?.includes("(fallback)") ?? false;
+              return imageEngine ? (
+                <Badge tone={imageFallback ? "warning" : "accent"}>
+                  <ImageIcon className="h-3 w-3" />
+                  {imageEngine}
+                </Badge>
+              ) : null;
+            })()}
             <Badge tone={status.secretsUnlocked ? "success" : "warning"}>
               {status.secretsUnlocked ? (
                 <Unlock className="h-3 w-3" />

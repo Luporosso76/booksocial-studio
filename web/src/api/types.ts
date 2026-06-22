@@ -5,6 +5,12 @@
 export interface AppStatus {
   secretsUnlocked: boolean;
   provider: string;
+  // Provider TESTO: configurato vs ultimo realmente usato (può contenere " (fallback)").
+  textProvider?: string | null;
+  textActive?: string | null;
+  // Provider IMMAGINI: configurato vs ultimo realmente usato (può contenere " (fallback)").
+  imageProvider?: string | null;
+  imageActive?: string | null;
   pages: number;
   books: number;
 }
@@ -177,49 +183,59 @@ export interface AiImageModeState {
 }
 
 // --- Impostazioni provider AI (testo + immagini) ---
-export type AiTextProvider =
-  | "opencode"
-  | "codex"
-  | "gemini"
-  | "openai"
-  | "anthropic"
-  | "google"
-  | "openai-compatible"
-  | "ollama";
+// Provider testo: CLI agentici (opencode/codex/claude/agy, login via CLI, nessuna
+// chiave) + Ollama locale (baseUrl + modello). I provider ad API diretta sono stati rimossi.
+export type AiTextProvider = "opencode" | "codex" | "claude" | "agy" | "ollama";
 
+// Fallback testo: come AiTextProvider piu 'none' (nessun fallback).
+export type AiTextFallback = AiTextProvider | "none";
+
+// Provider immagini: motore locale, CLI agentici (agy/codex) e API a chiave dedicata.
 export type AiImageProvider =
-  | "auto"
   | "local"
+  | "agy"
+  | "codex"
   | "openai"
   | "google"
   | "stability"
   | "bfl"
   | "replicate"
-  | "fal"
-  | "none";
+  | "fal";
+
+// Fallback immagini: come AiImageProvider piu 'none' (nessun fallback).
+export type AiImageFallback = AiImageProvider | "none";
 
 export interface AiSettings {
   text: {
     provider: AiTextProvider;
-    openaiBaseUrl: string;
-    openaiModel: string;
-    anthropicModel: string;
-    googleModel: string;
-    googleBaseUrl: string;
+    // Modello forzato per provider (null/'' = default del CLI/provider).
+    opencodeModel: string;
+    codexModel: string | null;
+    claudeModel: string | null;
+    agyModel: string | null;
     ollamaBaseUrl: string;
     ollamaModel: string;
-    opencodeModel: string;
-    codexModel: string;
-    geminiModel: string;
+    // Provider di ripiego su rate-limit/quota esaurita del primario ('none' = nessuno).
+    fallbackProvider: AiTextFallback;
+    // Modello forzato per il provider di fallback (''/default del provider).
+    fallbackModel: string;
   };
   image: {
     provider: AiImageProvider;
+    openaiBaseUrl: string;
+    googleBaseUrl: string;
     openaiImageModel: string;
     googleImageModel: string;
     stabilityImageModel: string;
     bflImageModel: string;
     replicateImageModel: string;
     falImageModel: string;
+    agyImageModel: string | null;
+    codexImageModel: string | null;
+    // Provider di ripiego su rate-limit/quota esaurita del primario ('none' = nessuno).
+    fallbackProvider: AiImageFallback;
+    // Modello forzato per il provider di fallback (''/default del provider).
+    fallbackModel: string;
   };
   // Stato "chiave configurata" (mai il valore). Solo boolean.
   keys: {
@@ -260,16 +276,6 @@ export interface CliStatus {
   tool: string;
   installed: boolean;
   version: string | null;
-  error?: string;
-}
-
-// Risposta di POST /settings/ai/cli-login: avvio del login OAuth di un CLI ad abbonamento.
-export interface CliLoginResponse {
-  tool: string;
-  started: boolean;
-  output?: string;
-  url?: string | null;
-  hint?: string;
   error?: string;
 }
 

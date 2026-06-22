@@ -1,10 +1,11 @@
 import { spawn } from "node:child_process";
-import { existsSync } from "node:fs";
-import { writeFile } from "node:fs/promises";
+import { existsSync, mkdirSync, statSync } from "node:fs";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join, delimiter, dirname } from "node:path";
 import { appConfig } from "../config.js";
 import * as aiSettings from "../content/aiSettings.js";
+import { resolveBinary, enginePath } from "../content/engine.js";
 import { dimsForAspect, type SceneAspect } from "./imageGen.js";
 import { dataDir } from "../paths.js";
 
@@ -32,6 +33,13 @@ export interface ImageEngine {
   generate(input: ImageGenInput): Promise<string | null>;
 }
 
+// Ultimo motore IMMAGINI realmente usato da generate() (primario o fallback), col nome concreto.
+// I name in fallback portano il suffisso " (fallback)" per evidenziare il cambio nella UI.
+let lastImageEngine: string | null = null;
+export function getLastImageEngine(): string | null {
+  return lastImageEngine;
+}
+
 // =====================================================================================
 // Backend LOCALE: sd-cli (stable-diffusion.cpp) + Z-Image Turbo. Incapsula la logica
 // spawn storica. Tutti gli env SDCPP_* restano invariati. La GPU regge UNA generazione
@@ -49,7 +57,7 @@ function backendArg(): string {
 }
 function timeoutMs(): number {
   const v = Number(process.env.SDCPP_TIMEOUT_MS);
-  return Number.isFinite(v) && v > 0 ? v : 900_000; // 15 min: la CPU sul VAE è lenta
+  return Number.isFinite(v) && v > 0 ? v : 1_200_000; // 20 min: la CPU sul VAE è lenta
 }
 
 // ---- Z-IMAGE TURBO (Tongyi, 6B): file GGUF in models/zimage/. ----
@@ -837,10 +845,156 @@ export class NoopImageEngine implements ImageEngine {
   }
 }
 
+/** Base dir per le work dir temporanee degli agenti: dentro il data dir (scrivibile in Docker). */
+function agentWorkBase(): string {
+  const base = join(dataDir(), ".agent-work");
+  mkdirSync(base, { recursive: true });
+  return base;
+}
+
+// =====================================================================================
+// Backend AGENTICO (agy): CLI AI che salva direttamente il PNG su disco. NON è un backend
+// HTTP: si spawna il binario passandogli l'istruzione di salvare il file ESATTAMENTE a
+// outPath, poi si verifica che il file esista e sia plausibile. Best-effort: ogni errore
+// (binario assente, timeout, abort, file non scritto/troppo piccolo) → null e il chiamante ripiega.
+// =====================================================================================
+
+// Istruzione testuale per l'agente: genera l'immagine col MODELLO immagine (mai con codice)
+// alle dimensioni richieste e salvala esattamente a outPath come PNG, senza altro output.
+function agentImageInstruction(input: ImageGenInput): string {
+  const { w, h } = dimsForAspect(input.aspect);
+  return (
+    `Use your built-in IMAGE GENERATION model to render a real raster illustration. ` +
+    `Do NOT draw it with code, Python, Pillow, matplotlib, SVG, canvas or any script: if you ` +
+    `cannot use the image-generation model (e.g. quota exhausted), produce NOTHING and do not ` +
+    `create any placeholder file. ` +
+    `Generate ONE image with aspect ratio ${w}x${h} (width ${w} px, height ${h} px) — ` +
+    `respect this aspect ratio, do NOT output a square if a non-square ratio is requested. ` +
+    `Depict EXACTLY this scene, reproducing it faithfully: ${input.prompt} ` +
+    `Keep every described detail — the setting, the framing/point of view, the poses and ` +
+    `especially the CLOTHING of each person. Do NOT simplify, omit, restyle away or invent ` +
+    `elements that are not described. ` +
+    `Save it exactly to the file ${input.outPath} as a PNG. ` +
+    `Overwrite if it exists. Do not output anything else.`
+  );
+}
+
+// Spawn di un agente CLI che scrive un file: attende la chiusura del processo (entro un
+// timeout) onorando l'eventuale AbortSignal, poi verifica l'esistenza di outPath.
+// Ritorna outPath se il file esiste a fine processo, altrimenti null. Non lancia mai.
+function spawnImageAgent(
+  cmd: string,
+  args: string[],
+  input: ImageGenInput,
+  timeoutMs: number,
+  cwd?: string,
+): Promise<string | null> {
+  if (input.signal?.aborted) return Promise.resolve(null);
+  return new Promise((resolve) => {
+    let child;
+    try {
+      child = spawn(resolveBinary(cmd), args, {
+        stdio: ["ignore", "ignore", "ignore"],
+        env: { ...process.env, PATH: enginePath() },
+        detached: true, // gruppo di processi: l'agente (agy) lancia sotto-processi (python/tool)
+        ...(cwd ? { cwd } : {}),
+      });
+    } catch {
+      resolve(null);
+      return;
+    }
+    // Uccide l'INTERO gruppo (agente + figli): un semplice child.kill lascerebbe orfani i tool
+    // lanciati dall'agente, che continuerebbero a scrivere su outPath sovrapponendosi al fallback.
+    const killTree = () => {
+      try {
+        if (child.pid) process.kill(-child.pid, "SIGKILL");
+        else child.kill("SIGKILL");
+      } catch {
+        try {
+          child.kill("SIGKILL");
+        } catch {
+          /* già terminato */
+        }
+      }
+    };
+    let settled = false;
+    const finish = (value: string | null) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      input.signal?.removeEventListener("abort", onAbort);
+      resolve(value);
+    };
+    const onAbort = () => {
+      killTree();
+      finish(null);
+    };
+    const timer = setTimeout(() => {
+      killTree();
+      finish(null);
+    }, timeoutMs);
+    if (input.signal) input.signal.addEventListener("abort", onAbort, { once: true });
+    child.on("error", () => finish(null));
+    child.on("close", () => {
+      // Rete di sicurezza: un'immagine vera (modello AI) pesa centinaia di KB; un placeholder
+      // disegnato via codice (es. agy che ripiega su PIL quando la quota immagine è finita) è
+      // di pochi KB → lo trattiamo come fallimento così scatta il fallback (z-image).
+      let ok = existsSync(input.outPath);
+      if (ok) {
+        try {
+          if (statSync(input.outPath).size < 20_000) ok = false;
+        } catch {
+          ok = false;
+        }
+      }
+      finish(ok ? input.outPath : null);
+    });
+  });
+}
+
+export class AgyImageEngine implements ImageEngine {
+  constructor(
+    private readonly binary: string,
+    private readonly model: string,
+  ) {}
+
+  name(): string {
+    return "agy(image)";
+  }
+
+  // La verifica reale del binario la fa generate() (esistenza del file a fine processo).
+  available(): boolean {
+    return true;
+  }
+
+  async generate(input: ImageGenInput): Promise<string | null> {
+    if (input.signal?.aborted) return null;
+    if (!input.prompt || input.prompt.trim() === "") return null;
+    const outDir = dirname(input.outPath);
+    mkdirSync(outDir, { recursive: true });
+    const work = await mkdtemp(join(agentWorkBase(), "agy-img-")).catch(() => null);
+    if (!work) return null;
+    try {
+      const instruction = agentImageInstruction(input);
+      const args = [
+        ...(this.model ? ["--model", this.model] : []),
+        "--dangerously-skip-permissions",
+        "--add-dir",
+        outDir,
+        "--print",
+        instruction,
+      ];
+      return await spawnImageAgent(this.binary, args, input, 600_000, work);
+    } finally {
+      rm(work, { recursive: true, force: true }).catch(() => {});
+    }
+  }
+}
+
 /**
  * Registry centrale dei provider del motore IMMAGINI. È l'UNICO punto di estensione:
  * per aggiungere un provider immagini, implementa l'interfaccia `ImageEngine` (qui)
- * e aggiungi un `case` in questo switch, instradato da `IMAGE_PROVIDER`.
+ * e aggiungi un `case` in questo switch, instradato da aiSettings.getImage().provider.
  *
  *  - local     -> LocalSdCliImageEngine (sd-cli/Z-Image, default storico quando disponibile)
  *  - openai    -> OpenAIImageEngine (POST /v1/images/generations, gpt-image-1)
@@ -849,14 +1003,28 @@ export class NoopImageEngine implements ImageEngine {
  *  - bfl       -> BflImageEngine (Black Forest Labs/FLUX, submit + polling → URL)
  *  - replicate -> ReplicateImageEngine (POST predictions con Prefer: wait → URL)
  *  - fal       -> FalImageEngine (fal.ai, POST https://fal.run/${model} → URL)
+ *  - agy       -> AgyImageEngine (agente CLI che salva il PNG su disco)
  *  - none      -> NoopImageEngine (available()=false, generate()=null)
  *  - auto      -> local se disponibile, altrimenti none (DEFAULT)
  */
-export function createImageEngine(): ImageEngine {
-  // Config EFFETTIVA a RUNTIME: cache aiSettings (DB/keyring) ?? env. imageGen.ts chiama
-  // createImageEngine() a ogni operazione, quindi i cambi via Impostazioni si applicano subito.
-  const cfg = aiSettings.getImage();
-  const provider = cfg.provider;
+function buildImageEngine(provider: string, modelOverride?: string): ImageEngine {
+  // Config EFFETTIVA a RUNTIME: cache aiSettings (DB/keyring) ?? env. Si rilegge a ogni
+  // operazione, quindi i cambi via Impostazioni si applicano subito senza riavvio.
+  const base = aiSettings.getImage();
+  // modelOverride (usato dal fallback): rimpiazza il modello del provider scelto.
+  const ov = modelOverride && modelOverride.trim() !== "" ? modelOverride : null;
+  const cfg = ov
+    ? {
+        ...base,
+        openaiImageModel: ov,
+        googleImageModel: ov,
+        stabilityImageModel: ov,
+        bflImageModel: ov,
+        replicateImageModel: ov,
+        falImageModel: ov,
+        agyImageModel: ov,
+      }
+    : base;
   switch (provider) {
     case "local":
       return new LocalSdCliImageEngine();
@@ -890,6 +1058,8 @@ export function createImageEngine(): ImageEngine {
       );
     case "fal":
       return new FalImageEngine(cfg.falApiKey, cfg.falImageModel, appConfig.engineTimeoutMs);
+    case "agy":
+      return new AgyImageEngine(appConfig.agyBinary, cfg.agyImageModel);
     case "none":
       return new NoopImageEngine();
     case "auto":
@@ -898,4 +1068,67 @@ export function createImageEngine(): ImageEngine {
       return local.available() ? local : new NoopImageEngine();
     }
   }
+}
+
+// Wrapper FALLBACK-AWARE attorno al motore primario. name()/available() restano quelli
+// del primario; generate() prova il primario e, SOLO se quello ritorna null o lancia,
+// ripiega UNA volta sul fallbackProvider (se valorizzato, != "none" e != primario).
+// L'eventuale outPath scritto a metà dal primario viene sovrascritto dal fallback.
+class FallbackImageEngine implements ImageEngine {
+  constructor(
+    private readonly primary: ImageEngine,
+    private readonly primaryProvider: string,
+    private readonly fallbackProvider: string,
+    private readonly fallbackModel: string,
+  ) {}
+
+  name(): string {
+    return this.primary.name();
+  }
+
+  available(): boolean {
+    return this.primary.available();
+  }
+
+  async generate(input: ImageGenInput): Promise<string | null> {
+    let primaryResult: string | null = null;
+    try {
+      primaryResult = await this.primary.generate(input);
+    } catch {
+      primaryResult = null;
+    }
+    if (primaryResult) {
+      lastImageEngine = this.primary.name();
+      return primaryResult;
+    }
+    const fb = this.fallbackProvider;
+    if (!fb || fb === "none" || fb === this.primaryProvider) return null;
+    // eslint-disable-next-line no-console
+    console.warn(`[image] fallback a ${fb}`);
+    const fallbackEngine = buildImageEngine(fb, this.fallbackModel);
+    try {
+      const result = await fallbackEngine.generate(input);
+      if (result) lastImageEngine = `${fallbackEngine.name()} (fallback)`;
+      return result;
+    } catch {
+      return null;
+    }
+  }
+}
+
+/**
+ * Motore IMMAGINI attivo, FALLBACK-AWARE. Costruisce il primario da
+ * aiSettings.getImage().provider e lo avvolge in un wrapper che ripiega una volta sul
+ * fallbackProvider se il primario fallisce. Con provider "local" + fallback "none" il
+ * comportamento è IDENTICO al motore locale puro (nessun fallback, nessun wrapper inutile).
+ */
+export function createImageEngine(): ImageEngine {
+  const cfg = aiSettings.getImage();
+  const primary = buildImageEngine(cfg.provider);
+  const fb = cfg.fallbackProvider;
+  if (!fb || fb === "none" || fb === cfg.provider) {
+    lastImageEngine = primary.name();
+    return primary;
+  }
+  return new FallbackImageEngine(primary, cfg.provider, fb, cfg.fallbackModel);
 }

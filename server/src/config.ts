@@ -44,14 +44,25 @@ export interface AppConfig {
   replicateImageModel: string;
   falApiKey: string | null;
   falImageModel: string;
+  // Provider CLI ad ABBONAMENTO (login via CLI ufficiale).
   opencodeModel: string;
   opencodeBinary: string;
   codexBinary: string;
   codexModel: string | null;
-  // Gemini come provider CLI ad ABBONAMENTO (login via CLI ufficiale). NON è il modello dell'API a
-  // key: quello è `googleModel`. `geminiModel` è il modello passato al CLI `gemini -m`.
-  geminiBinary: string;
-  geminiModel: string | null;
+  claudeBinary: string;
+  claudeModel: string | null;
+  // agy = CLI ad abbonamento (Gemini/antigravity). Genera testo e (in modalità agente) immagini.
+  agyBinary: string;
+  agyModel: string | null;
+  // Modelli dei provider-immagine via CLI agente (agy/codex): se vuoti usano il modello testo.
+  agyImageModel: string;
+  codexImageModel: string;
+  // Fallback su rate-limit/quota: provider a cui passare se il primario è esaurito ("none" = nessuno).
+  textFallbackProvider: string;
+  imageFallbackProvider: string;
+  // Modello usato dal provider di fallback (se vuoto: il modello configurato di quel provider).
+  textFallbackModel: string;
+  imageFallbackModel: string;
   engineTimeoutMs: number;
   // Timeout (ms) per il QUALITY CHECK visivo delle immagini generate (modello multimodale).
   visionTimeoutMs: number;
@@ -96,10 +107,18 @@ export const appConfig: AppConfig = {
   opencodeBinary: env("OPENCODE_BINARY", "opencode"),
   codexBinary: env("CODEX_BINARY", "codex"),
   codexModel: process.env.CODEX_MODEL || null,
-  geminiBinary: env("GEMINI_BINARY", "gemini"),
-  geminiModel: process.env.GEMINI_CLI_MODEL || null,
-  engineTimeoutMs: Number(env("ENGINE_TIMEOUT_MS", "300000")),
-  visionTimeoutMs: Number(env("VISION_TIMEOUT_MS", "120000")),
+  claudeBinary: env("CLAUDE_BINARY", "claude"),
+  claudeModel: process.env.CLAUDE_MODEL || null,
+  agyBinary: env("AGY_BINARY", "agy"),
+  agyModel: process.env.AGY_MODEL || null,
+  agyImageModel: env("AGY_IMAGE_MODEL", "Gemini 3.5 Flash (Medium)"),
+  codexImageModel: env("CODEX_IMAGE_MODEL", "gpt-5.5"),
+  textFallbackProvider: env("TEXT_FALLBACK_PROVIDER", "none").toLowerCase(),
+  imageFallbackProvider: env("IMAGE_FALLBACK_PROVIDER", "none").toLowerCase(),
+  textFallbackModel: env("TEXT_FALLBACK_MODEL", ""),
+  imageFallbackModel: env("IMAGE_FALLBACK_MODEL", ""),
+  engineTimeoutMs: Number(env("ENGINE_TIMEOUT_MS", "600000")),
+  visionTimeoutMs: Number(env("VISION_TIMEOUT_MS", "600000")),
   schedulerPollSeconds: Number(env("SCHEDULER_POLL_SECONDS", "30")),
   maxPublishAttempts: Number(env("MAX_PUBLISH_ATTEMPTS", "4")),
   apiVersion: env("FB_API_VERSION", "v21.0"),
