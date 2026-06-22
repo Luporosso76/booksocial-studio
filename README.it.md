@@ -4,11 +4,11 @@
 
 Trasforma un libro (Markdown) in **contenuti per social media** pronti da pubblicare — post consapevoli degli spoiler, reel e storie con testo reale, immagini AI e musica — e programmali/pubblicali su Facebook e Instagram.
 
-Funziona **in locale e self-hosted**: i tuoi dati restano sulla tua macchina in un database SQLite integrato. I provider AI sono collegabili (tramite API key o CLI in abbonamento) e l'interfaccia utente è bilingue (italiano/inglese).
+Funziona **in locale e self-hosted**: i tuoi dati restano sulla tua macchina in un database SQLite integrato. I provider AI sono collegabili (tramite API key o CLI in abbonamento) e l'interfaccia utente è multilingua (italiano, inglese, francese, spagnolo, tedesco).
 
 ## Screenshot
 
-> L'interfaccia è bilingue (italiano/inglese); gli screenshot sono in inglese.
+> L'interfaccia è multilingua (italiano, inglese, francese, spagnolo, tedesco); gli screenshot sono in inglese.
 
 <table>
   <tr>

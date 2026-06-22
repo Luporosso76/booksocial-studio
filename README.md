@@ -11,11 +11,11 @@ Turn a book (Markdown) into ready-to-publish **social media content** — spoile
 stories with real text, AI visuals and music — and schedule/publish them to Facebook and Instagram.
 
 It runs **locally and self‑hosted**: your data stays on your machine in an embedded SQLite database.
-AI providers are pluggable (API key or subscription CLI) and the UI is bilingual (Italian/English).
+AI providers are pluggable (API key or subscription CLI) and the UI is multilingual (Italian, English, French, Spanish, German).
 
 ## Screenshots
 
-> The interface is bilingual (Italian/English); screenshots are in English.
+> The interface is multilingual (Italian, English, French, Spanish, German); screenshots are in English.
 
 <table>
   <tr>

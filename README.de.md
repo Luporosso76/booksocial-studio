@@ -9,11 +9,11 @@
 
 Verwandle ein Buch (Markdown) in veröffentlichungsfertigen **Social-Media-Content** — spoilerfreie Posts, Reels und Storys mit echtem Text, KI-Bildern und Musik — und plane/veröffentliche sie auf Facebook und Instagram.
 
-Es läuft **lokal und selbstgehostet**: Deine Daten bleiben auf deiner Maschine in einer eingebetteten SQLite-Datenbank. KI-Provider sind steckbar (API-Schlüssel oder Abonnement-CLI) und die UI ist zweisprachig (Italienisch/Englisch).
+Es läuft **lokal und selbstgehostet**: Deine Daten bleiben auf deiner Maschine in einer eingebetteten SQLite-Datenbank. KI-Provider sind steckbar (API-Schlüssel oder Abonnement-CLI) und die UI ist mehrsprachig (Italienisch, Englisch, Französisch, Spanisch, Deutsch).
 
 ## Screenshots
 
-> Die Oberfläche ist zweisprachig (Italienisch/Englisch); die Screenshots sind auf Englisch.
+> Die Oberfläche ist mehrsprachig (Italienisch, Englisch, Französisch, Spanisch, Deutsch); die Screenshots sind auf Englisch.
 
 <table>
   <tr>

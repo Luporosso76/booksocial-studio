@@ -9,11 +9,11 @@
 
 Transformez un livre (Markdown) en **contenu pour réseaux sociaux** prêt à être publié — des posts garantis sans spoilers, des reels et des stories avec du texte réel, des visuels générés par IA et de la musique — et planifiez/publiez-les sur Facebook et Instagram.
 
-Il s'exécute **localement et auto-hébergé** : vos données restent sur votre machine dans une base de données SQLite embarquée. Les fournisseurs d'IA sont modulables (clé API ou CLI par abonnement) et l'interface utilisateur est bilingue (italien/anglais).
+Il s'exécute **localement et auto-hébergé** : vos données restent sur votre machine dans une base de données SQLite embarquée. Les fournisseurs d'IA sont modulables (clé API ou CLI par abonnement) et l'interface utilisateur est multilingue (italien, anglais, français, espagnol, allemand).
 
 ## Captures d'écran
 
-> L'interface est bilingue (italien/anglais) ; les captures d'écran sont en anglais.
+> L'interface est multilingue (italien, anglais, français, espagnol, allemand) ; les captures d'écran sont en anglais.
 
 <table>
   <tr>
