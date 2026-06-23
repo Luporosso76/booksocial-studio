@@ -216,7 +216,8 @@ async function stepSceneCards(
   const chapters = await books.chapters(bookId);
   hooks.onTotal?.(chapters.length);
   for (const ch of chapters) {
-    await chapterScenes.getOrBuild(bookId, ch.index);
+    // Rigenera SEMPRE la scheda (ignora la cache), così ogni capitolo riceve il keyMoment aggiornato.
+    await chapterScenes.regenerate(bookId, ch.index);
     hooks.onItem?.();
   }
 }
