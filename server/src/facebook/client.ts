@@ -609,6 +609,29 @@ export interface ManagedPost {
   pinned: boolean;
 }
 
+// GET /{post-id}?fields=is_published — stato reale di pubblicazione di un singolo post.
+// Ritorna true (pubblicato), false (programmato/non pubblicato, oppure non esiste più su FB),
+// o null se FB non espone il campo. Errori di rete/token risalgono (il chiamante riprova).
+export async function fetchPostPublished(
+  postId: string,
+  pageToken: string,
+): Promise<boolean | null> {
+  const url = `${baseUrl()}/${postId}?fields=is_published&access_token=${encodeURIComponent(pageToken)}`;
+  try {
+    const body = await send(url, { method: "GET" }, "fetchPostPublished");
+    return typeof body.is_published === "boolean" ? body.is_published : null;
+  } catch (e) {
+    // Post inesistente/cancellato lato FB: trattalo come "non pubblicato".
+    if (
+      e instanceof FacebookError &&
+      /does not exist|nonexisting field|Unsupported get request|\(#100\)|\(#803\)/i.test(e.message)
+    ) {
+      return false;
+    }
+    throw e;
+  }
+}
+
 // GET /{page-id}/posts — post gia' presenti sulla pagina (pubblicati e programmati).
 // `is_pinned` non e' sempre leggibile dall'API: di default pinned=false.
 export async function fetchManagedPosts(

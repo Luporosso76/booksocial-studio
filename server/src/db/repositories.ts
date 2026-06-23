@@ -1273,14 +1273,25 @@ export const posts = {
   // Riallinea i post programmati NATIVAMENTE su Facebook (hanno già un fb_post_id) la cui data
   // è passata: FB li ha pubblicati ma lo stato locale resta SCHEDULED per sempre. Li marchiamo
   // PUBLISHED (lo scheduler non li ripubblica) così non appaiono come "programmati nel passato".
-  async reconcileNativeScheduled(now: number): Promise<number> {
-    const r = await execute(
-      `UPDATE scheduled_post SET status='PUBLISHED',
-              published_at_actual=COALESCE(published_at_actual, scheduled_at), updated_at=?
+  // Post programmati NATIVAMENTE su Facebook (con fb_post_id) la cui data è passata ma lo stato
+  // locale è ancora SCHEDULED. Candidati al reconcile: lo scheduler verifica UNO A UNO su Graph se
+  // FB li ha davvero pubblicati prima di marcarli PUBLISHED (evita falsi positivi).
+  async nativeScheduledDue(now: number): Promise<ScheduledPost[]> {
+    const rows = await query(
+      `SELECT * FROM scheduled_post
        WHERE status='SCHEDULED' AND fb_post_id IS NOT NULL AND fb_post_id != '' AND scheduled_at <= ?`,
-      [now, now],
+      [now],
     );
-    return r.affectedRows;
+    return rows.map(mapPost);
+  },
+
+  // Marca un post come PUBLISHED conservando l'orario di pubblicazione (o ripiegando sullo scheduled).
+  async markNativePublished(id: number, now: number): Promise<void> {
+    await execute(
+      `UPDATE scheduled_post SET status='PUBLISHED',
+              published_at_actual=COALESCE(published_at_actual, scheduled_at), updated_at=? WHERE id=?`,
+      [now, id],
+    );
   },
 
   // Crash recovery: only re-schedule PUBLISHING posts WITHOUT an fb_post_id.

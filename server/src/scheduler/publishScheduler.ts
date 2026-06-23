@@ -51,18 +51,44 @@ export class PublishScheduler {
   }
 
   private async tick(): Promise<void> {
-    // Riallinea i post programmati su FB (fb_post_id) la cui data è passata: FB li ha già
-    // pubblicati, lo stato locale resta SCHEDULED -> li marchiamo PUBLISHED (non li ripubblica).
-    const reconciled = await posts.reconcileNativeScheduled(Date.now());
-    if (reconciled > 0) {
-      // eslint-disable-next-line no-console
-      console.log(`[scheduler] ${reconciled} post programmati su FB riallineati a PUBLISHED`);
-    }
+    await this.reconcileNative();
     const due = await posts.findDue(Date.now(), DUE_BATCH);
     for (const post of due) {
       if (await posts.claimForPublishing(post.id, Date.now())) {
         await this.publish(post);
       }
+    }
+  }
+
+  // Riallinea i post programmati NATIVAMENTE su Facebook (con fb_post_id) la cui data è passata:
+  // chiede a Graph se FB li ha DAVVERO pubblicati prima di marcarli PUBLISHED. Se FB dice di no (o il
+  // post non esiste più), il post resta SCHEDULED (così non sparisce dalla vista come falso pubblicato)
+  // e NON viene mai ripubblicato dal job (findDue/claim escludono i post con fb_post_id). Errori di
+  // rete/token: nessun cambiamento, si riprova al tick successivo.
+  private async reconcileNative(): Promise<void> {
+    const candidates = await posts.nativeScheduledDue(Date.now());
+    let reconciled = 0;
+    for (const post of candidates) {
+      if (!post.fbPostId) continue;
+      const page = await pages.find(post.pageId);
+      if (!page) continue;
+      const token = await keyring.get(page.tokenSecretKey);
+      if (!token) continue;
+      try {
+        const published = await fb.fetchPostPublished(post.fbPostId, token);
+        if (published === true) {
+          await posts.markNativePublished(post.id, Date.now());
+          reconciled++;
+        }
+      } catch {
+        // rete/token: lascia invariato, riprova al prossimo tick
+      }
+    }
+    if (reconciled > 0) {
+      // eslint-disable-next-line no-console
+      console.log(
+        `[scheduler] ${reconciled} post programmati su FB verificati e marcati PUBLISHED`,
+      );
     }
   }
 
