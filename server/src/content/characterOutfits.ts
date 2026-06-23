@@ -19,6 +19,11 @@ export interface OutfitsInput {
   // Ambientazioni/contesti ricorrenti del libro (da luoghi+ambienti delle schede capitolo): aiutano
   // a creare abiti per le scene reali e a scegliere keyword `when` che combaceranno con le schede.
   settings: string[];
+  // GROUNDING: passaggi reali del libro che nominano il personaggio (per cogliere i capi che il libro
+  // gli fa indossare in certe scene). Opzionale.
+  sourceText?: string | null;
+  // Paese del libro → coerenza di clima/cultura del vestiario quando il testo non specifica. Opzionale.
+  country?: string | null;
 }
 
 const MAX_CTX = 5;
@@ -28,40 +33,45 @@ export async function generateOutfits(
   input: OutfitsInput,
 ): Promise<CharacterOutfits | null> {
   const settings =
-    input.settings.length > 0 ? input.settings.slice(0, 24).join("; ") : "(non disponibili)";
+    input.settings.length > 0 ? input.settings.slice(0, 24).join("; ") : "(not available)";
 
-  const prompt = `Definisci l'ABBIGLIAMENTO CANONICO di un personaggio per illustrazioni COERENTI: deve
-vestire SEMPRE allo stesso modo nella stessa situazione. Dato il personaggio, scrivi un abito di DEFAULT
-e alcuni abiti per CONTESTO legati alle ambientazioni ricorrenti del libro.
+  const prompt = `Define a character's CANONICAL WARDROBE for CONSISTENT illustrations: the character must
+ALWAYS dress the same way in the same situation. Given the character, write a DEFAULT outfit plus a few
+CONTEXT outfits tied to the book's recurring settings.
 
-Rispondi ESCLUSIVAMENTE con un oggetto JSON valido, senza testo prima o dopo:
+Reply with ONLY a valid JSON object, no text before or after:
 {
-  "default": "abito quotidiano tipico del personaggio (capi concreti + eventuali colori)",
+  "default": "the character's typical everyday outfit (concrete garments + colors)",
   "contexts": [
-    { "when": "2-5 parole chiave del CONTESTO (luoghi/attivita) separate da virgola, in ${input.language}", "outfit": "abbigliamento concreto e coerente per quel contesto" }
+    { "when": "2-5 CONTEXT keywords (places/activities) separated by commas, written in ${input.language}", "outfit": "concrete, coherent clothing for that context" }
   ]
 }
 
-REGOLE:
-- "default": come veste di norma il personaggio (capi concreti: es. "camicia azzurra, jeans scuri, sneakers");
-  coerente con eta, ruolo e occupazione. Niente vaghezze tipo "abiti comodi".
-- "contexts": da 0 a ${MAX_CTX} voci, SOLO per le situazioni ricorrenti in cui questo personaggio
-  plausibilmente compare (scegli tra le AMBIENTAZIONI sotto). Ogni "when" sono poche KEYWORD che
-  combaceranno col testo della scheda di capitolo (luogo/ambiente/oggetti), in ${input.language}
-  (es. "spiaggia, mare, surf" oppure "meditazione, yoga, tappetino" oppure "ufficio, lavoro").
-  Ogni "outfit" e' l'abbigliamento CONCRETO e adatto a quel contesto, descritto in modo specifico.
-- Abiti realistici e coerenti col personaggio; niente divise/costumi a meno che il ruolo lo richieda
-  davvero (no gi/arti marziali per scene di meditazione). Solo ABBIGLIAMENTO, niente aspetto fisico.
-- LINGUA: scrivi i valori testuali del JSON (default, when, outfit) nella lingua del libro
-  (${input.language}); anche se queste istruzioni sono in italiano, l'output deve essere in
-  ${input.language}. Se non sai cosa mettere in un campo, usa "" o [].
+RULES:
+- FAITHFUL TO THE BOOK: if the "BOOK PASSAGES" below say what the character wears (a garment, a color, an
+  accessory in a certain scene), RESPECT it and put it in the right context; do NOT invent against the text.
+  Only fill in what the book does not say.
+- "default": how the character normally dresses (concrete garments, e.g. "light-blue shirt, dark jeans,
+  sneakers"); consistent with age, role, occupation and with the CLIMATE/CULTURE of the setting
+  (country: ${input.country?.trim() || "not stated"}). No vagueness like "comfortable clothes".
+- ERA: if the book is set in a specific era/historical context (or a passage is a flashback/memory of the
+  past), dress the character coherently with that era, not contemporary.
+- "contexts": 0 to ${MAX_CTX} entries, ONLY for the recurring situations where this character plausibly
+  appears. Each "when" is a few KEYWORDS taken FROM THE VOCABULARY of the SETTINGS below (so they will match
+  the chapter scene cards), written in ${input.language} (e.g. "beach, sea, surf" or "meditation, yoga, mat"
+  or "office, work"). Each "outfit" is the CONCRETE clothing suited to that context, coherent with its climate.
+- Realistic outfits, consistent with the character; no uniforms/costumes unless the role truly requires it
+  (no gi/martial-arts outfit for a meditation scene). CLOTHING ONLY, no physical appearance.
+- Write in ${input.language}. If you don't know what to put in a field, use "" or [].
 
-PERSONAGGIO: ${input.name}
-RUOLO: ${input.role?.trim() || "(non specificato)"}
-OCCUPAZIONE: ${input.occupation?.trim() || "(non specificata)"}
-ASPETTO (per coerenza, NON descriverlo negli abiti): ${input.physical?.trim() || "(nessuno)"}
-LIBRO: ${input.bookTitle?.trim() || "(senza titolo)"}
-AMBIENTAZIONI RICORRENTI DEL LIBRO: ${settings}`;
+CHARACTER: ${input.name}
+ROLE: ${input.role?.trim() || "(unspecified)"}
+OCCUPATION: ${input.occupation?.trim() || "(unspecified)"}
+APPEARANCE (for consistency, do NOT describe it in the outfits): ${input.physical?.trim() || "(none)"}
+BOOK: ${input.bookTitle?.trim() || "(untitled)"} — country/setting: ${input.country?.trim() || "(not stated)"}
+RECURRING SETTINGS OF THE BOOK (use these words for the "when" keywords): ${settings}
+=== BOOK PASSAGES MENTIONING ${input.name.toUpperCase()} (garments worn, if cited) ===
+${input.sourceText?.trim() || "(no passage available)"}`;
 
   try {
     const raw = await engine.run(prompt);

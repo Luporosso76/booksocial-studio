@@ -52,6 +52,12 @@ export interface DirectorOpts {
   // preferendo le fresche, così post/reel successivi non riusano sempre gli stessi sfondi.
   // Best-effort: assente/[] → comportamento INVARIATO (nessuna deprioritizzazione).
   avoidImages?: number[];
+  // ROTAZIONE LRU (least-recently-used) — preferita ad avoidQuotes/avoidImages quando presente.
+  // Conteggio d'uso per ogni citazione (chiave normalizzata) e immagine (id) su TUTTO lo storico:
+  // il regista sceglie SEMPRE il MENO usato (random tra i pari-merito), così rigenerazioni e
+  // programmi consecutivi ciclano l'intero materiale prima di ripeterlo. Assente → usa gli avoid.
+  quoteUsage?: Map<string, number>;
+  imageUsage?: Map<number, number>;
 }
 
 // Immagine disponibile del libro (sottoinsieme di MediaAsset utile al regista).
@@ -183,6 +189,30 @@ function deprioritizeImages(images: MediaAsset[], avoidImages: number[]): MediaA
   return [...fresh, ...used];
 }
 
+// ROTAZIONE LRU citazioni: ordina le frasi per numero d'uso CRESCENTE (le meno usate prima),
+// mescolando a caso quelle con lo STESSO conteggio così, a parità d'uso (es. tutte a 0 al primo
+// programma), non esce sempre la stessa. La prima della lista è quindi una frase a caso tra le
+// meno usate → forcedQuote varia anche quando un capitolo torna o il pool è piccolo.
+function lruOrderQuotes(quotes: string[], usage: Map<string, number>): string[] {
+  const withC = quotes.map((q) => ({ q, c: usage.get(normalizeQuoteKey(q)) ?? 0 }));
+  for (let i = withC.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [withC[i], withC[j]] = [withC[j]!, withC[i]!];
+  }
+  withC.sort((a, b) => a.c - b.c); // sort STABILE: preserva il mescolamento tra i pari-uso
+  return withC.map((w) => w.q);
+}
+
+// ROTAZIONE LRU immagini: a parità di PERTINENZA (già ordinate), porta avanti le meno usate.
+// Sort STABILE → tra immagini con lo stesso conteggio d'uso resta l'ordine di pertinenza.
+function lruOrderImages(images: MediaAsset[], usage: Map<number, number>): MediaAsset[] {
+  return images.slice().sort((a, b) => (usage.get(a.id) ?? 0) - (usage.get(b.id) ?? 0));
+}
+
+// Soglia minima del pool citazioni per capitolo: sotto questa si attinge anche ai capitoli
+// VICINI (per distanza) invece di ricadere sulla frase top globale (es. cap. senza citazioni).
+const QUOTE_POOL_MIN = 8;
+
 function brandFor(bookTitle: string | null, accent: string | null) {
   return { title: bookTitle, accent: accent ?? "#c8553d" };
 }
@@ -250,18 +280,17 @@ export class Director {
       ]);
       bookTitle = book?.title ?? null;
       // POOL CITAZIONI: se il post nasce da un capitolo noto, attingi alle citazioni di QUEL
-      // capitolo (cosi' post di capitoli diversi mostrano frasi diverse); se il capitolo non ne
-      // ha, ripiega su TUTTO il libro (comportamento storico). Best-effort.
-      let pool = bookQuotes;
+      // capitolo (cosi' post di capitoli diversi mostrano frasi diverse), ESPANDENDO ai capitoli
+      // VICINI quando ne ha poche (un capitolo senza citazioni NON deve ricadere sulla frase top
+      // globale). Fuori dal capitolo o pool vuoto → tutto il libro; se neanche book_quote e'
+      // popolato → key_quotes della scheda. Il taglio a MAX_QUOTES avviene DOPO l'ordinamento LRU.
+      let poolTexts: string[] = [];
       if (opts.chapterIndex != null) {
-        const chapterQuotes = await quotes.byChapter(bookId, opts.chapterIndex);
-        if (chapterQuotes.length > 0) pool = chapterQuotes;
+        poolTexts = await this.chapterQuotePool(bookId, opts.chapterIndex);
       }
-      for (const q of pool.slice(0, MAX_QUOTES)) realQuotes.push(q.text);
-      // Se il pre-pass NLP non ha popolato book_quote, usa le key_quotes della scheda.
-      if (realQuotes.length === 0) {
-        for (const q of keyQuotesFromProfile(profile).slice(0, MAX_QUOTES)) realQuotes.push(q);
-      }
+      if (poolTexts.length === 0) poolTexts = bookQuotes.map((q) => q.text);
+      if (poolTexts.length === 0) poolTexts = keyQuotesFromProfile(profile);
+      for (const q of poolTexts) realQuotes.push(q);
       charNames = chars.map((c) => c.name);
       // Usa SOLO immagini reali del libro (upload, non i 'visual' generati) il cui ASPECT
       // combacia con quello del visual: una 1:1 dentro un 9:16 verrebbe ritagliata. Se
@@ -278,7 +307,9 @@ export class Director {
       const ranked = rankImagesByRelevance(matching, opts.chapterIndex ?? null);
       // ROTAZIONE SFONDI: a parità di pertinenza, sposta in fondo le immagini usate di recente
       // (avoidImages), preferendo le fresche. avoidImages assente/[] → ordine INVARIATO.
-      const rotated = deprioritizeImages(ranked, opts.avoidImages ?? []);
+      const rotated = opts.imageUsage
+        ? lruOrderImages(ranked, opts.imageUsage)
+        : deprioritizeImages(ranked, opts.avoidImages ?? []);
       images = rotated.slice(0, MAX_IMAGES).map((m) => ({
         id: m.id,
         caption: m.caption,
@@ -294,20 +325,28 @@ export class Director {
     // ESCLUSIONE CITAZIONI: usa SOLO quelle non viste di recente (fresche). Cosi' il modello
     // NON puo' ripescare una frase gia' usata finche' ce ne sono di fresche. Solo se TUTTE
     // sono gia' state usate si ricade sull'intero pool (per non restare senza testo reale).
-    const avoid = new Set(opts.avoidQuotes ?? []);
-    const fresh = realQuotes.filter((q) => !avoid.has(normalizeQuoteKey(q)));
-    const orderedQuotes = fresh.length > 0 ? fresh : realQuotes;
+    // ROTAZIONE: con il conteggio d'uso (LRU) ordina le citazioni per uso CRESCENTE (le meno usate
+    // prima, random tra i pari-uso), così sull'intero storico ogni frase viene usata prima di
+    // ripeterne una. Senza conteggio si ricade sull'esclusione binaria storica (fresche prima).
+    const orderedAll = opts.quoteUsage
+      ? lruOrderQuotes(realQuotes, opts.quoteUsage)
+      : (() => {
+          const avoid = new Set(opts.avoidQuotes ?? []);
+          const fresh = realQuotes.filter((q) => !avoid.has(normalizeQuoteKey(q)));
+          return fresh.length > 0 ? fresh : realQuotes;
+        })();
+    const orderedQuotes = orderedAll.slice(0, MAX_QUOTES);
 
-    // Testo reale GARANTITO non vuoto: citazione FRESCA → testo del post → titolo libro.
+    // Testo reale GARANTITO non vuoto: citazione scelta → testo del post → titolo libro.
     const fallbackText = (orderedQuotes[0] ?? post.message ?? bookTitle ?? "").trim();
-    // CITAZIONE FORZATA: la prima FRESCA (o il fallback). È quella che IMPONIAMO come testo
-    // principale dello spec, SCAVALCANDO la frase che ha scritto il modello (che tendeva a
-    // ripescare sempre la sua preferita ignorando l'esclusione). Vuota solo se non c'è proprio nulla.
-    // Scelta a CASO tra le citazioni fresche (non sempre la prima/top): se un capitolo torna o il
-    // pool è piccolo, evita che esca deterministicamente sempre la stessa frase.
+    // CITAZIONE FORZATA: IMPONIAMO questa come testo principale dello spec, SCAVALCANDO la frase
+    // del modello (che tendeva a ripescare sempre la sua preferita). Con LRU è già la prima =
+    // una a caso tra le MENO usate; col path storico resta una a caso tra le fresche.
     const forcedQuote = (
       orderedQuotes.length > 0
-        ? orderedQuotes[Math.floor(Math.random() * orderedQuotes.length)]!
+        ? opts.quoteUsage
+          ? orderedQuotes[0]!
+          : orderedQuotes[Math.floor(Math.random() * orderedQuotes.length)]!
         : fallbackText
     ).trim();
 
@@ -365,6 +404,30 @@ export class Director {
     // chosenImageIds = gli sfondi EFFETTIVAMENTE usati nello spec finale (per la rotazione reale).
     const chosenQuote = forcedQuote || primaryQuoteOf(spec);
     return { spec, realQuotes, availableImageIds, chosenImageIds: imageIdsOf(spec), chosenQuote };
+  }
+
+  // Pool citazioni del capitolo, ESPANSO ai capitoli vicini (per distanza crescente) finché non
+  // raggiunge QUOTE_POOL_MIN. Deduplica per chiave normalizzata, preserva l'ordine (capitolo del
+  // post prima, poi vicini). Risolve i capitoli con poche/zero citazioni senza ricadere sul libro.
+  private async chapterQuotePool(bookId: number, chapterIndex: number): Promise<string[]> {
+    const out: string[] = [];
+    const seen = new Set<string>();
+    const add = (qs: { text: string }[]): void => {
+      for (const q of qs) {
+        const k = normalizeQuoteKey(q.text);
+        if (!seen.has(k)) {
+          seen.add(k);
+          out.push(q.text);
+        }
+      }
+    };
+    add(await quotes.byChapter(bookId, chapterIndex));
+    for (let r = 1; r <= 3 && out.length < QUOTE_POOL_MIN; r++) {
+      add(await quotes.byChapter(bookId, chapterIndex - r));
+      if (out.length >= QUOTE_POOL_MIN) break;
+      add(await quotes.byChapter(bookId, chapterIndex + r));
+    }
+    return out;
   }
 
   // Forza un media_asset come sfondo su tutti i contenitori del visual (card/scene/pannelli).
@@ -559,8 +622,8 @@ export class Director {
     const quotesBlock =
       ctx.realQuotes.length > 0
         ? ctx.realQuotes.map((q, i) => `${i + 1}. ${q}`).join("\n")
-        : "(nessuna citazione estratta dal libro: usa UNA frase breve e incisiva presa dal TESTO DEL POST qui sotto, copiata alla lettera; NON inventare e NON lasciare i campi testo vuoti)";
-    const charsBlock = ctx.charNames.length > 0 ? ctx.charNames.join(", ") : "(nessuno)";
+        : "(no quotes extracted from the book: use ONE short punchy sentence taken from the POST TEXT below, copied verbatim; do NOT invent and do NOT leave text fields empty)";
+    const charsBlock = ctx.charNames.length > 0 ? ctx.charNames.join(", ") : "(none)";
     const brand = brandFor(ctx.bookTitle, null);
 
     const schema = this.schemaHint(opts.kind);
@@ -571,32 +634,30 @@ export class Director {
       opts.chapterIndex ?? null,
     );
 
-    return `Sei un ART DIRECTOR per social. NON disegnare pixel: scegli un TEMPLATE FISSO e
-produci ESCLUSIVAMENTE un oggetto JSON (uno SPEC) che un renderer eseguira'. Nessun testo
-prima o dopo il JSON.
+    return `You are an ART DIRECTOR for social media. Do NOT draw pixels: choose a FIXED TEMPLATE and
+produce EXCLUSIVELY a JSON object (a SPEC) that a renderer will execute. No text before or after the JSON.
 
-REGOLA FERREA: i testi visivi (citazioni/dialoghi) devono provenire da testo REALE,
-copiato alla lettera: preferisci le CITAZIONI REALI qui sotto; se l'elenco e' vuoto,
-usa UNA frase breve presa dal TESTO DEL POST qui sotto (e' testo reale). NON inventare,
-NON parafrasare e NON lasciare i campi testo vuoti.
+IRON RULE: visual texts (quotes/dialogues) must come from REAL text, copied verbatim: prefer the
+REAL QUOTES below; if the list is empty, use ONE short sentence taken from the POST TEXT below
+(it is real text). Do NOT invent, do NOT paraphrase, and do NOT leave text fields empty.
 
-TIPO RICHIESTO: ${opts.kind}
-TEMPLATE AMMESSI (scegline uno): ${templates}
-ASPECT AMMESSI: ${ASPECTS.join(", ")}
-${opts.template ? `Usa il template: ${opts.template}` : ""}
-${opts.aspect ? `Usa l'aspect: ${opts.aspect}` : ""}
+REQUESTED TYPE: ${opts.kind}
+ALLOWED TEMPLATES (pick one): ${templates}
+ALLOWED ASPECTS: ${ASPECTS.join(", ")}
+${opts.template ? `Use template: ${opts.template}` : ""}
+${opts.aspect ? `Use aspect: ${opts.aspect}` : ""}
 
-BRAND: titolo libro = ${brand.title ?? "(non indicato)"}; accent suggerito = ${brand.accent}
-PERSONAGGI (nomi reali, usa SOLO questi come speaker): ${charsBlock}
+BRAND: book title = ${brand.title ?? "(not specified)"}; suggested accent = ${brand.accent}
+CHARACTERS (real names, use ONLY these as speakers): ${charsBlock}
 
-CITAZIONI REALI (usa SOLO queste, alla lettera; sono ORDINATE: PREFERISCI le prime, non
-ancora usate di recente, per non ripetere sempre la stessa frase tra post/reel/storia):
+REAL QUOTES (use ONLY these, verbatim; they are ORDERED: PREFER the first ones, not recently
+used, so the same sentence is not repeated across posts/reels/stories):
 ${quotesBlock}
 ${imagesSection}
-TESTO DEL POST (usalo per il tono; se non ci sono citazioni reali, copiane UNA frase breve nei campi testo):
+POST TEXT (use it for tone; if there are no real quotes, copy ONE short sentence from it into the text fields):
 ${post.message}
 
-Rispondi con un JSON di questa forma (riempi i campi mancanti con valori sensati):
+Reply with a JSON of this form (fill missing fields with sensible values):
 ${schema}`;
   }
 
@@ -609,13 +670,13 @@ ${schema}`;
     chapterIndex: number | null,
   ): string {
     if (!useImages || images.length === 0) {
-      return `\nIMMAGINI DEL LIBRO: nessuna disponibile. NON usare alcun campo imageId (lascialo null o omettilo): la composizione sara' SOLO TESTO.\n`;
+      return `\nBOOK IMAGES: none available. Do NOT use any imageId field (leave it null or omit it): the composition will be TEXT ONLY.\n`;
     }
     // Ogni voce mostra capitolo illustrato e tag soggetto (per scegliere con cognizione).
     const list = images
       .map((m) => {
         const label = (m.caption && m.caption.trim()) || m.scope;
-        const ch = m.chapterIdx != null ? ` [cap.${m.chapterIdx}]` : "";
+        const ch = m.chapterIdx != null ? ` [ch.${m.chapterIdx}]` : "";
         const tags = m.tags.length > 0 ? ` {${m.tags.join(", ")}}` : "";
         return `- ${m.id}: ${label}${ch}${tags}`;
       })
@@ -623,19 +684,19 @@ ${schema}`;
     // L'elenco è già ORDINATO PER PERTINENZA al capitolo del post: la prima è la più pertinente.
     const relevanceNote =
       chapterIndex != null
-        ? `Le immagini sono ORDINATE PER PERTINENZA al post (capitolo ${chapterIndex} e soggetti): a parità di adeguatezza PREFERISCI le PRIME dell'elenco.\n`
+        ? `Images are ORDERED BY RELEVANCE to the post (chapter ${chapterIndex} and subjects): when equally suitable, PREFER the FIRST ones in the list.\n`
         : "";
     const guidance =
       kind === "reel_text"
-        ? `Scegli la COMPOSIZIONE: (a) solo testo (nessun imageId), (b) slideshow con piu' scene, ognuna con un imageId DIVERSO scelto dall'elenco (effetto presentazione). Assegna gli imageId al campo "imageId" delle scene.`
+        ? `Choose the COMPOSITION: (a) text only (no imageId), (b) slideshow with multiple scenes, each with a DIFFERENT imageId chosen from the list (presentation effect). Assign imageIds to the "imageId" field of each scene.`
         : kind === "storyboard"
-          ? `Puoi opzionalmente assegnare un "imageId" di sfondo a ciascun pannello, scelto dall'elenco.`
-          : `Scegli la COMPOSIZIONE: (a) solo testo (nessun imageId), (b) sfondo singolo: imposta "imageId" con UN id dall'elenco (la citazione andra' sopra un velo scuro per leggibilita').`;
+          ? `You may optionally assign a background "imageId" to each panel, chosen from the list.`
+          : `Choose the COMPOSITION: (a) text only (no imageId), (b) single background: set "imageId" to ONE id from the list (the quote will appear over a dark overlay for readability).`;
     return `
-IMMAGINI DISPONIBILI DEL LIBRO (usa SOLO questi id, NON inventarne altri):
+AVAILABLE BOOK IMAGES (use ONLY these ids, do NOT invent others):
 ${list}
-${relevanceNote}COMPOSIZIONE IMMAGINI: ${guidance}
-Le immagini sono SOLO sfondo: il testo resta la citazione reale, leggibile sopra un velo scuro.
+${relevanceNote}IMAGE COMPOSITION: ${guidance}
+Images are background ONLY: the text remains the real quote, readable over a dark overlay.
 `;
   }
 
@@ -643,10 +704,10 @@ Le immagini sono SOLO sfondo: il testo resta la citazione reale, leggibile sopra
     if (kind === "reel_text") {
       return `{
   "kind": "reel_text",
-  "template": "<uno dei template ammessi>",
+  "template": "<one of the allowed templates>",
   "aspect": "9:16",
   "durationSec": 9,
-  "scenes": [{ "quote": "<citazione reale>", "anim": "fade|slide|zoom|none", "sec": 3, "cta": "<opzionale>", "imageId": <id immagine dall'elenco o null> }],
+  "scenes": [{ "quote": "<real quote>", "anim": "fade|slide|zoom|none", "sec": 3, "cta": "<optional>", "imageId": <image id from the list or null> }],
   "music": { "mood": "calm|epic|warm" },
   "background": { "type": "gradient|solid", "palette": "ink|warm|cool|mono|brand" }
 }`;
@@ -654,19 +715,19 @@ Le immagini sono SOLO sfondo: il testo resta la citazione reale, leggibile sopra
     if (kind === "storyboard") {
       return `{
   "kind": "storyboard",
-  "aspect": "<uno degli aspect ammessi>",
-  "panels": [{ "speaker": "<nome personaggio reale o vuoto>", "dialogue": "<dialogo reale>", "bg": "ink|warm|cool|mono|brand", "imageId": <id immagine dall'elenco o null> }]
+  "aspect": "<one of the allowed aspects>",
+  "panels": [{ "speaker": "<real character name or empty>", "dialogue": "<real dialogue>", "bg": "ink|warm|cool|mono|brand", "imageId": <image id from the list or null> }]
 }`;
     }
     return `{
   "kind": "quote_card",
-  "template": "<uno dei template ammessi>",
-  "aspect": "<uno degli aspect ammessi>",
-  "quote": "<citazione reale, alla lettera>",
-  "source": "<titolo libro o autore>",
+  "template": "<one of the allowed templates>",
+  "aspect": "<one of the allowed aspects>",
+  "quote": "<real quote, verbatim>",
+  "source": "<book title or author>",
   "palette": "ink|warm|cool|mono|brand",
   "accent": "#rrggbb",
-  "imageId": <id immagine di sfondo dall'elenco o null>
+  "imageId": <background image id from the list or null>
 }`;
   }
 }

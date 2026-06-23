@@ -294,6 +294,14 @@ const MIGRATIONS: Migration[] = [
       `ALTER TABLE scheduled_post ADD COLUMN dashboard_hidden INTEGER NOT NULL DEFAULT 0`,
     ],
   },
+  {
+    // Istruzioni-extra per-libro: testo libero accodato ai prompt POST/IMMAGINE di quel libro.
+    version: 3,
+    statements: [
+      `ALTER TABLE book ADD COLUMN text_extra_instructions  TEXT NULL`,
+      `ALTER TABLE book ADD COLUMN image_extra_instructions TEXT NULL`,
+    ],
+  },
 ];
 
 async function currentVersion(): Promise<number> {

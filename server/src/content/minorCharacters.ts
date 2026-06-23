@@ -27,39 +27,38 @@ export async function extractMinorsForChapter(
 ): Promise<MinorCharacter[]> {
   const text = (input.chapterText ?? "").trim().slice(0, MAX_CHARS);
   if (text === "") return [];
-  const cast = input.knownCast.length > 0 ? input.knownCast.join(", ") : "(nessuno noto)";
-  const sceneKeywords = (input.sceneKeywords ?? "").trim() || "(non disponibili)";
+  const cast = input.knownCast.length > 0 ? input.knownCast.join(", ") : "(none known)";
+  const sceneKeywords = (input.sceneKeywords ?? "").trim() || "(not available)";
 
-  const prompt = `Sei un assistente che prepara SCHEDE VISIVE per generare illustrazioni coerenti. Dal
-capitolo seguente individua le figure INCIDENTALI/MINORI che CONTANO visivamente e che NON sono nel cast
-noto e NON sono pura folla di sfondo: cioè una persona SPECIFICA, spesso senza nome, che compare in una
-scena e che si disegnerebbe davvero (es. una partner occasionale in una scena, una figura ricorrente
-senza nome, un'operatrice/operatore che agisce nella scena). A ognuna di queste va dato un aspetto FISSO
-così da renderla coerente ogni volta che la scena torna.
+  const prompt = `You are an assistant that prepares VISUAL CARDS for generating consistent illustrations. From
+the following chapter, identify the INCIDENTAL/MINOR figures that MATTER visually and are NOT in the
+known cast and are NOT pure background crowd: meaning a SPECIFIC person, often unnamed, who appears in a
+scene and would actually be drawn (e.g. an occasional partner in a scene, a recurring unnamed figure,
+an operator/worker who acts in the scene). Each of these must be given a FIXED appearance so they remain
+consistent every time that scene recurs.
 
-Rispondi ESCLUSIVAMENTE con un oggetto JSON valido, senza testo prima o dopo:
+Reply EXCLUSIVELY with a valid JSON object, no text before or after:
 {
   "minors": [
-    { "label": "ruolo+contesto breve (es. 'compagna di Roberto (scena del bar)')", "when": "2-5 keyword in ${input.language} che combaciano con la scena di QUESTO capitolo", "appearance": "aspetto fisico FISSO e specifico: eta, corporatura, capelli colore+taglio, viso, carnagione", "outfit": "abbigliamento adatto al contesto, oppure "" " }
+    { "label": "role+brief context (e.g. 'Roberto's companion (bar scene)')", "when": "2-5 keywords in ${input.language} matching the scene of THIS chapter", "appearance": "FIXED specific physical appearance: age, build, hair color+style, face, skin tone", "outfit": "clothing appropriate to the context, or "" " }
   ]
 }
 
-REGOLE:
-- Da 0 a ${MAX_MINORS} voci. Includi SOLO figure incidentali che si DISEGNEREBBERO in una scena.
-- ESCLUDI TASSATIVAMENTE: chiunque sia già nel CAST NOTO qui sotto; la pura folla/sfondo (una troupe,
-  passanti, camerieri o comparse senza ruolo) — quella è gestita altrove con una regola di varietà.
-- "appearance": INVENTANE uno plausibile, specifico e VARIO (eta, corporatura, capelli colore+taglio,
-  viso, carnagione) — deve restare IDENTICO tra le immagini.
-- "when": poche KEYWORD (in ${input.language}) che combaceranno con la scheda del capitolo
-  (luogo/ambiente/oggetti); puoi RIUSARE le keyword della scena fornite qui sotto.
-- "outfit": abbigliamento adatto al contesto, oppure "" se non rilevante.
-- LINGUA: scrivi label/when/appearance/outfit nella lingua del libro (${input.language}); anche se queste
-  istruzioni sono in italiano, l'output deve essere in ${input.language}. Concreto e visivo, niente trama.
+RULES:
+- 0 to ${MAX_MINORS} entries. Include ONLY incidental figures that would be DRAWN in a scene.
+- STRICTLY EXCLUDE: anyone already in the KNOWN CAST below; pure crowd/background (a crew, passers-by,
+  waiters, or extras with no role) — that is handled elsewhere with a variety rule.
+- "appearance": INVENT a plausible, specific and VARIED one (age, build, hair color+style, face, skin
+  tone) — it must remain IDENTICAL across images.
+- "when": a few KEYWORDS (in ${input.language}) that will match the chapter card
+  (location/setting/objects); you may REUSE the scene keywords provided below.
+- "outfit": clothing appropriate to the context, or "" if not relevant.
+- Write label/when/appearance/outfit in ${input.language}. Concrete and visual, no plot details.
 
-CAST NOTO (da ESCLUDERE): ${cast}
-KEYWORD DELLA SCENA (riusabili per "when"): ${sceneKeywords}
-TITOLO CAPITOLO: ${input.chapterTitle?.trim() || "(nessuno)"}
-=== TESTO DEL CAPITOLO ===
+KNOWN CAST (EXCLUDE): ${cast}
+SCENE KEYWORDS (reusable for "when"): ${sceneKeywords}
+CHAPTER TITLE: ${input.chapterTitle?.trim() || "(none)"}
+=== CHAPTER TEXT ===
 ${text}`;
 
   try {

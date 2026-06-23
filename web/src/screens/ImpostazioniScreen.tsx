@@ -15,7 +15,7 @@ import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Badge, ErrorBanner, Skeleton } from "@/components/ui/misc";
-import { Input, Field, selectClass } from "@/components/ui/Input";
+import { Input, Textarea, Field, selectClass } from "@/components/ui/Input";
 import { useToast } from "@/components/ui/toast";
 import { useAsync, errorMessage } from "@/lib/useAsync";
 import {
@@ -46,7 +46,7 @@ import type {
 } from "@/api/types";
 import { cn } from "@/lib/cn";
 
-type AiTab = "text" | "image" | "contentImages" | "quality";
+type AiTab = "text" | "image" | "contentImages" | "quality" | "extra";
 
 export function ImpostazioniScreen() {
   const { t } = useTranslation();
@@ -57,6 +57,7 @@ export function ImpostazioniScreen() {
     { id: "image", label: t("settings.ai.tabImage") },
     { id: "contentImages", label: t("settings.ai.tabContentImages") },
     { id: "quality", label: t("settings.ai.tabQuality") },
+    { id: "extra", label: t("settings.ai.tabExtra") },
   ];
 
   return (
@@ -86,6 +87,7 @@ export function ImpostazioniScreen() {
       {(tab === "text" || tab === "image") && <AiProvidersCard section={tab} />}
       {tab === "contentImages" && <AiImageModeCard />}
       {tab === "quality" && <QaCheckCard />}
+      {tab === "extra" && <PromptExtrasCard />}
     </div>
   );
 }
@@ -1065,6 +1067,87 @@ function AiImageModeCard() {
               <SlidersHorizontal className="mt-0.5 h-3.5 w-3.5 shrink-0 text-content-tertiary" />
               <span>{t("settings.imageMode.slowNote")}</span>
             </p>
+          </>
+        )}
+      </CardBody>
+    </Card>
+  );
+}
+
+// Istruzioni-extra globali: testo accodato a tutti i prompt di testo e immagini, in aggiunta al core.
+// La controparte per-libro sta nella scheda libro (Visivo → Direttive).
+function PromptExtrasCard() {
+  const { t } = useTranslation();
+  const toast = useToast();
+  const state = useAsync<AiSettings>((s) => getAiSettings(s), []);
+
+  const [textPrompt, setTextPrompt] = useState("");
+  const [imagePrompt, setImagePrompt] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (state.data) {
+      setTextPrompt(state.data.extra?.textPrompt ?? "");
+      setImagePrompt(state.data.extra?.imagePrompt ?? "");
+    }
+  }, [state.data]);
+
+  async function save() {
+    setSaving(true);
+    try {
+      await updateAiSettings({ extra: { textPrompt, imagePrompt } });
+      toast.success(t("settings.ai.saved"));
+      state.reload();
+    } catch (err) {
+      toast.error(errorMessage(err) || t("settings.ai.saveFailed"));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader
+        title={t("settings.ai.extraTitle")}
+        description={t("settings.ai.extraDescription")}
+        action={
+          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent-soft text-accent">
+            <SlidersHorizontal className="h-4 w-4" />
+          </span>
+        }
+      />
+      <CardBody className="flex flex-col gap-5">
+        {state.loading ? (
+          <Skeleton className="h-64 w-full" />
+        ) : state.error ? (
+          <ErrorBanner message={state.error} onRetry={state.reload} />
+        ) : (
+          <>
+            <p className="flex items-start gap-2 rounded-md bg-bg-inset px-3 py-2.5 text-sm leading-relaxed text-content-secondary">
+              <SlidersHorizontal className="mt-0.5 h-3.5 w-3.5 shrink-0 text-content-tertiary" />
+              <span>{t("settings.ai.extraNote")}</span>
+            </p>
+            <Field label={t("settings.ai.extraTextLabel")} hint={t("settings.ai.extraTextHint")}>
+              <Textarea
+                value={textPrompt}
+                onChange={(e) => setTextPrompt(e.target.value)}
+                rows={5}
+                placeholder={t("settings.ai.extraTextPlaceholder")}
+              />
+            </Field>
+            <Field label={t("settings.ai.extraImageLabel")} hint={t("settings.ai.extraImageHint")}>
+              <Textarea
+                value={imagePrompt}
+                onChange={(e) => setImagePrompt(e.target.value)}
+                rows={5}
+                placeholder={t("settings.ai.extraImagePlaceholder")}
+              />
+            </Field>
+            <div className="flex justify-end border-t border-border-subtle pt-4">
+              <Button variant="primary" loading={saving} disabled={saving} onClick={save}>
+                {t("common.save")}
+              </Button>
+            </div>
           </>
         )}
       </CardBody>

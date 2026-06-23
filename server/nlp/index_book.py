@@ -268,9 +268,10 @@ def _quotes(chapters):
         for q in _extract_inline_quotes(raw, idx):
             _add(q)
 
-        # 2) Frasi notevoli (TextRank) come citazioni "quote".
+        # 2) Frasi notevoli (TextRank) come citazioni "quote". max_n alto per dare un pool ricco
+        #    anche ai libri narrativi con pochi dialoghi tra caporali (altrimenti la rotazione si esaurisce).
         flat = re.sub(r"\s+", " ", raw).strip()
-        for sent in _textrank_sentences(flat, max_n=5):
+        for sent in _textrank_sentences(flat, max_n=12):
             cleaned = sent.strip().strip("«»\"“”").strip()
             if _is_wellformed(cleaned):
                 _add({

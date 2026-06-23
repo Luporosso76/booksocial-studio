@@ -89,6 +89,9 @@ export interface SceneDescriptionInput {
   // direttive d'arte libere. Scoppiano i blocchi specifici per libro invece di applicarli a tutti.
   visualDomains?: readonly string[];
   visualDirectives?: string | null;
+  // Istruzioni-extra APPEND-ONLY: globale + per-libro, già combinate dal chiamante. Accodate al
+  // prompt come art-direction aggiuntiva; NON sostituiscono il core (safety/no-text/output restano).
+  extraInstructions?: string | null;
   // Oggetti/veicoli ricorrenti canonici + lato di guida.
   visualProps?: BookVisualProps;
   // Personaggi minori/incidentali con un look canonico.
@@ -135,6 +138,10 @@ ${lines}`;
 function sceneCardBlock(card: ChapterScene | null | undefined): string {
   if (!card) return "";
   const lines: string[] = [];
+  if (card.keyMoment && card.keyMoment.trim() !== "")
+    lines.push(
+      `- Key moment to depict (the iconic action of the chapter — prefer THIS as the subject when it fits): ${card.keyMoment.trim()}`,
+    );
   if (card.location) lines.push(`- Location: ${card.location}`);
   if (card.environment)
     lines.push(`- Environment (drives lighting AND clothing): ${card.environment}`);
@@ -182,6 +189,16 @@ function directivesBlock(directives: string | null | undefined): string {
   if (d === "") return "";
   return `BOOK ART DIRECTION (specific to THIS book — follow it whenever relevant to the scene):
 ${d}`;
+}
+
+// Blocco ISTRUZIONI-EXTRA: art-direction libera dell'utente (globale + per-libro), accodata al
+// prompt come guida AGGIUNTIVA. NON sovrascrive le regole core (safety/intimità, no-testo, formato di
+// output): quelle restano sovraordinate. Vuoto se assente.
+function extraInstructionsBlock(extra: string | null | undefined): string {
+  const e = (extra ?? "").trim();
+  if (e === "") return "";
+  return `EXTRA ART DIRECTION (added by the user — follow it whenever relevant; it must NOT override the SAFE & PUBLISHABLE rules, the INTIMACY rules, the NO-TEXT rule or the OUTPUT FORMAT of this prompt):
+${e}`;
 }
 
 // Risolve l'ABITO da usare per un personaggio in questa scena: il primo abito-per-contesto le cui
@@ -349,6 +366,7 @@ export async function buildSceneDescription(
   );
   const extras = extrasBlock(input.visualExtras, haystack);
   const directives = directivesBlock(input.visualDirectives);
+  const extraDirection = extraInstructionsBlock(input.extraInstructions);
 
   const prompt = `You write IMAGE PROMPTS for an AI image model that wants a DETAILED, flowing
 NATURAL-LANGUAGE description (full sentences), NOT a list of comma-separated tags. From the book passage,
@@ -469,6 +487,7 @@ comma-separated.
 CHAPTER TITLE (strong hint for the iconic subject): ${input.chapterTitle?.trim() || "(none)"}
 ${card}
 ${directives}
+${extraDirection}
 CAST (the book's characters with their appearance — use the NAMES only to recognise who the passage is
 about; in the IMAGE render them by appearance, NEVER write their name; feature ONLY those present in the
 passage):

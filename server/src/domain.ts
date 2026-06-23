@@ -34,6 +34,10 @@ export interface Book {
   visualProps: BookVisualProps;
   // Personaggi minori/incidentali con un look canonico fisso. Vedi BookVisualExtras.
   visualExtras: BookVisualExtras;
+  // Istruzioni-extra per-libro: testo libero accodato ai prompt generati (guida aggiuntiva, non
+  // sostituisce il core). La controparte globale vive in app_setting (content/aiSettings).
+  textExtraInstructions: string | null;
+  imageExtraInstructions: string | null;
 }
 
 // Personaggio MINORE/incidentale (non nel cast principale, spesso senza nome): un look FISSO per
@@ -94,6 +98,9 @@ export interface ChapterScene {
   // gravità/acqua/onde/vento/luce nel contesto; cosa NON deve accadere). In lingua del libro,
   // editabili. Si COMBINANO con la baseline universale del prompt (vedi imagePrompt.ts).
   physicsRules: string[];
+  // Momento/azione centrale visivo (non-spoiler) del capitolo: fonda il soggetto dell'immagine
+  // quando è più forte di un semplice oggetto iconico. null = non estratto.
+  keyMoment: string | null;
   source: CharacterSource; // 'AI' = estratta dal modello, 'USER' = editata a mano
   model: string | null; // motore che l'ha estratta
   updatedAt: number;

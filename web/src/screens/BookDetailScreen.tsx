@@ -69,6 +69,7 @@ import {
   imageGenAvailable,
   linkBookToPage,
   reanalyzeBook,
+  reindexBookNlp,
   recomputeCharacterChapters,
   regenerateMediaImage,
   updateMediaCatalog,
@@ -178,6 +179,22 @@ export function BookDetailScreen() {
     }
   }
 
+  // Ri-estrae SOLO le frasi reali (pre-pass NLP), senza rifare la scheda GPT. Sincrono (~secondi).
+  const [reindexing, setReindexing] = useState(false);
+  async function reindexNlp() {
+    if (reindexing) return;
+    setReindexing(true);
+    try {
+      const r = await reindexBookNlp(id);
+      toast.success(t("bookDetail.reindexNlpDone", { count: r.quotes }));
+      detail.reload();
+    } catch (err) {
+      toast.error(errorMessage(err) || t("bookDetail.reindexNlpFailed"));
+    } finally {
+      setReindexing(false);
+    }
+  }
+
   // Skeleton SOLO al primo caricamento (nessun dato ancora): durante un reload (es. a fine
   // rigenerazione immagine) si mantengono i dati esistenti, così il tab e il lightbox aperto
   // NON vengono smontati/chiusi.
@@ -271,6 +288,10 @@ export function BookDetailScreen() {
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent>
+              <DropdownMenuItem onSelect={() => void reindexNlp()}>
+                <FileText className="h-4 w-4" />
+                {t("bookDetail.reindexNlp")}
+              </DropdownMenuItem>
               <DropdownMenuItem danger onSelect={() => setConfirmDelete(true)}>
                 <Trash2 className="h-4 w-4" />
                 {t("book.deleteBook")}
@@ -320,7 +341,7 @@ export function BookDetailScreen() {
               <VisivoTabBar active={visivoTab} onChange={setVisivoTab} />
 
               {visivoTab === "direttive" && (
-                <div className="animate-fade-in">
+                <div className="flex animate-fade-in flex-col gap-4">
                   <VisualDirectivesCard
                     bookId={id}
                     domains={book.visualDomains ?? []}
@@ -342,6 +363,26 @@ export function BookDetailScreen() {
                           : prev,
                       );
                       toast.success(t("book.directives.saved"));
+                    }}
+                  />
+                  <BookExtraInstructionsCard
+                    textExtra={book.textExtraInstructions ?? ""}
+                    imageExtra={book.imageExtraInstructions ?? ""}
+                    onSave={async (next) => {
+                      const updated = await renameBook(id, next);
+                      detail.setData((prev) =>
+                        prev
+                          ? {
+                              ...prev,
+                              book: {
+                                ...prev.book,
+                                textExtraInstructions: updated.textExtraInstructions,
+                                imageExtraInstructions: updated.imageExtraInstructions,
+                              },
+                            }
+                          : prev,
+                      );
+                      toast.success(t("bookDetail.extraInstructionsSaved"));
                     }}
                   />
                 </div>
@@ -1020,6 +1061,82 @@ function VisualDirectivesCard({
   );
 }
 
+// Istruzioni-extra PER-LIBRO: testo libero accodato ai prompt di post/immagine di QUESTO libro,
+// in aggiunta alle istruzioni globali e al core ingegnerizzato. Non sostituiscono il prompt: sono
+// guida aggiuntiva (vuoto = nessun extra per-libro).
+function BookExtraInstructionsCard({
+  textExtra,
+  imageExtra,
+  onSave,
+}: {
+  textExtra: string;
+  imageExtra: string;
+  onSave: (next: {
+    textExtraInstructions: string | null;
+    imageExtraInstructions: string | null;
+  }) => Promise<void>;
+}) {
+  const { t } = useTranslation();
+  const toast = useToast();
+  const [text, setText] = useState(textExtra);
+  const [image, setImage] = useState(imageExtra);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setText(textExtra);
+  }, [textExtra]);
+  useEffect(() => {
+    setImage(imageExtra);
+  }, [imageExtra]);
+
+  async function save() {
+    setSaving(true);
+    try {
+      await onSave({
+        textExtraInstructions: text.trim() === "" ? null : text.trim(),
+        imageExtraInstructions: image.trim() === "" ? null : image.trim(),
+      });
+    } catch (err) {
+      toast.error(errorMessage(err) || t("common.saveFailed"));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader
+        title={t("bookDetail.extraInstructionsTitle")}
+        description={t("bookDetail.extraInstructionsDesc")}
+      />
+      <CardBody className="flex flex-col gap-4">
+        <p className="text-sm text-content-secondary">{t("bookDetail.extraInstructionsHint")}</p>
+        <Field label={t("bookDetail.extraTextLabel")}>
+          <Textarea
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            rows={4}
+            placeholder={t("bookDetail.extraTextPlaceholder")}
+          />
+        </Field>
+        <Field label={t("bookDetail.extraImageLabel")}>
+          <Textarea
+            value={image}
+            onChange={(e) => setImage(e.target.value)}
+            rows={4}
+            placeholder={t("bookDetail.extraImagePlaceholder")}
+          />
+        </Field>
+        <div className="flex justify-end">
+          <Button variant="primary" loading={saving} onClick={save}>
+            {t("common.save")}
+          </Button>
+        </div>
+      </CardBody>
+    </Card>
+  );
+}
+
 // Tipi (channel) offerti nel select. Campo libero lato API: questi sono i
 // valori noti, con etichetta italiana via linkChannelLabel.
 const LINK_CHANNEL_OPTIONS = [
@@ -1460,6 +1577,22 @@ function MediaCard({
   const [batchChanges, setBatchChanges] = useState("");
   const [batchBusy, setBatchBusy] = useState(false);
 
+  // Filtro per FORMATO (aspetto) della libreria immagini, con conteggio per categoria: 9:16
+  // verticale (reel/storie), 1:1·4:5 quadrata (post/card), orizzontale. L'aspetto si classifica al
+  // caricamento di ogni <img> (naturalWidth/Height): nessun dato extra dal server.
+  type AspectCat = "vertical" | "square" | "landscape";
+  const [aspectOf, setAspectOf] = useState<Record<string, AspectCat>>({});
+  const [formatTab, setFormatTab] = useState<"all" | AspectCat>("all");
+  const formatCounts = useMemo(() => {
+    const c = { vertical: 0, square: 0, landscape: 0, unknown: 0 };
+    for (const m of media) {
+      const a = aspectOf[m.id];
+      if (a) c[a] += 1;
+      else c.unknown += 1;
+    }
+    return c;
+  }, [media, aspectOf]);
+
   // Cast del libro: caricato una volta qui e passato al lightbox per la multi-selezione
   // personaggi della «Rigenera dal capitolo» (filtrata al capitolo dell'immagine). Caricamento
   // soft: in caso di errore resta vuoto e il lightbox non mostra il selettore personaggi.
@@ -1657,112 +1790,183 @@ function MediaCard({
         {media.length === 0 ? (
           <p className="text-sm text-content-tertiary">{t("book.media.empty")}</p>
         ) : (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-            {media.map((m) => {
-              const isCurrent = regenCurrentId === m.id;
-              const isQueued = regenQueuedIds.has(m.id);
-              const isSelected = selected.has(m.id);
-              // L'URL dal server include già `?v=${addedAt}` (serialize.ts) e updateAfterRegen
-              // aggiorna addedAt: dopo il reload il browser ricarica da sé il file rigenerato.
-              const imgSrc = m.url ?? null;
-              return (
-                <div
-                  key={m.id}
-                  className={cn(
-                    "group relative overflow-hidden rounded-lg border bg-bg-inset",
-                    isSelected ? "border-accent ring-2 ring-accent/40" : "border-border-subtle",
-                  )}
-                >
-                  {imgSrc ? (
-                    <img
-                      src={imgSrc}
-                      alt={m.caption ?? m.filename ?? t("book.media.imageAlt")}
-                      onClick={() => (selectMode ? toggleSelected(m.id) : setLightbox(m))}
+          <>
+            {/* Filtro per FORMATO con conteggio: aiuta a vedere a colpo d'occhio quante immagini
+                ci sono per ogni aspetto (le 9:16 servono ai reel/storie, le quadrate ai post). */}
+            <div
+              role="tablist"
+              aria-label={t("bookDetail.formatFilterAria")}
+              className="flex flex-wrap gap-2"
+            >
+              {[
+                { id: "all" as const, label: t("bookDetail.formatAll"), n: media.length },
+                {
+                  id: "vertical" as const,
+                  label: t("bookDetail.formatVertical"),
+                  n: formatCounts.vertical,
+                },
+                {
+                  id: "square" as const,
+                  label: t("bookDetail.formatSquare"),
+                  n: formatCounts.square,
+                },
+                {
+                  id: "landscape" as const,
+                  label: t("bookDetail.formatLandscape"),
+                  n: formatCounts.landscape,
+                },
+              ].map((tab) => {
+                const active = formatTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={active}
+                    onClick={() => setFormatTab(tab.id)}
+                    className={cn(
+                      "inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium",
+                      "transition-colors duration-150 ease-out-strong focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-ring",
+                      active
+                        ? "border-accent bg-accent-soft text-content-primary"
+                        : "border-border-subtle text-content-tertiary hover:text-content-primary",
+                    )}
+                  >
+                    {tab.label}
+                    <span
                       className={cn(
-                        "aspect-square w-full object-cover",
-                        selectMode ? "cursor-pointer" : "cursor-zoom-in",
-                        (isCurrent || isQueued) && "opacity-70",
+                        "rounded-full px-1.5 text-xs tabular-nums",
+                        active
+                          ? "bg-accent/20 text-content-secondary"
+                          : "bg-bg-inset text-content-tertiary",
                       )}
-                    />
-                  ) : (
-                    <div className="flex aspect-square w-full items-center justify-center text-content-faint">
-                      <ImagePlus className="h-6 w-6" />
-                    </div>
-                  )}
-                  {selectMode && (
-                    <label className="absolute left-1.5 top-1.5 flex cursor-pointer items-center rounded-md bg-black/60 p-1 backdrop-blur">
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={() => toggleSelected(m.id)}
-                        onClick={(e) => e.stopPropagation()}
-                      />
-                    </label>
-                  )}
-                  {!selectMode && m.chapterIdx != null && (
-                    <span className="absolute left-1.5 top-1.5 rounded-md bg-black/60 px-1.5 py-0.5 text-2xs font-medium text-white backdrop-blur">
-                      {t("book.media.chapterBadge", { index: m.chapterIdx })}
-                    </span>
-                  )}
-                  {(isCurrent || isQueued) && (
-                    <span className="absolute bottom-1.5 left-1.5 inline-flex items-center gap-1 rounded-md bg-black/70 px-1.5 py-0.5 text-2xs font-medium text-white backdrop-blur">
-                      {isCurrent ? (
-                        <>
-                          <Spinner className="h-3 w-3" />
-                          {t("book.media.regenerating")}
-                        </>
-                      ) : (
-                        t("book.media.queued")
-                      )}
-                    </span>
-                  )}
-                  {/* Badge QA: visibile solo se il check è stato eseguito */}
-                  {m.qa != null &&
-                    !isCurrent &&
-                    !isQueued &&
-                    (m.qa.ok ? (
-                      <span
-                        title={t("book.media.qaOkTitle")}
-                        className="absolute bottom-1.5 right-1.5 inline-flex items-center gap-1 rounded-md bg-black/60 px-1.5 py-0.5 text-2xs font-medium text-emerald-400 backdrop-blur"
-                      >
-                        <CheckCircle2 className="h-3 w-3" />
-                        {t("book.media.qaOk")}
-                      </span>
-                    ) : (
-                      <span
-                        title={m.qa.issues.join("\n")}
-                        className="absolute bottom-1.5 right-1.5 inline-flex items-center gap-1 rounded-md bg-amber-500/90 px-1.5 py-0.5 text-2xs font-medium text-white backdrop-blur"
-                      >
-                        <AlertTriangle className="h-3 w-3" />
-                        {t("book.media.qaIssues", { count: m.qa.issues.length })}
-                      </span>
-                    ))}
-                  {!selectMode && (
-                    <button
-                      type="button"
-                      onClick={() => remove(m.id)}
-                      className="absolute right-1.5 top-1.5 rounded-md bg-black/60 p-1.5 text-white opacity-0 backdrop-blur transition-[opacity,transform] duration-150 ease-out-strong hover:bg-danger/80 group-hover:opacity-100 active:scale-90"
-                      aria-label={t("book.media.removeAria")}
                     >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  )}
-                  {m.tags.length > 0 && (
-                    <div className="flex flex-wrap gap-1 px-2 pt-1.5">
-                      {m.tags.slice(0, 4).map((tag) => (
-                        <Badge key={tag}>{tag}</Badge>
+                      {tab.n}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+              {media.map((m) => {
+                const isCurrent = regenCurrentId === m.id;
+                const isQueued = regenQueuedIds.has(m.id);
+                const isSelected = selected.has(m.id);
+                // L'URL dal server include già `?v=${addedAt}` (serialize.ts) e updateAfterRegen
+                // aggiorna addedAt: dopo il reload il browser ricarica da sé il file rigenerato.
+                const imgSrc = m.url ?? null;
+                return (
+                  <div
+                    key={m.id}
+                    className={cn(
+                      "group relative overflow-hidden rounded-lg border bg-bg-inset",
+                      isSelected ? "border-accent ring-2 ring-accent/40" : "border-border-subtle",
+                      // Filtro per formato: nascondi i tile che non combaciano (il loro <img> resta
+                      // comunque caricato così il conteggio per categoria si popola lo stesso).
+                      formatTab !== "all" && aspectOf[m.id] !== formatTab && "hidden",
+                    )}
+                  >
+                    {imgSrc ? (
+                      <img
+                        src={imgSrc}
+                        alt={m.caption ?? m.filename ?? t("book.media.imageAlt")}
+                        onLoad={(e) => {
+                          const img = e.currentTarget;
+                          if (!img.naturalWidth || !img.naturalHeight) return;
+                          const r = img.naturalWidth / img.naturalHeight;
+                          const cat: AspectCat =
+                            r < 0.8 ? "vertical" : r > 1.25 ? "landscape" : "square";
+                          setAspectOf((prev) =>
+                            prev[m.id] === cat ? prev : { ...prev, [m.id]: cat },
+                          );
+                        }}
+                        onClick={() => (selectMode ? toggleSelected(m.id) : setLightbox(m))}
+                        className={cn(
+                          "aspect-square w-full object-cover",
+                          selectMode ? "cursor-pointer" : "cursor-zoom-in",
+                          (isCurrent || isQueued) && "opacity-70",
+                        )}
+                      />
+                    ) : (
+                      <div className="flex aspect-square w-full items-center justify-center text-content-faint">
+                        <ImagePlus className="h-6 w-6" />
+                      </div>
+                    )}
+                    {selectMode && (
+                      <label className="absolute left-1.5 top-1.5 flex cursor-pointer items-center rounded-md bg-black/60 p-1 backdrop-blur">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleSelected(m.id)}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      </label>
+                    )}
+                    {!selectMode && m.chapterIdx != null && (
+                      <span className="absolute left-1.5 top-1.5 rounded-md bg-black/60 px-1.5 py-0.5 text-2xs font-medium text-white backdrop-blur">
+                        {t("book.media.chapterBadge", { index: m.chapterIdx })}
+                      </span>
+                    )}
+                    {(isCurrent || isQueued) && (
+                      <span className="absolute bottom-1.5 left-1.5 inline-flex items-center gap-1 rounded-md bg-black/70 px-1.5 py-0.5 text-2xs font-medium text-white backdrop-blur">
+                        {isCurrent ? (
+                          <>
+                            <Spinner className="h-3 w-3" />
+                            {t("book.media.regenerating")}
+                          </>
+                        ) : (
+                          t("book.media.queued")
+                        )}
+                      </span>
+                    )}
+                    {/* Badge QA: visibile solo se il check è stato eseguito */}
+                    {m.qa != null &&
+                      !isCurrent &&
+                      !isQueued &&
+                      (m.qa.ok ? (
+                        <span
+                          title={t("book.media.qaOkTitle")}
+                          className="absolute bottom-1.5 right-1.5 inline-flex items-center gap-1 rounded-md bg-black/60 px-1.5 py-0.5 text-2xs font-medium text-emerald-400 backdrop-blur"
+                        >
+                          <CheckCircle2 className="h-3 w-3" />
+                          {t("book.media.qaOk")}
+                        </span>
+                      ) : (
+                        <span
+                          title={m.qa.issues.join("\n")}
+                          className="absolute bottom-1.5 right-1.5 inline-flex items-center gap-1 rounded-md bg-amber-500/90 px-1.5 py-0.5 text-2xs font-medium text-white backdrop-blur"
+                        >
+                          <AlertTriangle className="h-3 w-3" />
+                          {t("book.media.qaIssues", { count: m.qa.issues.length })}
+                        </span>
                       ))}
-                    </div>
-                  )}
-                  {m.caption && (
-                    <div className="truncate px-2 py-1 text-2xs text-content-tertiary">
-                      {m.caption}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+                    {!selectMode && (
+                      <button
+                        type="button"
+                        onClick={() => remove(m.id)}
+                        className="absolute right-1.5 top-1.5 rounded-md bg-black/60 p-1.5 text-white opacity-0 backdrop-blur transition-[opacity,transform] duration-150 ease-out-strong hover:bg-danger/80 group-hover:opacity-100 active:scale-90"
+                        aria-label={t("book.media.removeAria")}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                    {m.tags.length > 0 && (
+                      <div className="flex flex-wrap gap-1 px-2 pt-1.5">
+                        {m.tags.slice(0, 4).map((tag) => (
+                          <Badge key={tag}>{tag}</Badge>
+                        ))}
+                      </div>
+                    )}
+                    {m.caption && (
+                      <div className="truncate px-2 py-1 text-2xs text-content-tertiary">
+                        {m.caption}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </>
         )}
       </CardBody>
 
@@ -3334,6 +3538,8 @@ function ChapterSceneEditor({
   const [characters, setCharacters] = useState((initial?.characters ?? []).join(", "));
   // Regole di fisica/realismo del capitolo: una per riga (più leggibili dei CSV, spesso frasi).
   const [physicsRules, setPhysicsRules] = useState((initial?.physicsRules ?? []).join("\n"));
+  // Momento/azione centrale del capitolo: fonda il soggetto dell'immagine.
+  const [keyMoment, setKeyMoment] = useState(initial?.keyMoment ?? "");
 
   const applyScene = (s: ChapterScene) => {
     setScene(s);
@@ -3343,6 +3549,7 @@ function ChapterSceneEditor({
     setSecondaryObjects(s.secondaryObjects.join(", "));
     setCharacters(s.characters.join(", "));
     setPhysicsRules((s.physicsRules ?? []).join("\n"));
+    setKeyMoment(s.keyMoment ?? "");
     setDirty(false); // appena salvato/rigenerato: niente modifiche pendenti
   };
 
@@ -3390,6 +3597,7 @@ function ChapterSceneEditor({
         secondaryObjects: parseCsv(secondaryObjects),
         characters: parseCsv(characters),
         physicsRules: parseLines(physicsRules),
+        keyMoment: keyMoment.trim() || null,
       });
       applyScene(s);
       toast.success(t("book.scene.cardSaved"));
@@ -3454,6 +3662,14 @@ function ChapterSceneEditor({
       <div className="px-3 py-3 flex flex-col gap-3">
         {sub === "ambiente" && (
           <>
+            <Field label={t("bookDetail.keyMomentLabel")}>
+              <Textarea
+                value={keyMoment}
+                onChange={(e) => editField(setKeyMoment)(e.target.value)}
+                rows={2}
+                placeholder={t("bookDetail.keyMomentPlaceholder")}
+              />
+            </Field>
             <Field label={t("book.scene.place")}>
               <Input
                 value={location}

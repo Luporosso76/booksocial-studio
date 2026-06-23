@@ -69,6 +69,8 @@ export function bookDto(b: Book, coverUrl: string | null = null) {
     visualDirectivesEn: b.visualDirectivesEn,
     visualProps: b.visualProps,
     visualExtras: b.visualExtras,
+    textExtraInstructions: b.textExtraInstructions,
+    imageExtraInstructions: b.imageExtraInstructions,
   };
 }
 

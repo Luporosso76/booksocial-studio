@@ -22,41 +22,40 @@ export async function generateVisualProps(
   input: VisualPropsInput,
 ): Promise<BookVisualProps | null> {
   const settings =
-    input.settings.length > 0 ? input.settings.slice(0, 24).join("; ") : "(non disponibili)";
+    input.settings.length > 0 ? input.settings.slice(0, 24).join("; ") : "(not available)";
   const objects =
-    input.objects.length > 0 ? input.objects.slice(0, 60).join("; ") : "(non disponibili)";
-  const cast = input.characters.length > 0 ? input.characters.join(", ") : "(nessuno)";
+    input.objects.length > 0 ? input.objects.slice(0, 60).join("; ") : "(not available)";
+  const cast = input.characters.length > 0 ? input.characters.join(", ") : "(none)";
 
-  const prompt = `Definisci il CANONE VISIVO degli OGGETTI ricorrenti di un libro e i fatti del MONDO, per
-illustrazioni COERENTI: gli oggetti importanti devono essere resi SEMPRE uguali.
+  const prompt = `Define the VISUAL CANON of the recurring OBJECTS in a book and the WORLD FACTS, for
+CONSISTENT illustrations: important objects must always be rendered the same way.
 
-Rispondi ESCLUSIVAMENTE con un oggetto JSON valido, senza testo prima o dopo:
+Reply EXCLUSIVELY with a valid JSON object, no text before or after:
 {
-  "country": "paese principale dell'ambientazione (o "" se non chiaro)",
-  "driving_side": "right" oppure "left" (lato di guida di quel paese; "" se non determinabile)",
+  "country": "main country of the setting (or "" if unclear)",
+  "driving_side": "right" or "left" (driving side for that country; "" if not determinable)",
   "props": [
-    { "name": "etichetta breve dell'oggetto (es. 'auto di Roberto')", "when": "2-5 keyword del contesto in cui appare, separate da virgola, in ${input.language}", "description": "aspetto CANONICO FISSO e concreto da rendere sempre uguale", "owner": "nome del personaggio proprietario, oppure "" " }
+    { "name": "short label for the object (e.g. 'Roberto's car')", "when": "2-5 context keywords where it appears, comma-separated, in ${input.language}", "description": "FIXED CANONICAL concrete appearance to always render the same way", "owner": "name of the character who owns it, or "" " }
   ]
 }
 
-REGOLE:
-- "props": da 0 a ${MAX_PROPS} OGGETTI o VEICOLI concreti, IMPORTANTI e RICORRENTI, che devono restare
-  IDENTICI tra le immagini (tipicamente: l'AUTO di un personaggio → modello/colore SPECIFICO; un oggetto
-  distintivo che torna più volte). Per i veicoli indica marca+modello+colore se deducibili dal testo,
-  altrimenti scegli un modello plausibile e FISSALO. NON includere scenografia generica (tavoli, sedie),
-  né la "porta rossa" simbolica (è già gestita altrove).
-- "when": poche KEYWORD (in ${input.language}) che combaceranno col testo della scheda di capitolo
-  (luogo/ambiente/oggetti), es. "auto, macchina, strada, guida".
-- "owner": il personaggio a cui l'oggetto appartiene (scegli tra il CAST), se applicabile; altrimenti "".
-- "driving_side": deducilo dal paese (la maggior parte guida a destra; Regno Unito/Irlanda/Giappone/
-  Australia ecc. a sinistra). Se l'ambientazione è ambigua, usa "".
-- LINGUA: scrivi name/description/when nella lingua del libro (${input.language}); anche se queste
-  istruzioni sono in italiano, l'output deve essere in ${input.language}. Concreto e visivo, niente trama.
+RULES:
+- "props": 0 to ${MAX_PROPS} concrete, IMPORTANT and RECURRING OBJECTS or VEHICLES that must stay
+  IDENTICAL across images (typically: a character's CAR → specific make/model/color; a distinctive
+  object that recurs). For vehicles, state make+model+color if deducible from the text, otherwise
+  choose a plausible model and FIX it. Do NOT include generic scenery (tables, chairs), nor the
+  symbolic "red door" (handled elsewhere).
+- "when": a few KEYWORDS (in ${input.language}) that will match the chapter card text
+  (location/setting/objects), e.g. "car, road, driving".
+- "owner": the character the object belongs to (choose from the CAST), if applicable; otherwise "".
+- "driving_side": deduce from the country (most countries drive on the right; UK/Ireland/Japan/
+  Australia etc. on the left). If the setting is ambiguous, use "".
+- Write name/description/when in ${input.language}. Concrete and visual, no plot details.
 
-LIBRO: ${input.bookTitle?.trim() || "(senza titolo)"}
+BOOK: ${input.bookTitle?.trim() || "(untitled)"}
 CAST: ${cast}
-AMBIENTAZIONI RICORRENTI: ${settings}
-OGGETTI VISTI NELLE SCHEDE: ${objects}`;
+RECURRING SETTINGS: ${settings}
+OBJECTS SEEN IN THE CARDS: ${objects}`;
 
   try {
     const raw = await engine.run(prompt);

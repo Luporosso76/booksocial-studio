@@ -62,6 +62,8 @@ function mapBook(r: Row): Book {
     visualDirectivesEn: (r.visual_directives_en as string | null) ?? null,
     visualProps: parseVisualProps(r.visual_props_json as string | null),
     visualExtras: parseVisualExtras(r.visual_extras_json as string | null),
+    textExtraInstructions: (r.text_extra_instructions as string | null) ?? null,
+    imageExtraInstructions: (r.image_extra_instructions as string | null) ?? null,
   };
 }
 
@@ -106,6 +108,8 @@ function parseChapterScene(raw: unknown): ChapterScene | null {
     characters: strArr(o.characters),
     // Schede senza physicsRules → [].
     physicsRules: strArr(o.physicsRules),
+    // Schede vecchie senza keyMoment → null.
+    keyMoment: str(o.keyMoment),
     source: o.source === "USER" ? "USER" : "AI",
     model: str(o.model),
     updatedAt: Number.isFinite(Number(o.updatedAt)) ? Number(o.updatedAt) : 0,
@@ -553,6 +557,20 @@ export const books = {
       Date.now(),
       id,
     ]);
+  },
+
+  // Stringa vuota → null (nessun extra per-libro: vale solo l'eventuale extra globale).
+  async setExtraInstructions(
+    id: number,
+    textExtra: string | null,
+    imageExtra: string | null,
+  ): Promise<void> {
+    const t = (textExtra ?? "").trim();
+    const i = (imageExtra ?? "").trim();
+    await execute(
+      "UPDATE book SET text_extra_instructions=?, image_extra_instructions=?, updated_at=? WHERE id=?",
+      [t === "" ? null : t, i === "" ? null : i, Date.now(), id],
+    );
   },
 
   async chapters(bookId: number): Promise<BookChapter[]> {
@@ -1461,6 +1479,57 @@ export const contentUsage = {
       [postId],
     );
     return rows.length ? mapUsage(rows[0]) : null;
+  },
+
+  // Cancella lo storico d'uso di una bozza: il suo materiale (frasi/immagini/capitolo/musica)
+  // torna subito disponibile per la rotazione invece di restare consumato.
+  async deleteByPost(postId: number): Promise<void> {
+    await execute("DELETE FROM content_usage WHERE post_id=?", [postId]);
+  },
+
+  // Conteggi d'uso (rotazione LRU) su tutto lo storico pagina+libro: quante volte ogni
+  // citazione/immagine/capitolo/traccia è già stata usata, così il motore sceglie sempre il meno
+  // usato e i programmi consecutivi ciclano tutto il materiale prima di ripeterlo.
+  async usageCounts(
+    pageId: string,
+    bookId: number,
+  ): Promise<{
+    quotes: Map<string, number>;
+    images: Map<number, number>;
+    chapters: Map<number, number>;
+    music: Map<number, number>;
+  }> {
+    const rows = await query<{
+      quote_key: string | null;
+      image_ids: string | null;
+      chapter_index: number | null;
+      music_id: number | null;
+    }>(
+      "SELECT quote_key, image_ids, chapter_index, music_id FROM content_usage WHERE page_id=? AND book_id=?",
+      [pageId, bookId],
+    );
+    const quotes = new Map<string, number>();
+    const images = new Map<number, number>();
+    const chapters = new Map<number, number>();
+    const music = new Map<number, number>();
+    const bump = <K>(m: Map<K, number>, k: K): void => {
+      m.set(k, (m.get(k) ?? 0) + 1);
+    };
+    for (const r of rows) {
+      if (r.quote_key) bump(quotes, r.quote_key);
+      if (r.chapter_index != null) bump(chapters, Number(r.chapter_index));
+      if (r.music_id != null) bump(music, Number(r.music_id));
+      if (r.image_ids) {
+        try {
+          const ids = JSON.parse(r.image_ids) as unknown;
+          if (Array.isArray(ids))
+            for (const id of ids) if (typeof id === "number") bump(images, id);
+        } catch {
+          /* riga malformata: ignora */
+        }
+      }
+    }
+    return { quotes, images, chapters, music };
   },
 
   // Storico recente per pagina (createdAt DESC), usato dal motore di varietà.

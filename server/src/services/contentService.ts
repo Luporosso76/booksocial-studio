@@ -11,7 +11,20 @@ import { parseModelJson } from "../content/modelJson.js";
 import { readBook, joinChapters, sha256, type ImportedBook } from "../content/importer.js";
 import { indexBook } from "../content/nlpIndex.js";
 import { books, characters, generations, links, pages, posts, quotes } from "../db/repositories.js";
+import * as aiSettings from "../content/aiSettings.js";
 import { CURRENT_PROMPT_VERSION, type Book, type MediaType } from "../domain.js";
+
+// Combina istruzioni-extra globali + per-libro in un unico blocco accodato ai prompt. Scarta i
+// vuoti; "" se non c'è nulla (prompt invariato).
+function combineExtras(
+  global: string | null | undefined,
+  perBook: string | null | undefined,
+): string {
+  return [global, perBook]
+    .map((s) => (s ?? "").trim())
+    .filter((s) => s !== "")
+    .join("\n\n");
+}
 
 // Content orchestrator: import, one-time analysis (scheda), post generation.
 // "Analyze once, generate many."
@@ -94,6 +107,8 @@ export class ContentService {
         visualDirectivesEn: null,
         visualProps: { props: [], drivingSide: null, country: null },
         visualExtras: { minors: [] },
+        textExtraInstructions: null,
+        imageExtraInstructions: null,
       });
       await books.replaceChapters(created.id, imp.chapters);
       book = created;
@@ -265,6 +280,32 @@ export class ContentService {
     await books.clearChapterScenes(bookId);
   }
 
+  // Ri-esegue SOLO il pre-pass NLP (citazioni reali + metriche personaggi) e lo persiste, senza
+  // rifare la scheda GPT. Serve a ripopolare/arricchire book_quote. Ritorna il numero di citazioni
+  // scritte, o null se l'NLP non è disponibile (in quel caso le citazioni esistenti restano invariate).
+  async reindexNlp(bookId: number): Promise<{ quotes: number } | null> {
+    const book = await books.get(bookId);
+    if (!book) throw new ContentError(`Libro ${bookId} non trovato.`);
+    const chapters = await books.chapters(bookId);
+    const imp: ImportedBook = {
+      title: book.title,
+      author: book.author,
+      language: book.language,
+      contentHash: book.contentHash,
+      charCount: book.charCount,
+      chapters: chapters.map((ch) => ({
+        index: ch.index,
+        title: ch.title,
+        text: ch.text,
+        charCount: ch.charCount,
+      })),
+    };
+    const nlp = await this.runNlpPrePass(imp);
+    if (!nlp) return null;
+    await this.persistNlp(bookId, nlp);
+    return { quotes: nlp.quotes.length };
+  }
+
   // Comodo per usi sincroni (es. CLI/test): importa e analizza in un colpo.
   async importAndEnsureProfile(
     sourcePath: string,
@@ -384,7 +425,8 @@ export class ContentService {
     }
 
     const recent = pageId == null ? [] : await posts.recentMessages(pageId, 8);
-    const language = (await books.get(bookId))?.language ?? "it";
+    const book = await books.get(bookId);
+    const language = book?.language ?? "it";
     const avoid = new Set(opts?.avoidChapterIndexes ?? []);
     const excerpt = await this.safeChapterExcerpt(bookId, avoid);
     const characterBriefs = await this.characterBriefs(bookId);
@@ -398,6 +440,10 @@ export class ContentService {
       chapterExcerpt: excerpt?.text ?? null,
       characters: characterBriefs,
       language,
+      extraInstructions: combineExtras(
+        aiSettings.getPromptExtras().text,
+        book?.textExtraInstructions,
+      ),
     });
 
     // Accoda i link SOLO per i post (testo/foto), dove sono cliccabili. Reel/storie: niente link.
@@ -462,7 +508,8 @@ export class ContentService {
     const pageName = page?.name ?? "la pagina";
 
     const recent = await posts.recentMessages(post.pageId, 8);
-    const language = (await books.get(post.bookId))?.language ?? "it";
+    const book = await books.get(post.bookId);
+    const language = book?.language ?? "it";
     const excerpt = await this.safeChapterExcerpt(post.bookId);
     const characterBriefs = await this.characterBriefs(post.bookId);
 
@@ -475,6 +522,10 @@ export class ContentService {
       chapterExcerpt: excerpt?.text ?? null,
       characters: characterBriefs,
       language,
+      extraInstructions: combineExtras(
+        aiSettings.getPromptExtras().text,
+        book?.textExtraInstructions,
+      ),
     });
 
     const isPost =

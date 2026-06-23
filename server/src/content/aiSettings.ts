@@ -98,6 +98,11 @@ export interface EffectiveView {
     replicate: boolean;
     fal: boolean;
   };
+  // Istruzioni-extra GLOBALI: testo APPEND-ONLY accodato ai prompt. "" = nessun extra.
+  extra: {
+    textPrompt: string;
+    imagePrompt: string;
+  };
 }
 
 // Patch accettata da save(): solo i campi NON-segreti, più le chiavi separate.
@@ -141,6 +146,11 @@ export interface AiSettingsPatch {
     replicate?: string | null;
     fal?: string | null;
   };
+  // Istruzioni-extra GLOBALI: stringa => salva (vuota = rimuove l'extra), assente => invariata.
+  extra?: {
+    textPrompt?: string;
+    imagePrompt?: string;
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -172,6 +182,10 @@ const DB_KEYS = {
   codexImageModel: "ai.image.codexImageModel",
   imageFallback: "ai.image.fallbackProvider",
   imageFallbackModel: "ai.image.fallbackModel",
+  // Istruzioni-extra GLOBALI: testo APPEND-ONLY accodato a TUTTI i prompt POST/IMMAGINE.
+  // Non-segrete → app_setting. La controparte PER-LIBRO vive sulle colonne book.*_extra_instructions.
+  textPromptExtra: "prompt.text.extra",
+  imagePromptExtra: "prompt.image.extra",
 } as const;
 
 const KEY_KEYS = {
@@ -288,10 +302,22 @@ export function getImage(): ImageCfg {
   };
 }
 
+/**
+ * Istruzioni-extra GLOBALI: testo APPEND-ONLY accodato a TUTTI i prompt POST/IMMAGINE.
+ * SINCRONA (legge la cache). "" = nessun extra. La controparte per-libro sta sulle colonne book.
+ */
+export function getPromptExtras(): { text: string; image: string } {
+  return {
+    text: dbVal(DB_KEYS.textPromptExtra, ""),
+    image: dbVal(DB_KEYS.imagePromptExtra, ""),
+  };
+}
+
 /** Vista EFFETTIVA per l'API: SENZA i valori delle chiavi (solo boolean). */
 export function effectiveView(): EffectiveView {
   const t = getText();
   const i = getImage();
+  const extra = getPromptExtras();
   return {
     text: {
       provider: t.provider,
@@ -330,6 +356,10 @@ export function effectiveView(): EffectiveView {
       bfl: i.bflApiKey != null && i.bflApiKey !== "",
       replicate: i.replicateApiKey != null && i.replicateApiKey !== "",
       fal: i.falApiKey != null && i.falApiKey !== "",
+    },
+    extra: {
+      textPrompt: extra.text,
+      imagePrompt: extra.image,
     },
   };
 }
@@ -397,6 +427,15 @@ export async function save(patch: AiSettingsPatch): Promise<EffectiveView> {
       } else if (typeof v === "string") {
         await keyring.put(dbKey, v);
       }
+    }
+  }
+  if (patch.extra) {
+    // Stringa => salva (anche "" → svuota l'extra); assente => invariata.
+    if (typeof patch.extra.textPrompt === "string") {
+      await settings.set(DB_KEYS.textPromptExtra, patch.extra.textPrompt.trim());
+    }
+    if (typeof patch.extra.imagePrompt === "string") {
+      await settings.set(DB_KEYS.imagePromptExtra, patch.extra.imagePrompt.trim());
     }
   }
   await load();

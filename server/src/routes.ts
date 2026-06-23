@@ -885,6 +885,23 @@ export function buildApi(deps: AppDeps): Hono {
     if ("visualExtras" in body) {
       await books.setVisualExtras(id, parseVisualExtrasInput(body.visualExtras));
     }
+    // Istruzioni-extra per-libro: aggiornate solo se almeno uno dei due campi è nel body; gli
+    // assenti sono preservati.
+    if ("textExtraInstructions" in body || "imageExtraInstructions" in body) {
+      const t =
+        "textExtraInstructions" in body
+          ? body.textExtraInstructions == null
+            ? null
+            : String(body.textExtraInstructions)
+          : book.textExtraInstructions;
+      const i =
+        "imageExtraInstructions" in body
+          ? body.imageExtraInstructions == null
+            ? null
+            : String(body.imageExtraInstructions)
+          : book.imageExtraInstructions;
+      await books.setExtraInstructions(id, t, i);
+    }
     const updated = await books.get(id);
     return c.json(updated ? bookDto(updated) : err("Libro non trovato"));
   });
@@ -1131,6 +1148,23 @@ export function buildApi(deps: AppDeps): Hono {
     return c.json({ status: "analyzing" });
   });
 
+  // Ri-estrae solo le citazioni reali + metriche personaggi (pre-pass NLP) e le ripopola, senza
+  // rifare la scheda GPT. Sincrono: ritorna quante citazioni sono state scritte.
+  api.post("/books/:id/reindex-nlp", async (c) => {
+    const id = Number(c.req.param("id"));
+    const book = await books.get(id);
+    if (!book) return c.json(err("Libro non trovato"), 404);
+    try {
+      const r = await deps.content.reindexNlp(id);
+      if (r == null) {
+        return c.json(err("Pre-pass NLP non disponibile (Python/venv assente sul server)."), 503);
+      }
+      return c.json({ ok: true, quotes: r.quotes });
+    } catch (e) {
+      return c.json(err(e instanceof Error ? e.message : String(e)), 422);
+    }
+  });
+
   // ---------------- schede visive capitolo ----------------
 
   // Scheda del capitolo: dalla cache o estratta on-demand (LAZY). Per la UI quando si apre il capitolo.
@@ -1186,6 +1220,7 @@ export function buildApi(deps: AppDeps): Hono {
         : {}),
       ...(arr(body.characters) !== undefined ? { characters: arr(body.characters) } : {}),
       ...(arr(body.physicsRules) !== undefined ? { physicsRules: arr(body.physicsRules) } : {}),
+      ...(body.keyMoment !== undefined ? { keyMoment: str(body.keyMoment) } : {}),
     });
     if (!scene) return c.json(err("Capitolo non trovato"), 404);
     return c.json({ scene });
@@ -1593,6 +1628,7 @@ export function buildApi(deps: AppDeps): Hono {
     if (body.text && typeof body.text === "object") patch.text = body.text;
     if (body.image && typeof body.image === "object") patch.image = body.image;
     if (body.keys && typeof body.keys === "object") patch.keys = body.keys;
+    if (body.extra && typeof body.extra === "object") patch.extra = body.extra;
     const view = await aiSettings.save(patch);
     return c.json(view);
   });
@@ -2550,6 +2586,8 @@ export function buildApi(deps: AppDeps): Hono {
       await media.deleteByPath(post.mediaPath).catch(() => {});
       await unlink(resolveDataPath(post.mediaPath)).catch(() => {});
     }
+    // Libera la rotazione: il materiale usato dalla bozza torna subito disponibile.
+    await contentUsage.deleteByPost(id).catch(() => {});
     await posts.delete(id);
     return c.json({ ok: true });
   });
@@ -2582,11 +2620,19 @@ export function buildApi(deps: AppDeps): Hono {
     const useImages = cf.visualContent === "images" || cf.visualContent === "mixed";
     const isVideo = cf.visualKind === "reel" || cf.visualKind === "story";
     const target: "reel" | "story" = cf.visualKind === "story" ? "story" : "reel";
-    // Musica per i video (reel/storia): una traccia a caso del libro, così varia a ogni rigenera.
+    // Rotazione LRU su tutto lo storico pagina+libro: frase/immagine/musica meno usate vengono
+    // preferite, così rigenerare più volte cicla il materiale invece di ripeterlo.
+    const counts =
+      post.bookId != null ? await contentUsage.usageCounts(post.pageId, post.bookId) : null;
     let musicTrackId: number | null = null;
     if (isVideo && post.bookId != null) {
       const tracks = await music.byBook(post.bookId);
-      if (tracks.length > 0) musicTrackId = tracks[Math.floor(Math.random() * tracks.length)]!.id;
+      if (tracks.length > 0) {
+        const mc = counts?.music ?? new Map<number, number>();
+        const min = Math.min(...tracks.map((t) => mc.get(t.id) ?? 0));
+        const least = tracks.filter((t) => (mc.get(t.id) ?? 0) === min);
+        musicTrackId = least[Math.floor(Math.random() * least.length)]!.id;
+      }
     }
     // Recupera il capitolo di origine del post (registrato in content_usage) per la selezione
     // per pertinenza dell'immagine di sfondo. Best-effort: se assente, il director ripiega su aspect.
@@ -2598,6 +2644,7 @@ export function buildApi(deps: AppDeps): Hono {
       musicTrackId,
       target,
       chapterIndex: usage?.chapterIndex ?? null,
+      ...(counts ? { quoteUsage: counts.quotes, imageUsage: counts.images } : {}),
     });
     if (musicTrackId != null) await posts.setMusic(post.id, musicTrackId);
     await enqueueRender(result.spec, { postId: post.id, bookId: post.bookId });
@@ -2700,6 +2747,8 @@ export function buildApi(deps: AppDeps): Hono {
     let result;
     try {
       const usage = await contentUsage.latestByPost(id);
+      const counts =
+        post.bookId != null ? await contentUsage.usageCounts(post.pageId, post.bookId) : null;
       result = await deps.director.generaVisualSpec(post, {
         kind: body.kind,
         template,
@@ -2708,6 +2757,7 @@ export function buildApi(deps: AppDeps): Hono {
         musicTrackId,
         // Capitolo del post (se registrato) → immagine di sfondo pertinente; altrimenti ripiego aspect.
         chapterIndex: usage?.chapterIndex ?? null,
+        ...(counts ? { quoteUsage: counts.quotes, imageUsage: counts.images } : {}),
       });
     } catch (e) {
       return c.json(err(e instanceof Error ? e.message : String(e)), 422);

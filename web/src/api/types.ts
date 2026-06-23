@@ -51,6 +51,8 @@ export interface Book {
   coverUrl?: string | null;
   visualProps?: BookVisualProps;
   visualExtras?: BookVisualExtras;
+  textExtraInstructions?: string | null;
+  imageExtraInstructions?: string | null;
 }
 
 // Canone visivo per-libro: abiti dei personaggi, oggetti/mondo
@@ -247,6 +249,11 @@ export interface AiSettings {
     replicate: boolean;
     fal: boolean;
   };
+  // Istruzioni-extra globali: testo accodato a tutti i prompt. '' = nessun extra.
+  extra: {
+    textPrompt: string;
+    imagePrompt: string;
+  };
 }
 
 // Patch PUT /settings/ai: sottoinsiemi opzionali. Le chiavi si inviano SOLO se digitate
@@ -262,6 +269,10 @@ export interface AiSettingsPatch {
     bfl?: string | null;
     replicate?: string | null;
     fal?: string | null;
+  };
+  extra?: {
+    textPrompt?: string;
+    imagePrompt?: string;
   };
 }
 
@@ -337,6 +348,7 @@ export interface ChapterScene {
   // Regole di fisica/realismo specifiche del capitolo (oltre alla baseline universale):
   // vincoli che l'immagine deve rispettare (es. «la vela è sul lato opposto al vento»).
   physicsRules: string[];
+  keyMoment: string | null;
   source: "AI" | "USER";
   model: string | null;
   updatedAt: number;

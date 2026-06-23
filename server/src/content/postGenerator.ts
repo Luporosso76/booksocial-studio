@@ -5,8 +5,8 @@ import type { BookProfile, MediaType } from "../domain.js";
 import { MEDIA_TYPES } from "../domain.js";
 
 // Generates one post from the compact book scheda (not the whole book), the
-// requested angle, and recent posts (to avoid repetition). Key prompt rules:
-// ABSOLUTE ANTI-SPOILER RULE, hashtag base+specific.
+// requested angle, and recent posts (to avoid repetition). Prompt ported almost
+// verbatim from Java PostGenerator: ABSOLUTE ANTI-SPOILER RULE, hashtag base+specific.
 
 // Personaggi (concisi) da iniettare nel prompt: nome — ruolo/lavoro — carattere — aspetto.
 export interface CharacterBrief {
@@ -26,6 +26,9 @@ export interface GenerateRequest {
   chapterExcerpt: string | null;
   characters: CharacterBrief[];
   language: string;
+  // Istruzioni-extra APPEND-ONLY: globale + per-libro, già combinate dal chiamante. Accodate in
+  // fondo al prompt come guida aggiuntiva; NON sostituiscono il core (no-spoiler/lingua/JSON restano).
+  extraInstructions?: string | null;
 }
 
 export interface GeneratedPost {
@@ -35,7 +38,7 @@ export interface GeneratedPost {
   specificHashtags: string; // generated for this post
   mediaType: MediaType;
   rationale: string | null;
-  // Indice del capitolo da cui è stata estratta l'idea, o null.
+  // Indice del capitolo da cui è stata estratta l'idea (pipeline skill), o null.
   // Lo valorizza ContentService, che conosce il capitolo scelto.
   sourceChapterIndex?: number | null;
 }
@@ -57,14 +60,83 @@ export async function generatePost(
     }
   }
   const specific = text(j, "hashtags") ?? "";
+  const rawMessage = textRequired(j, "message");
+  // SECONDO PASSO — UMANIZZAZIONE (anti-AI): riscrive il testo per togliere i segni residui da
+  // "macchina" (vocabolario IA, em-dash, regola del tre, parallelismi negativi, chiuse moraleggianti,
+  // passivo, filler). Best-effort: se fallisce o torna fuori scala, tiene l'originale.
+  const message = await humanizeMessage(engine, rawMessage, req.language).catch(() => rawMessage);
   return {
-    message: textRequired(j, "message"),
+    message,
     hashtags: specific, // final = specific until ContentService adds the base
     baseHashtags: "",
     specificHashtags: specific,
     mediaType: media,
     rationale: text(j, "rationale"),
   };
+}
+
+// SECONDO PASSO anti-AI: prende il post generato e lo RISCRIVE perché suoni umano, rimuovendo i
+// pattern tipici dell'IA (guida "signs of AI writing"). Mantiene lingua, significato, lunghezza e le
+// citazioni reali tra « » INTATTE. Restituisce SOLO il testo riscritto. Best-effort: su risultato
+// vuoto o fuori scala (troncato/dilungato) ritorna l'originale, così non peggiora mai il post.
+async function humanizeMessage(
+  engine: ContentEngine,
+  message: string,
+  language: string,
+): Promise<string> {
+  const original = (message ?? "").trim();
+  if (original === "") return message;
+  const lang = language || "Italian";
+  const prompt = `Rewrite the text below so it sounds written by a REAL PERSON, not by an AI. It is a social post about a book.
+
+HARD RULES:
+- Same LANGUAGE (${lang}), same MEANING, similar length (do not lengthen).
+- Keep the « » quotes INTACT, word for word (they are real text from the book): do not rewrite them, do not shift their meaning.
+- Do NOT add hashtags, titles, outer quotes, preambles or explanations.
+- Return ONLY the rewritten text, nothing else.
+
+REMOVE the typical AI tells (apply them to ${lang} — use the equivalent forms in that language, the examples below are illustrative):
+- inflated vocabulary / AI-words: "journey", "tapestry", "testament", "delve", "explore", "unveil", "intricate", "vibrant", "in the landscape/in the era", "embrace", "navigate the complexities", "ultimately", "it's worth noting", "in today's world", "dive in/let yourself be carried", "a work that".
+- negative parallelisms: "it's not just X, it's also Y", "not only… but also…" → say it directly.
+- the rule of three: avoid lists/triplets of adjectives or nouns.
+- moralizing / back-cover closers: "it reminds us that…", "it teaches us that…", "deep down it's a story about…", "a story that will stay with you".
+- promotional superlatives: "unmissable", "extraordinary", "masterpiece", "thrilling".
+- vague attributions ("many think", "it is said that"), run of rhetorical questions, filler.
+- run of em-dashes (—) → use commas/periods. At most ONE emoji, only if it was already there or it helps.
+
+MAKE IT HUMAN:
+- natural, spoken ${lang}, like a message to a friend; a little imperfection is fine.
+- alternate short and long sentences; prefer the ACTIVE voice over the passive.
+- concrete and specific beats adjectives; show, don't promise emotions.
+- open with something real (an image, a line from the book, a sharp question), never with clichés or meta-openings.
+
+TEXT TO REWRITE:
+${original}`;
+
+  let out: string;
+  try {
+    out = (await engine.run(prompt)) ?? "";
+  } catch {
+    return message; // motore non disponibile: tieni l'originale
+  }
+  // Ripulisci eventuali recinti di codice / virgolette esterne aggiunte dal modello.
+  let cleaned = out.trim();
+  cleaned = cleaned
+    .replace(/^```[a-zA-Z]*\s*/, "")
+    .replace(/\s*```$/, "")
+    .trim();
+  if (
+    (cleaned.startsWith('"') && cleaned.endsWith('"')) ||
+    (cleaned.startsWith("«") && cleaned.endsWith("»") && original.indexOf("«") !== 0)
+  ) {
+    cleaned = cleaned.slice(1, -1).trim();
+  }
+  // Guardia di scala: se il modello ha troncato o si è dilungato troppo, scarta la riscrittura.
+  if (cleaned === "") return message;
+  if (cleaned.length < original.length * 0.4 || cleaned.length > original.length * 2.5) {
+    return message;
+  }
+  return cleaned;
 }
 
 function buildPrompt(req: GenerateRequest): string {
@@ -76,7 +148,20 @@ function buildPrompt(req: GenerateRequest): string {
     !!req.chapterExcerpt &&
     req.chapterExcerpt.trim() !== "" &&
     req.chapterExcerpt.trim() !== "(non fornito)";
-  return hasChapter ? buildChapterPrompt(req) : buildSchedaPrompt(req);
+  const base = hasChapter ? buildChapterPrompt(req) : buildSchedaPrompt(req);
+  return appendExtraInstructions(base, req.extraInstructions);
+}
+
+// Accoda (APPEND-ONLY) le istruzioni-extra dell'utente in fondo al prompt, senza toccare il core.
+// Sono guida aggiuntiva: le regole assolute del prompt (no-spoiler, lingua di output, formato JSON)
+// restano sovraordinate. Vuoto/assente => prompt invariato.
+function appendExtraInstructions(prompt: string, extra: string | null | undefined): string {
+  const e = (extra ?? "").trim();
+  if (e === "") return prompt;
+  return `${prompt}
+
+=== EXTRA INSTRUCTIONS (added by the user — additional guidance, follow it whenever relevant; it must NOT override the ABSOLUTE NO-SPOILER RULE, the output LANGUAGE, or the JSON output format above) ===
+${e}`;
 }
 
 // Prompt "capitolo": pipeline incorporata (ex-skill idea-extractor + tagore) — trova la singola
@@ -85,121 +170,117 @@ function buildPrompt(req: GenerateRequest): string {
 function buildChapterPrompt(req: GenerateRequest): string {
   const p = req.profile;
   const recent =
-    req.recentMessages.length === 0
-      ? "(nessun post precedente)"
-      : req.recentMessages.join("\n---\n");
+    req.recentMessages.length === 0 ? "(no previous posts)" : req.recentMessages.join("\n---\n");
   const language = req.language || "italiano";
   const characters = renderCharacters(req.characters);
 
-  return `Sei un lettore appassionato che cura la pagina Facebook "${req.pageName}" e parli del libro ad altri lettori. Scrivi come una persona vera, NON come un'agenzia di marketing.
+  return `You are a passionate reader who runs the Facebook page "${req.pageName}" and talks about the book to other readers. Write like a real person, NOT like a marketing agency.
 
-PROCEDIMENTO (due passi, da fare INTERNAMENTE — mostra SOLO il post finale nel JSON):
+PROCEDURE (two steps, to do INTERNALLY — show ONLY the final post in the JSON):
 
-1. TROVA L'IDEA dal CAPITOLO qui sotto. Cerca la "live wire": UNA singola idea, scena, immagine, frase, contraddizione, scelta, costo o domanda che farebbe fermare un lettore — interessante anche per chi NON ha letto il libro. NON un riassunto del capitolo. Considera mentalmente 2-3 idee candidate e scegli la piu' forte in base a: rilevanza per il lettore, concretezza (un momento / una frase / un'immagine reali), tensione, valore autonomo (regge senza spiegare tutto il capitolo), coerenza con la voce del libro, sicurezza anti-spoiler. NON mostrare le candidate, i punteggi o l'analisi.
+1. FIND THE IDEA from the CHAPTER below. Look for the "live wire": ONE single idea, scene, image, line, contradiction, choice, cost or question that would make a reader stop — interesting even to someone who has NOT read the book. NOT a summary of the chapter. Mentally consider 2-3 candidate ideas and pick the strongest based on: relevance to the reader, concreteness (a real moment / line / image), tension, standalone value (it holds up without explaining the whole chapter), consistency with the book's voice, anti-spoiler safety. Do NOT show the candidates, scores or analysis.
 
-2. SCRIVI il post umanizzando quell'idea. Evita il "sapore IA" (cruciale, altrimenti si capisce che e' scritto da una macchina): niente significato gonfiato, niente parole-IA ("viaggio", "tessuto/arazzo", "testimonianza", "nel mondo di oggi", "immergiti/lasciati trasportare", "un'opera che", "non e' solo... e' anche..."), niente triplette di aggettivi, niente superlativi pubblicitari ("imperdibile", "straordinario", "capolavoro"), niente trattini lunghi (—) a raffica, al massimo una emoji e solo se serve. Concreto e specifico batte dieci aggettivi. Apri con qualcosa di vero (un'immagine, una frase del libro, una domanda secca), mai con frasi fatte o aperture meta ("In questo capitolo", "Questo post"). Alterna frasi corte e lunghe, tieni UNA sola linea emotiva, chiudi con una riga che apre un pensiero (non una CTA generica). Mostra, non promettere emozioni.
+2. WRITE the post, humanizing that idea. Avoid the "AI flavor" (crucial, otherwise it reads as machine-written): no inflated meaning, no AI-words (in the OUTPUT language: words like "journey", "tapestry", "testament", "in today's world", "dive in/let yourself be carried", "a work that", "it's not just... it's also..."), no triplets of adjectives, no promotional superlatives ("unmissable", "extraordinary", "masterpiece"), no run of em-dashes (—), at most one emoji and only if useful. Concrete and specific beats ten adjectives. Open with something real (an image, a line from the book, a sharp question), never with clichés or meta-openings ("In this chapter", "This post"). Alternate short and long sentences, keep ONE emotional thread, close with a line that opens a thought (not a generic CTA). Show, don't promise emotions.
 
-REGOLA ASSOLUTA - NIENTE SPOILER: non rivelare MAI finale, colpi di scena, morti, identita' segrete o esiti dei conflitti. Usa solo materiale sicuro. Gli elementi elencati in "spoiler_policy.do_not_reveal" della scheda NON devono comparire ne' essere allusi. Nel dubbio, taci il dettaglio.
+ABSOLUTE RULE - NO SPOILERS: never reveal the ending, plot twists, deaths, secret identities or the outcomes of conflicts. Use only safe material. The items listed in the scheda's "spoiler_policy.do_not_reveal" must NOT appear nor be hinted at. When in doubt, leave the detail out.
 
-VINCOLI:
-- LINGUA: scrivi TUTTO l'output (message, rationale) nella lingua del libro: ${language}. Anche se queste istruzioni sono in italiano, la RISPOSTA deve essere in ${language}, con tono coerente col libro.
-- Puoi citare tra « » BREVI passaggi reali e non-spoiler presi dal capitolo.
-- Lunghezza adatta a Facebook (3-6 righe brevi).
-- Inizia con qualcosa di vero (un'immagine, una frase del libro, una domanda secca), mai con frasi fatte.
-- NON ripetere i post recenti elencati sotto. Se l'ANGOLO qui sotto e' indicato, lascia che orienti QUALE idea scegliere (cosi' post diversi pescano idee diverse).
-- 5-10 hashtag pertinenti e specifici (niente generici tipo #libro #lettura #book).
+CONSTRAINTS:
+- LANGUAGE: write ALL the output (message, rationale) in the book's language: ${language}. Even though these instructions are in English, the RESPONSE must be in ${language}, with a tone consistent with the book.
+- You may quote SHORT, real, non-spoiler passages from the chapter inside « ».
+- Length suited to Facebook (3-6 short lines).
+- Start with something real (an image, a line from the book, a sharp question), never with clichés.
+- Do NOT repeat the recent posts listed below. If the ANGLE below is given, let it steer WHICH idea to pick (so different posts draw different ideas).
+- 5-10 relevant, specific hashtags (no generic ones like #book #reading #books).
 
-Rispondi ESCLUSIVAMENTE con JSON valido, nient'altro prima o dopo:
+Reply with ONLY valid JSON, nothing before or after:
 {
-  "message": "testo del post senza hashtag",
+  "message": "post text without hashtags",
   "hashtags": "#tag1 #tag2 ...",
   "media_type": "${req.mediaType}",
-  "rationale": "1 frase: quale idea del capitolo hai scelto e perche'"
+  "rationale": "1 sentence: which chapter idea you chose and why"
 }
 
-=== SCHEDA LIBRO (contesto e nomi reali; la FONTE dell'idea resta il CAPITOLO) ===
-Sinossi: ${nz(p.synopsisShort)}
-Generi: ${nz(p.genres)}
-Tono: ${nz(p.tone)}
-Spoiler policy / dettagli (JSON): ${nz(p.analysisJson)}
+=== BOOK SCHEDA (context and real names; the SOURCE of the idea remains the CHAPTER) ===
+Synopsis: ${nz(p.synopsisShort)}
+Genres: ${nz(p.genres)}
+Tone: ${nz(p.tone)}
+Spoiler policy / details (JSON): ${nz(p.analysisJson)}
 
-=== PERSONAGGI (usa SOLO questi nomi reali) ===
+=== CHARACTERS (use ONLY these real names) ===
 ${characters}
 
-=== ANGOLO RICHIESTO (orienta la scelta dell'idea) ===
+=== REQUESTED ANGLE (steers the idea choice) ===
 ${nz(req.angle)}
 
-=== CAPITOLO (FONTE: estrai da qui la singola idea, cita solo passaggi non-spoiler) ===
+=== CHAPTER (SOURCE: extract the single idea from here, quote only non-spoiler passages) ===
 ${req.chapterExcerpt}
 
-=== POST RECENTI (non ripeterli) ===
+=== RECENT POSTS (do not repeat them) ===
 ${recent}`;
 }
 
 function buildSchedaPrompt(req: GenerateRequest): string {
   const p = req.profile;
   const recent =
-    req.recentMessages.length === 0
-      ? "(nessun post precedente)"
-      : req.recentMessages.join("\n---\n");
+    req.recentMessages.length === 0 ? "(no previous posts)" : req.recentMessages.join("\n---\n");
   const excerpt =
     !req.chapterExcerpt || req.chapterExcerpt.trim() === "" ? "(non fornito)" : req.chapterExcerpt;
   const language = req.language || "italiano";
   const characters = renderCharacters(req.characters);
 
-  return `Sei un lettore appassionato che cura la pagina Facebook "${req.pageName}" e parla del libro qui sotto ad altri lettori. Scrivi come una persona vera, NON come un'agenzia di marketing.
+  return `You are a passionate reader who runs the Facebook page "${req.pageName}" and talks about the book below to other readers. Write like a real person, NOT like a marketing agency.
 
-Obiettivo: far venire voglia di leggere il libro e accendere una conversazione vera (commenti, condivisioni). Niente click-bait.
+Goal: make people want to read the book and spark a real conversation (comments, shares). No click-bait.
 
-REGOLA ASSOLUTA - NIENTE SPOILER: non rivelare MAI finale, colpi di scena, rivelazioni,
-morti, identita' segrete o esiti dei conflitti. Usa solo materiale sicuro (premessa,
-atmosfera, temi, situazione iniziale, domanda centrale). Gli elementi elencati in
-"spoiler_policy.do_not_reveal" della scheda NON devono comparire ne' essere allusi.
-Nel dubbio, taci il dettaglio: stuzzica la curiosita' senza svelare.
+ABSOLUTE RULE - NO SPOILERS: never reveal the ending, plot twists, reveals,
+deaths, secret identities or the outcomes of conflicts. Use only safe material (premise,
+atmosphere, themes, opening situation, central question). The items listed in the scheda's
+"spoiler_policy.do_not_reveal" must NOT appear nor be hinted at.
+When in doubt, leave the detail out: tease curiosity without revealing.
 
-COSA PUOI USARE (è incoraggiato):
-- CITA o parafrasa BREVI passaggi reali dal "TESTO DEL LIBRO" qui sotto, per far sentire la voce vera del libro: una frase che colpisce, un'immagine, un dettaglio concreto. Metti le citazioni tra virgolette « ». Scegli passaggi NON-spoiler.
-- Puoi anche scrivere parole tue sul libro (temi, atmosfera, cosa lascia addosso), purché veritiere e coerenti con la scheda.
+WHAT YOU CAN USE (encouraged):
+- QUOTE or paraphrase SHORT, real passages from the "BOOK TEXT" below, to convey the book's real voice: a striking line, an image, a concrete detail. Put quotes inside « ». Choose NON-spoiler passages.
+- You may also write your own words about the book (themes, atmosphere, what it leaves you with), as long as they are truthful and consistent with the scheda.
 
-COME SCRIVERE — evita il "sapore IA" (questo è cruciale, altrimenti si capisce che è scritto da una macchina):
-- Scrivi nella lingua del libro (${language}), naturale e parlato, come un messaggio a un amico. Alterna frasi corte e lunghe; va bene qualche imperfezione umana. Gli esempi di parole-IA qui sotto sono in italiano: applica lo STESSO principio nella lingua ${language}, evitando i suoi cliché equivalenti.
-- VIETATE le parole e abitudini tipiche dell'IA: "viaggio", "tessuto/arazzo", "testimonianza", "nel mondo di oggi", "immergiti/lasciati trasportare", "un'opera che", "non è solo... è anche...", le triplette di aggettivi, i superlativi da pubblicità ("imperdibile", "straordinario", "capolavoro assoluto", "emozionante").
-- Niente trattini lunghi (—) a raffica. Niente emoji a pioggia: al massimo una, e solo se serve davvero.
-- Concreto e specifico: un dettaglio reale del libro vale più di dieci aggettivi. Niente frasi vuote da quarta di copertina.
-- Non aprire con frasi fatte. Inizia con qualcosa di vero: un'immagine, una domanda secca, una frase del libro.
-- Non spiegare al lettore cosa "proverà": mostra, non promettere emozioni.
+HOW TO WRITE — avoid the "AI flavor" (this is crucial, otherwise it reads as machine-written):
+- Natural, spoken language (in the OUTPUT language), like a message to a friend. Alternate short and long sentences; a little human imperfection is fine.
+- FORBIDDEN: the words and habits typical of AI (in the output language): "journey", "tapestry", "testament", "in today's world", "dive in/let yourself be carried", "a work that", "it's not just... it's also...", triplets of adjectives, advertising superlatives ("unmissable", "extraordinary", "absolute masterpiece", "thrilling").
+- No run of em-dashes (—). No shower of emoji: at most one, and only if truly needed.
+- Concrete and specific: a real detail from the book is worth more than ten adjectives. No empty back-cover phrases.
+- Do not open with clichés. Start with something real: an image, a sharp question, a line from the book.
+- Don't tell the reader what they "will feel": show, don't promise emotions.
 
-Altri vincoli:
-- LINGUA: scrivi TUTTO l'output (message, rationale) nella lingua del libro: ${language}, tono coerente col libro. Anche se queste istruzioni sono in italiano, la RISPOSTA deve essere in ${language}.
-- NON ripetere i post recenti elencati sotto.
-- Lunghezza adatta a Facebook (2-5 righe).
-- 5-10 hashtag pertinenti e specifici (evita i generici tipo #libro #lettura #book).
+Other constraints:
+- Write in ${language}, tone consistent with the book.
+- Do NOT repeat the recent posts listed below.
+- Length suited to Facebook (2-5 lines).
+- 5-10 relevant, specific hashtags (avoid generic ones like #book #reading #books).
 
-Rispondi ESCLUSIVAMENTE con JSON valido:
+Reply with ONLY valid JSON:
 {
-  "message": "testo del post senza hashtag",
+  "message": "post text without hashtags",
   "hashtags": "#tag1 #tag2 ...",
   "media_type": "TEXT|LINK|PHOTO|REEL",
-  "rationale": "1 frase: perche' questo post dovrebbe funzionare"
+  "rationale": "1 sentence: why this post should work"
 }
 
-=== SCHEDA LIBRO ===
-Sinossi: ${nz(p.synopsisShort)}
-Generi: ${nz(p.genres)}
-Tono: ${nz(p.tone)}
-Pubblico: ${nz(p.targetAudience)}
-Dettagli (JSON): ${nz(p.analysisJson)}
+=== BOOK SCHEDA ===
+Synopsis: ${nz(p.synopsisShort)}
+Genres: ${nz(p.genres)}
+Tone: ${nz(p.tone)}
+Audience: ${nz(p.targetAudience)}
+Details (JSON): ${nz(p.analysisJson)}
 
-=== PERSONAGGI ===
+=== CHARACTERS ===
 ${characters}
 
-=== ANGOLO RICHIESTO ===
+=== REQUESTED ANGLE ===
 ${nz(req.angle)}
 
-=== TESTO DEL LIBRO (usalo per citazioni reali, scegli passaggi non-spoiler) ===
+=== BOOK TEXT (use it for real quotes, choose non-spoiler passages) ===
 ${excerpt}
 
-=== POST RECENTI (non ripeterli) ===
+=== RECENT POSTS (do not repeat them) ===
 ${recent}`;
 }
 
@@ -242,7 +323,7 @@ function nz(s: string | null): string {
 // Riga concisa per personaggio: Nome — ruolo/lavoro — carattere — aspetto fisico.
 // Serve a rendere i post piu' concreti e fedeli, senza svelare esiti/finali.
 function renderCharacters(list: CharacterBrief[]): string {
-  if (!list || list.length === 0) return "(non forniti)";
+  if (!list || list.length === 0) return "(none provided)";
   const lines: string[] = [];
   for (const c of list) {
     const roleJob = [c.role, c.occupation]

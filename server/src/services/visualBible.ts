@@ -15,6 +15,7 @@ import { generateAppearance } from "../content/characterAppearance.js";
 import { generateOutfits } from "../content/characterOutfits.js";
 import { generateVisualProps } from "../content/visualProps.js";
 import { extractMinorsForChapter } from "../content/minorCharacters.js";
+import { collectCharacterPassages } from "../content/characterText.js";
 import type { MinorCharacter } from "../domain.js";
 import {
   startVisualBible,
@@ -48,6 +49,8 @@ export async function stepAppearance(
   const book = await books.get(bookId);
   if (!book) return [];
   const lang = book.language || "italiano";
+  const country = book.visualProps?.country ?? null;
+  const chapters = await books.chapters(bookId);
   const cast = await characters.byBook(bookId);
   hooks.onTotal?.(cast.length);
   const updated: string[] = [];
@@ -56,6 +59,9 @@ export async function stepAppearance(
       hooks.onItem?.();
       continue;
     }
+    const relevant =
+      ch.chapters.length > 0 ? chapters.filter((c) => ch.chapters.includes(c.index)) : chapters;
+    const sourceText = collectCharacterPassages(relevant, ch.name);
     const desc = await generateAppearance(engine, {
       name: ch.name,
       role: ch.role,
@@ -65,6 +71,8 @@ export async function stepAppearance(
       notes: ch.notes,
       bookTitle: book.title,
       language: lang,
+      sourceText,
+      country,
     });
     if (desc) {
       await characters.update({ ...ch, physical: desc, updatedAt: Date.now() });
@@ -84,12 +92,15 @@ export async function stepOutfits(
   const book = await books.get(bookId);
   if (!book) return [];
   const lang = book.language || "italiano";
+  const country = book.visualProps?.country ?? null;
   const chapters = await books.chapters(bookId);
   const settingSet = new Set<string>();
   for (const ch of chapters) {
     const sc = ch.scene;
     if (!sc) continue;
-    for (const v of [sc.location, sc.environment]) {
+    // Vocabolario per le keyword "when" = luogo + ambiente + oggetti principali delle schede, così
+    // le keyword degli abiti combaciano con ciò contro cui resolveOutfit confronta.
+    for (const v of [sc.location, sc.environment, ...sc.mainObjects]) {
       const t = (v ?? "").trim();
       if (t) settingSet.add(t);
     }
@@ -99,6 +110,9 @@ export async function stepOutfits(
   hooks.onTotal?.(cast.length);
   const updated: string[] = [];
   for (const ch of cast) {
+    const relevant =
+      ch.chapters.length > 0 ? chapters.filter((c) => ch.chapters.includes(c.index)) : chapters;
+    const sourceText = collectCharacterPassages(relevant, ch.name);
     const outfits = await generateOutfits(engine, {
       name: ch.name,
       role: ch.role,
@@ -108,6 +122,8 @@ export async function stepOutfits(
       bookTitle: book.title,
       language: lang,
       settings,
+      sourceText,
+      country,
     });
     if (outfits) {
       await characters.update({ ...ch, outfits, updatedAt: Date.now() });

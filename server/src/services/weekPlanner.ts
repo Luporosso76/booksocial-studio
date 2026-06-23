@@ -160,14 +160,19 @@ export class WeekPlanner {
     // Storico d'uso per la varietà; lo arricchiamo man mano con le scelte di QUESTA
     // settimana così i contenuti successivi non si ripetono (formati/immagini/capitoli/musica).
     const recent = await contentUsage.recentByPage(pageId, USAGE_HISTORY_LIMIT);
-    // VARIETÀ PER-PROGRAMMA: gli avoid (capitoli/quote/sfondi) partono VUOTI e si arricchiscono
-    // SOLO con le scelte di QUESTO programma. NON seminare dallo storico: con molte rigenerazioni
-    // le ultime 40 voci saturavano l'avoid → `fresh` vuoto → ricaduta deterministica sulla quota
-    // "top" sempre uguale (e capitoli ripetuti). Così un programma copre TUTTI i capitoli/quote/
-    // sfondi prima di ripetere. (`recent` resta usato per formato e musica.)
-    const usedChapters = new Set<number>();
-    const usedQuotes = new Set<string>();
-    const usedImages = new Set<number>();
+    // ROTAZIONE LRU (least-recently-used) su TUTTO lo storico pagina+libro: per citazioni,
+    // immagini, capitoli e musica si sceglie SEMPRE il MENO usato (random tra i pari-merito) e si
+    // incrementa il conteggio man mano. Così rigenerazioni e programmi consecutivi (es. una
+    // settimana dopo l'altra) ciclano l'intero materiale prima di ripeterlo, invece di ricadere
+    // ogni volta sulla stessa frase/immagine "preferita". (`recent` resta per la varietà di FORMATO.)
+    const usageCounts = await contentUsage.usageCounts(pageId, bookId);
+    const bump = <K>(m: Map<K, number>, k: K): void => {
+      m.set(k, (m.get(k) ?? 0) + 1);
+    };
+    // Capitoli già usati DAL TESTO in QUESTO programma: hard-avoid per la scelta del capitolo del
+    // testo (così il testo non ripete capitolo nello stesso run). La rotazione cross-run dei
+    // capitoli del VISUAL passa invece da usage.chapters (LRU).
+    const usedChaptersRun = new Set<number>();
 
     let created = 0;
     let skipped = 0;
@@ -207,17 +212,17 @@ export class WeekPlanner {
           pageName,
           angle,
           mediaType,
-          [...usedChapters],
+          [...usedChaptersRun],
         );
 
-        // Capitolo per il VISUAL: se il testo non ha capitolo (textMode 'none'), scegline uno
-        // FRESCO a caso tra i capitoli del libro non ancora usati (se tutti usati, uno qualsiasi),
-        // così la citazione del visual è PER-CAPITOLO e ruota (non ricade sempre sul libro intero).
+        // Capitolo per il VISUAL: se il testo non ha capitolo (textMode 'none'), scegli il capitolo
+        // MENO usato sull'intero storico (LRU, random tra i pari-uso), così la citazione del visual
+        // è PER-CAPITOLO e ruota tra i programmi (non ricade sempre sul libro intero/sugli stessi).
         const visualChapterIndex =
-          chapterIndex ?? (await this.pickFreshChapter(bookId, usedChapters));
+          chapterIndex ?? (await this.pickLeastUsedChapter(bookId, usageCounts.chapters));
 
-        // 3) Musica variata se è un formato video (reel/storia video).
-        const musicId = this.pickMusic(cf, musicTracks, recent);
+        // 3) Musica variata (LRU) se è un formato video (reel/storia video).
+        const musicId = this.pickMusic(cf, musicTracks, usageCounts.music);
 
         // 4) Bozza DRAFT con orario deciso dallo scheduler + formato + musica.
         const now = Date.now();
@@ -256,11 +261,11 @@ export class WeekPlanner {
           draft,
           cf,
           musicId,
-          [...usedQuotes],
+          usageCounts.quotes,
           aiDirect,
-          [...usedChapters],
+          [...usedChaptersRun],
           visualChapterIndex,
-          [...usedImages],
+          usageCounts.images,
           signal,
         );
         const quoteKey = chosenQuote ? normalizeQuoteKey(chosenQuote) : null;
@@ -288,8 +293,15 @@ export class WeekPlanner {
           console.warn(`[planner] log uso fallito: ${e instanceof Error ? e.message : String(e)}`);
         });
         recent.unshift({ id: draft.id, ...usage });
-        if (visualChapterIndex != null) usedChapters.add(visualChapterIndex);
-        if (quoteKey) usedQuotes.add(quoteKey);
+        // Incrementa i conteggi LRU così i contenuti successivi (di questo programma E dei
+        // prossimi) preferiscono ciò che è stato usato meno.
+        if (visualChapterIndex != null) {
+          usedChaptersRun.add(visualChapterIndex);
+          bump(usageCounts.chapters, visualChapterIndex);
+        }
+        if (quoteKey) bump(usageCounts.quotes, quoteKey);
+        for (const id of imageIdsUsed) bump(usageCounts.images, id);
+        if (musicId != null) bump(usageCounts.music, musicId);
 
         drafts.push(draft);
         created++;
@@ -372,19 +384,20 @@ export class WeekPlanner {
     return { message: g.message, hashtags: g.hashtags, chapterIndex: g.sourceChapterIndex ?? null };
   }
 
-  // Sceglie una traccia musicale variata per i formati video (reel/storia video).
+  // Sceglie una traccia musicale per i formati video (reel/storia video) con rotazione LRU:
+  // la traccia MENO usata sull'intero storico (random tra le pari-uso), così ogni reel/storia ha
+  // una musica diversa finché la libreria non è esaurita, poi riparte dalla meno usata.
   private pickMusic(
     cf: ContentFormat,
     tracks: { id: number }[],
-    recent: { musicId: number | null }[],
+    musicUsage: Map<number, number>,
   ): number | null {
     // Reel e storie sono entrambi video (reel_text): montano la musica. Card/storyboard/none no.
     const wantsVideo = cf.visualKind === "reel" || cf.visualKind === "story";
     if (!wantsVideo || tracks.length === 0) return null;
-    const recentMusic = new Set(recent.map((r) => r.musicId).filter((x): x is number => x != null));
-    const fresh = tracks.filter((t) => !recentMusic.has(t.id));
-    const pool = fresh.length > 0 ? fresh : tracks;
-    const chosen = pool[Math.floor(Math.random() * pool.length)];
+    const min = Math.min(...tracks.map((t) => musicUsage.get(t.id) ?? 0));
+    const least = tracks.filter((t) => (musicUsage.get(t.id) ?? 0) === min);
+    const chosen = least[Math.floor(Math.random() * least.length)];
     return chosen ? chosen.id : null;
   }
 
@@ -394,11 +407,11 @@ export class WeekPlanner {
     post: ScheduledPost,
     cf: ContentFormat,
     musicId: number | null,
-    avoidQuotes: string[],
+    quoteUsage: Map<string, number>,
     aiDirect: boolean,
     avoidChapterIndexes: number[],
     chapterIndex: number | null,
-    avoidImages: number[],
+    imageUsage: Map<number, number>,
     signal?: AbortSignal,
   ): Promise<{ imageIds: number[]; chosenQuote: string | null }> {
     const visualKind = formatToVisualKind(cf);
@@ -426,12 +439,12 @@ export class WeekPlanner {
         musicTrackId: musicId,
         // Durata video calibrata sul tipo: storia (corta) vs reel (~15s), col tempo di lettura.
         target: cf.visualKind === "story" ? "story" : "reel",
-        // Evita di ripetere le citazioni già usate dai contenuti precedenti della stessa run.
-        avoidQuotes,
+        // Rotazione LRU citazioni: il regista sceglie la frase MENO usata sull'intero storico.
+        quoteUsage,
         // Capitolo del post → selezione per pertinenza dell'immagine di sfondo dalla libreria.
         chapterIndex,
-        // Sfondi usati di recente → deprioritizzati (rotazione immagini tra i post).
-        avoidImages,
+        // Rotazione LRU sfondi: a parità di pertinenza, preferisce le immagini MENO usate.
+        imageUsage,
         ...(forceImageId != null ? { forceImageId } : {}),
       });
       await enqueueRender(result.spec, { postId: post.id, bookId: post.bookId });
@@ -459,19 +472,19 @@ export class WeekPlanner {
     }
   }
 
-  // Sceglie un capitolo FRESCO (indice) per i visual senza testo (textMode 'none', chapterIndex
-  // null): random tra i capitoli del libro non ancora usati; se tutti usati (o nessuno noto),
-  // random tra tutti. null solo se il libro non ha capitoli catalogati (→ ripiego storico sul libro).
-  private async pickFreshChapter(
+  // Sceglie il capitolo MENO usato (indice) per i visual senza testo (textMode 'none',
+  // chapterIndex null): rotazione LRU sull'intero storico, random tra i capitoli con lo stesso
+  // conteggio minimo. null solo se il libro non ha capitoli catalogati (→ ripiego storico sul libro).
+  private async pickLeastUsedChapter(
     bookId: number,
-    usedChapters: Set<number>,
+    chapterUsage: Map<number, number>,
   ): Promise<number | null> {
     const chapters = await books.chapters(bookId);
     if (chapters.length === 0) return null;
     const indexes = chapters.map((c) => c.index);
-    const fresh = indexes.filter((i) => !usedChapters.has(i));
-    const pool = fresh.length > 0 ? fresh : indexes;
-    return pool[Math.floor(Math.random() * pool.length)] ?? null;
+    const min = Math.min(...indexes.map((i) => chapterUsage.get(i) ?? 0));
+    const least = indexes.filter((i) => (chapterUsage.get(i) ?? 0) === min);
+    return least[Math.floor(Math.random() * least.length)] ?? null;
   }
 
   private async defaultLink(bookId: number): Promise<string | null> {

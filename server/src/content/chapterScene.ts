@@ -23,6 +23,8 @@ export interface ExtractedChapterScene {
   characters: string[];
   // Vincoli CONCRETI di fisica/realismo per illustrare scene di questo capitolo (vedi prompt).
   physicsRules: string[];
+  // Azione/momento centrale VISIVO del capitolo (non-spoiler), o null. Fonda il soggetto dell'immagine.
+  keyMoment: string | null;
 }
 
 // Soglia oltre la quale il capitolo viene letto a BLOCCHI (chunk) e poi unito: così l'estrazione
@@ -93,6 +95,8 @@ function mergeScenes(parts: ExtractedChapterScene[]): ExtractedChapterScene {
     characters: union((p) => p.characters, 40),
     // UNIONE dedup delle regole di fisica/realismo tra i blocchi (cap multi-scena).
     physicsRules: union((p) => p.physicsRules, 10),
+    // Momento chiave: il primo non vuoto tra i blocchi (di norma la scena d'apertura è la più iconica).
+    keyMoment: parts.map((p) => p.keyMoment).find((m) => m != null && m.trim() !== "") ?? null,
   };
 }
 
@@ -120,66 +124,62 @@ async function extractOnePass(
 ): Promise<ExtractedChapterScene | null> {
   const text = (input.chapterText ?? "").trim();
   if (text === "") return null;
-  const cast =
-    input.knownCharacters.length > 0 ? input.knownCharacters.join(", ") : "(nessuno noto)";
+  const cast = input.knownCharacters.length > 0 ? input.knownCharacters.join(", ") : "(none known)";
 
-  const prompt = `Sei un assistente che prepara SCHEDE VISIVE di capitoli per generare illustrazioni.
-Dal capitolo seguente estrai SOLO ciò che è VISIVO e CONCRETO (niente trama o spoiler), per aiutare a
-disegnare immagini ambientate in quel capitolo.
+  const prompt = `You are an assistant preparing VISUAL CARDS of chapters to generate illustrations.
+From the chapter below extract ONLY what is VISUAL and CONCRETE (no plot or spoilers), to help draw images
+set in that chapter.
 
-Rispondi ESCLUSIVAMENTE con un oggetto JSON valido, senza testo prima o dopo, con questa forma:
+Reply with ONLY a valid JSON object, no text before or after, in this shape:
 {
-  "location": "il LUOGO concreto del capitolo, breve; se la scena si SPOSTA, elenca i luoghi principali in ordine narrativo separati da virgola",
-  "environment": "interno/esterno, ora del giorno, clima/atmosfera visiva; se cambia tra le scene, riassumi le principali",
-  "main_objects": ["1-4 OGGETTI o SOGGETTI ICONICI e visivi FISICAMENTE PRESENTI nelle scene del capitolo (oggetti concreti, mezzi, animali, edifici o elementi naturali su cui si concentra la scena); vedi regola sotto"],
-  "secondary_objects": ["piccoli oggetti di contorno FISICAMENTE PRESENTI nella scena"],
-  "characters": ["SOLO i personaggi FISICAMENTE PRESENTI nelle scene di questo capitolo (vedi regola sotto)"],
-  "physics_rules": ["3-8 vincoli CONCRETI di fisica/realismo per illustrare scene di QUESTO capitolo"]
+  "location": "the chapter's concrete PLACE, short; if the scene MOVES, list the main places in narrative order separated by commas",
+  "environment": "indoor/outdoor, time of day, weather/visual atmosphere; if it changes across scenes, summarize the main ones",
+  "main_objects": ["1-4 ICONIC, visual OBJECTS or SUBJECTS PHYSICALLY PRESENT in the chapter's scenes (concrete objects, vehicles, animals, buildings or natural elements the scene focuses on); see rule below"],
+  "secondary_objects": ["small background objects PHYSICALLY PRESENT in the scene"],
+  "characters": ["ONLY the characters PHYSICALLY PRESENT in this chapter's scenes (see rule below)"],
+  "physics_rules": ["3-8 CONCRETE physics/realism constraints to illustrate scenes of THIS chapter"],
+  "key_moment": "the central, VISUAL ACTION or MOMENT of the chapter (one short, non-spoiler sentence): what is HAPPENING that could be illustrated (who does what, where); if the chapter is static/descriptive, leave it empty"
 }
 
-REGOLE:
-- "main_objects"/"secondary_objects": SOLO oggetti/soggetti FISICAMENTE PRESENTI e visibili nelle scene
-  del capitolo, che si potrebbero davvero disegnare lì. ESCLUDI TASSATIVAMENTE gli oggetti soltanto
-  NOMINATI, RICORDATI, IMMAGINATI, ATTESI o usati come METAFORA/modo di dire ma NON realmente presenti
-  nella scena (es. un'attività citata in un ricordo — "un amico che faceva windsurf" — o un oggetto di
-  cui si parla ma che in scena non c'è). Un oggetto NOMINATO nel testo NON basta: serve che sia lì, ora,
-  nella scena illustrabile.
-- "physics_rules": elenca da 3 a 8 vincoli CONCRETI e VISIVI di fisica/realismo per disegnare questo
-  capitolo, calati nel SUO contesto: come si comportano gravità/appoggio, acqua/onde, vento/moto,
-  luce/ombre nelle scene di QUESTO capitolo, e soprattutto cosa NON deve accadere (errori plausibili
-  che il modello immagine commetterebbe qui). Esempi di FORMA (adattali al capitolo, non copiarli):
-  "le persone in acqua sono immerse fino al busto, mai sedute sopra la superficie", "la barca poggia
-  sull'acqua con la chiglia immersa, non galleggia sopra il pelo dell'acqua", "le ombre cadono tutte
-  dalla stessa parte coerenti col sole basso". Concreti, visivi, niente trama. Se il capitolo non
-  suggerisce vincoli particolari, dai comunque le regole di base pertinenti alla sua ambientazione.
-- "characters": elenca SOLO i personaggi FISICAMENTE PRESENTI nelle scene del capitolo — chi
-  EFFETTIVAMENTE compare sul posto, qui e ora, e che si potrebbe disegnare nella scena (è visibile,
-  agisce, parla o viene percepito mentre è presente). Tra questi:
-  (a) chi ha un NOME PROPRIO ED è presente nella scena;
-  (b) le figure indicate in modo descrittivo SENZA nome SOLO SE corrispondono a un personaggio del CAST
-      NOTO qui sotto (è l'elenco dei personaggi rilevanti del libro): fai il match anche quando il testo usa
-      una descrizione e il cast usa un'etichetta diversa per lo stesso personaggio, e in tal caso usa il
-      NOME del cast.
-  FLASHBACK / RICORDI MOSTRATI: se il capitolo NARRA una SCENA del passato (un flashback, un ricordo
-  raccontato come scena, un sogno mostrato) in cui un personaggio COMPARE e AGISCE — lo si potrebbe
-  disegnare DENTRO quella scena — allora quel personaggio È PRESENTE: INCLUDILO.
-  ESCLUDI invece chi è soltanto NOMINATO, EVOCATO, ATTESO o di cui si PARLA o si PENSA SENZA una scena
-  che lo mostri (es. una persona citata in un dialogo o in un pensiero, qualcuno assente o lontano di
-  cui ci si limita a parlare). Un NOME nel testo NON basta: serve la presenza in una scena — anche
-  passata o ricordata, purché EFFETTIVAMENTE MOSTRATA. ESCLUDI anche le comparse incidentali prive di nome e NON nel cast (un autista,
-  un cameriere, un commesso, un passante, uno sconosciuto di passaggio), anche se parlano, litigano o
-  aiutano in una singola scena. Il personaggio dal cui PUNTO DI VISTA è raccontato il capitolo —
-  incluso il NARRATORE in prima persona ("io") — È presente nelle scene a cui partecipa: includilo
-  SEMPRE se identificabile, usando il suo NOME dal cast. Ma se in QUESTO capitolo non compare in scena
-  (es. capitolo dal POV di un altro, prologo, scena in cui non c'è), NON includerlo.
-- Concreto e visivo: niente emozioni astratte, niente eventi/trama, niente spoiler. Solo cosa si VEDE.
-- Se un campo non è determinabile, usa "" (stringa vuota) o [] (lista vuota). Niente invenzioni.
-- LINGUA: scrivi TUTTI i valori testuali del JSON nella lingua del libro (${input.language}); anche se
-  queste istruzioni sono in italiano, l'output deve essere in ${input.language}.
+RULES:
+- "main_objects"/"secondary_objects": ONLY objects/subjects PHYSICALLY PRESENT and visible in the chapter's
+  scenes, that you could actually draw there. STRICTLY EXCLUDE objects merely NAMED, REMEMBERED, IMAGINED,
+  EXPECTED or used as a METAPHOR/figure of speech but NOT actually present in the scene (e.g. an activity
+  cited in a memory — "a friend who did windsurfing" — or an object that is talked about but is not in the
+  scene). An object NAMED in the text is NOT enough: it must be there, now, in the drawable scene.
+- "physics_rules": list 3 to 8 CONCRETE, VISUAL physics/realism constraints for drawing this chapter, fitted
+  to ITS context: how gravity/support, water/waves, wind/motion, light/shadows behave in THIS chapter's
+  scenes, and above all what must NOT happen (plausible errors the image model would make here). Examples of
+  FORM (adapt them to the chapter, do not copy them): "people in water are submerged up to the torso, never
+  sitting on top of the surface", "the boat rests on the water with its keel submerged, not floating above
+  the water's surface", "shadows all fall on the same side, consistent with the low sun". Concrete, visual,
+  no plot. If the chapter suggests no particular constraints, still give the basic rules relevant to its setting.
+- "characters": list ONLY the characters PHYSICALLY PRESENT in the chapter's scenes — those who ACTUALLY
+  appear on the spot, here and now, and could be drawn in the scene (visible, acting, speaking or perceived
+  while present). Among these:
+  (a) those who have a PROPER NAME AND are present in the scene;
+  (b) figures described WITHOUT a name ONLY IF they correspond to a character in the KNOWN CAST below (the
+      list of the book's relevant characters): make the match even when the text uses a description and the
+      cast uses a different label for the same character, and in that case use the cast's NAME.
+  FLASHBACKS / SHOWN MEMORIES: if the chapter NARRATES a SCENE of the past (a flashback, a memory told as a
+  scene, a shown dream) in which a character APPEARS and ACTS — you could draw them INSIDE that scene —
+  then that character IS PRESENT: INCLUDE them.
+  EXCLUDE instead anyone merely NAMED, EVOKED, EXPECTED or who is TALKED ABOUT or THOUGHT OF WITHOUT a scene
+  that shows them (e.g. a person cited in a dialogue or a thought, someone absent or far away who is only
+  spoken of). A NAME in the text is NOT enough: presence in a scene is required — even past or remembered,
+  as long as it is ACTUALLY SHOWN. ALSO EXCLUDE incidental extras with no name and NOT in the cast (a driver,
+  a waiter, a shop assistant, a passer-by, a stranger passing through), even if they speak, argue or help in a
+  single scene. The character from whose POINT OF VIEW the chapter is told — including the first-person
+  NARRATOR ("I") — IS present in the scenes they take part in: ALWAYS include them if identifiable, using
+  their NAME from the cast. But if in THIS chapter they do not appear in a scene (e.g. a chapter from another's
+  POV, a prologue, a scene where they are not present), do NOT include them.
+- Concrete and visual: no abstract emotions, no events/plot, no spoilers. Only what you SEE.
+- If a field cannot be determined, use "" (empty string) or [] (empty list). No inventions.
+- Write in ${input.language}.
 
-PERSONAGGI NOTI (per il match): ${cast}
-TITOLO CAPITOLO: ${input.chapterTitle?.trim() || "(nessuno)"}
-=== TESTO DEL CAPITOLO ===
+KNOWN CHARACTERS (for matching): ${cast}
+CHAPTER TITLE: ${input.chapterTitle?.trim() || "(none)"}
+=== CHAPTER TEXT ===
 ${text}`;
 
   try {
@@ -212,6 +212,7 @@ ${text}`;
       secondaryObjects: strArr(j.secondary_objects),
       characters: strArr(j.characters),
       physicsRules: ruleArr(j.physics_rules),
+      keyMoment: str(j.key_moment),
     };
   } catch (e) {
     if (e instanceof ContentError) return null;

@@ -4,6 +4,7 @@ import { mediaDir } from "../paths.js";
 import { books, characters, media, settings } from "../db/repositories.js";
 import type { ContentEngine } from "../content/engine.js";
 import { buildSceneDescription, type SceneFlashback } from "../content/imagePrompt.js";
+import * as aiSettings from "../content/aiSettings.js";
 import {
   buildScenePrompt,
   generateSceneImage,
@@ -202,6 +203,10 @@ export class SceneImageService {
       visualDirectives: book?.visualDirectivesEn ?? book?.visualDirectives ?? null,
       visualProps: book?.visualProps,
       visualExtras: book?.visualExtras,
+      extraInstructions: [aiSettings.getPromptExtras().image, book?.imageExtraInstructions]
+        .map((s) => (s ?? "").trim())
+        .filter((s) => s !== "")
+        .join("\n\n"),
       flashback: opts?.flashback ?? null,
     });
     if (!scene) return null;

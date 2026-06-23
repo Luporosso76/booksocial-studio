@@ -977,7 +977,17 @@
       "tabImage": "IA de imagen",
       "tabContentImages": "Imágenes de contenido",
       "tabQuality": "Control de calidad",
-      "fallbackModel": "Modelo de respaldo"
+      "fallbackModel": "Modelo de respaldo",
+      "tabExtra": "Instrucciones extra",
+      "extraTitle": "Instrucciones extra (globales)",
+      "extraDescription": "Indicaciones añadidas al final de cada prompt de texto e imagen.",
+      "extraNote": "Este texto se añade al final de cada prompt, sin sustituir las reglas básicas (sin spoilers, idioma, seguridad). Se aplica a todos los libros; para indicaciones de un libro concreto usa su ficha (Visual → Dirección artística).",
+      "extraTextLabel": "Instrucciones extra para los posts",
+      "extraTextHint": "Ej. tono, firma, llamada a la acción recurrente, temas a evitar.",
+      "extraTextPlaceholder": "Añade indicaciones para la redacción de los posts…",
+      "extraImageLabel": "Instrucciones extra para las imágenes",
+      "extraImageHint": "Ej. paleta, estilo recurrente, elementos a incluir o evitar.",
+      "extraImagePlaceholder": "Añade indicaciones para la generación de imágenes…"
     },
     "imageMode": {
       "title": "Imágenes de los contenidos",
@@ -1318,6 +1328,24 @@
     "regenBannerPending": "Regeneración en cola",
     "regenBannerQueued": "{{n}} en cola",
     "regenCancelAll": "Cancelar todo",
-    "regenCancelAllFailed": "No se pudo cancelar."
+    "regenCancelAllFailed": "No se pudo cancelar.",
+    "extraInstructionsSaved": "Instrucciones extra guardadas",
+    "extraInstructionsTitle": "Instrucciones extra (este libro)",
+    "extraInstructionsDesc": "Indicaciones añadidas a los prompts de texto e imagen solo para este libro.",
+    "extraInstructionsHint": "Se suman a las instrucciones globales y al prompt base, sin sustituirlos.",
+    "extraTextLabel": "Instrucciones extra para los posts",
+    "extraTextPlaceholder": "Añade indicaciones para los posts de este libro…",
+    "extraImageLabel": "Instrucciones extra para las imágenes",
+    "extraImagePlaceholder": "Añade indicaciones para las imágenes de este libro…",
+    "formatFilterAria": "Filtrar imágenes por formato",
+    "formatAll": "Todas",
+    "formatVertical": "Verticales 9:16",
+    "formatSquare": "Cuadradas 1:1·4:5",
+    "formatLandscape": "Horizontales",
+    "keyMomentLabel": "Momento clave (acción central)",
+    "keyMomentPlaceholder": "Lo que ocurre visualmente en el capítulo (sin spoiler): quién hace qué, dónde",
+    "reindexNlp": "Reextraer frases (NLP)",
+    "reindexNlpDone": "{{count}} frases extraídas del libro",
+    "reindexNlpFailed": "Error al extraer las frases."
   }
 }

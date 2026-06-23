@@ -2,9 +2,9 @@ import type { ContentEngine } from "./engine.js";
 import { parseModelJson } from "./modelJson.js";
 import { CURRENT_PROMPT_VERSION } from "../domain.js";
 
-// One-time book analysis -> compact BookProfile (scheda). This is the only point
+// One-time book analysis -> compact BookProfile (scheda). This is the ONLY phase
 // where the model sees the full text; every later generation uses only the scheda.
-// The prompt is carefully tuned: analysis quality depends on it.
+// Prompt ported almost verbatim from Java BookAnalyzer (the quality depends on it).
 
 export interface AnalyzedProfile {
   synopsisShort: string | null;
@@ -43,17 +43,17 @@ export async function analyzeBook(
 }
 
 const ISO_TO_LANG: Record<string, string> = {
-  it: "italiano",
-  en: "inglese",
-  fr: "francese",
-  de: "tedesco",
-  es: "spagnolo",
-  pt: "portoghese",
+  it: "Italian",
+  en: "English",
+  fr: "French",
+  de: "German",
+  es: "Spanish",
+  pt: "Portuguese",
 };
 
 function resolveLanguageName(code: string): string {
   const normalized = code.trim().toLowerCase().split(/[-_]/)[0];
-  return ISO_TO_LANG[normalized] ?? "italiano";
+  return ISO_TO_LANG[normalized] ?? "Italian";
 }
 
 function buildPrompt(
@@ -62,55 +62,54 @@ function buildPrompt(
   seedCharacters: string[],
   outputLanguage?: string,
 ): string {
-  const author = book.author == null ? "(non indicato)" : book.author;
-  const seedBlock =
-    seedCharacters.length > 0
-      ? `\nPERSONAGGI RILEVATI (nomi reali, da profilare; aggiungi eventuali mancanti): ${seedCharacters.join(", ")}\n`
-      : "";
+  const author = book.author == null ? "(not specified)" : book.author;
   const langCode = outputLanguage ?? book.language;
   const langName = resolveLanguageName(langCode);
-  return `Sei un analista editoriale. Analizza il libro seguente e produci una SCHEDA strutturata
-che servira' a generare post social di marketing, SENZA dover rileggere il libro ogni volta.
+  const seedBlock =
+    seedCharacters.length > 0
+      ? `\nDETECTED CHARACTERS (real names to profile; add any missing ones): ${seedCharacters.join(", ")}\n`
+      : "";
+  return `You are an editorial analyst. Analyze the following book and produce a structured PROFILE CARD
+that will be used to generate marketing social posts WITHOUT having to re-read the book each time.
 ${seedBlock}
 
-REGOLA CRITICA SUGLI SPOILER: la scheda alimentera' post pubblici. Devi separare con
-attenzione cio' che e' SICURO mostrare ai potenziali lettori (premessa, atmosfera, temi,
-situazione iniziale dei personaggi, ganci) da cio' che NON va MAI rivelato (finale,
-colpi di scena, rivelazioni, morti, identita' segrete, esiti dei conflitti). Popola
-"spoiler_policy.do_not_reveal" con questi elementi sensibili in modo esplicito.
+CRITICAL SPOILER RULE: the card will feed public posts. You must carefully separate what is SAFE
+to show potential readers (premise, atmosphere, themes, characters' initial situation, hooks) from
+what must NEVER be revealed (ending, plot twists, revelations, deaths, secret identities, conflict
+outcomes). Populate "spoiler_policy.do_not_reveal" with these sensitive elements explicitly.
 
-Rispondi ESCLUSIVAMENTE con un oggetto JSON valido, senza testo prima o dopo, con questa forma:
+Reply EXCLUSIVELY with a valid JSON object, no text before or after, in this form:
 {
   "title": "...",
-  "synopsis_short": "1-2 frasi, da quarta di copertina, SENZA spoiler",
-  "synopsis_long": "1 paragrafo, SENZA spoiler",
-  "genres": "generi separati da virgola",
-  "tone": "tono e voce narrativa",
-  "target_audience": "lettore ideale",
-  "themes": ["tema/argomento principale 1", "tema 2"],
-  "main_topics": ["argomento trattato 1", "argomento 2"],
-  "conflicts": [{"type": "interiore/interpersonale/sociale/...", "description": "il conflitto SENZA rivelarne l'esito"}],
-  "central_question": "la domanda drammatica centrale (senza risposta/spoiler)",
-  "characters": [{"name": "...", "role": "protagonista/antagonista/...", "occupation": "lavoro o ruolo sociale (anche intuito)", "physical_description": "aspetto fisico, anche se INTUITO dal testo: eta' approssimativa, corporatura, capelli, tratti distintivi", "traits": "carattere e comportamento", "starting_situation": "situazione iniziale senza spoiler"}],
-  "setting": "ambientazione e periodo",
-  "key_quotes": [{"quote": "...", "context": "perche' e' notevole", "is_spoiler": false}],
-  "marketing_hooks": ["gancio di vendita SENZA spoiler 1", "gancio 2"],
-  "content_angles": ["spunto per un post SENZA spoiler 1", "spunto 2", "spunto 3"],
+  "synopsis_short": "1-2 sentences, back-cover style, NO spoilers",
+  "synopsis_long": "1 paragraph, NO spoilers",
+  "genres": "comma-separated genres",
+  "tone": "narrative tone and voice",
+  "target_audience": "ideal reader",
+  "themes": ["main theme/topic 1", "theme 2"],
+  "main_topics": ["topic covered 1", "topic 2"],
+  "conflicts": [{"type": "inner/interpersonal/social/...", "description": "the conflict WITHOUT revealing its outcome"}],
+  "central_question": "the central dramatic question (no answer/spoiler)",
+  "characters": [{"name": "...", "role": "protagonist/antagonist/...", "occupation": "job or social role (even if inferred)", "physical_description": "physical appearance, even if INFERRED from the text: approximate age, build, hair, distinctive features", "traits": "personality and behaviour", "starting_situation": "initial situation without spoilers"}],
+  "setting": "setting and time period",
+  "key_quotes": [{"quote": "...", "context": "why it is noteworthy", "is_spoiler": false}],
+  "marketing_hooks": ["sales hook NO spoiler 1", "hook 2"],
+  "content_angles": ["post idea NO spoiler 1", "idea 2", "idea 3"],
   "spoiler_policy": {
-    "safe_to_share": ["elemento sicuro 1", "elemento 2"],
-    "do_not_reveal": ["colpo di scena/finale/rivelazione da NON pubblicare mai 1", "elemento 2"]
+    "safe_to_share": ["safe element 1", "element 2"],
+    "do_not_reveal": ["plot twist/ending/revelation NEVER to publish 1", "element 2"]
   }
 }
 
-LINGUA: scrivi TUTTI i valori testuali del JSON in ${langName}, indipendentemente dalla lingua del testo originale del libro.
-Anche se queste istruzioni sono in italiano, l'output (sinossi, generi, tono, temi, descrizioni, ecc.) deve essere in ${langName}.
-Le chiavi del JSON restano in inglese come indicato. Sii concreto e specifico, niente frasi promozionali vuote.
-Le citazioni con "is_spoiler": true non saranno mai usate nei post.
+LANGUAGE: write ALL text values in the JSON in ${langName}, regardless of the language of the original book text.
+Even though these instructions are in English, the output (synopsis, genres, tone, themes, descriptions, etc.) must be in ${langName}.
+JSON keys remain in English as shown. Be concrete and specific, no empty promotional phrases.
+Quotes with "is_spoiler": true will never be used in posts.
 
-Titolo dichiarato: ${book.title}
-Autore: ${author}
+Declared title: ${book.title}
+Author: ${author}
 
-=== TESTO DEL LIBRO ===
+=== BOOK TEXT ===
 ${fullText}`;
 }
 

@@ -977,7 +977,17 @@
       "tabImage": "Image AI",
       "tabContentImages": "Content images",
       "tabQuality": "Quality check",
-      "fallbackModel": "Fallback model"
+      "fallbackModel": "Fallback model",
+      "tabExtra": "Extra instructions",
+      "extraTitle": "Extra instructions (global)",
+      "extraDescription": "Additional guidance appended to every text and image prompt.",
+      "extraNote": "This text is added at the end of every prompt, without replacing the core rules (no spoilers, language, safety). It applies to all books; for book-specific guidance use its page (Visual → Art direction).",
+      "extraTextLabel": "Extra instructions for posts",
+      "extraTextHint": "E.g. tone, signature, recurring call-to-action, topics to avoid.",
+      "extraTextPlaceholder": "Add guidance for writing posts…",
+      "extraImageLabel": "Extra instructions for images",
+      "extraImageHint": "E.g. palette, recurring style, elements to include or avoid.",
+      "extraImagePlaceholder": "Add guidance for image generation…"
     },
     "imageMode": {
       "title": "Content images",
@@ -1318,6 +1328,24 @@
     "regenBannerPending": "Regeneration queued",
     "regenBannerQueued": "{{n}} in queue",
     "regenCancelAll": "Cancel all",
-    "regenCancelAllFailed": "Could not cancel."
+    "regenCancelAllFailed": "Could not cancel.",
+    "extraInstructionsSaved": "Extra instructions saved",
+    "extraInstructionsTitle": "Extra instructions (this book)",
+    "extraInstructionsDesc": "Additional guidance appended to text and image prompts for this book only.",
+    "extraInstructionsHint": "Added on top of the global instructions and the base prompt, without replacing them.",
+    "extraTextLabel": "Extra instructions for posts",
+    "extraTextPlaceholder": "Add guidance for this book's posts…",
+    "extraImageLabel": "Extra instructions for images",
+    "extraImagePlaceholder": "Add guidance for this book's images…",
+    "formatFilterAria": "Filter images by format",
+    "formatAll": "All",
+    "formatVertical": "Vertical 9:16",
+    "formatSquare": "Square 1:1·4:5",
+    "formatLandscape": "Landscape",
+    "keyMomentLabel": "Key moment (central action)",
+    "keyMomentPlaceholder": "The visual happening of the chapter (non-spoiler): who does what, where",
+    "reindexNlp": "Re-extract quotes (NLP)",
+    "reindexNlpDone": "{{count}} quotes extracted from the book",
+    "reindexNlpFailed": "Quote extraction failed."
   }
 }

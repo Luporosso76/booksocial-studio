@@ -51,6 +51,7 @@ export class ChapterSceneService {
       characters: patch.characters !== undefined ? patch.characters : (prev?.characters ?? []),
       physicsRules:
         patch.physicsRules !== undefined ? patch.physicsRules : (prev?.physicsRules ?? []),
+      keyMoment: patch.keyMoment !== undefined ? patch.keyMoment : (prev?.keyMoment ?? null),
       source: "USER",
       model: prev?.model ?? null,
       updatedAt: Date.now(),

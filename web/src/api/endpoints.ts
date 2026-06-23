@@ -111,6 +111,8 @@ export const renameBook = (
     visualDirectives?: string | null;
     visualProps?: BookVisualProps;
     visualExtras?: BookVisualExtras;
+    textExtraInstructions?: string | null;
+    imageExtraInstructions?: string | null;
   },
 ) => apiPut<Book>(`/books/${id}`, patch);
 
@@ -361,6 +363,7 @@ export const updateChapterScene = (
       | "secondaryObjects"
       | "characters"
       | "physicsRules"
+      | "keyMoment"
     >
   >,
 ) => apiPut<{ scene: ChapterScene }>(`/books/${bookId}/chapters/${idx}/scene`, patch);
@@ -428,6 +431,10 @@ export const reanalyzeBook = (bookId: string, language?: string) =>
     `/books/${bookId}/reanalyze`,
     language != null ? { language } : undefined,
   );
+
+// Ri-estrae solo le citazioni reali (pre-pass NLP), senza rifare la scheda GPT. Sincrono.
+export const reindexBookNlp = (bookId: string) =>
+  apiPost<{ ok: boolean; quotes: number }>(`/books/${bookId}/reindex-nlp`);
 
 // --- Attività in background (job in corso, es. analisi AI) ---
 export const getActiveJobs = (signal?: AbortSignal) =>

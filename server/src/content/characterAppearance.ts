@@ -15,6 +15,12 @@ export interface AppearanceInput {
   notes?: string | null;
   bookTitle?: string | null;
   language: string; // lingua del libro: la descrizione è scritta in questa lingua
+  // GROUNDING: passaggi reali del libro che nominano il personaggio (per estrarre i tratti DESCRITTI
+  // invece di inventarli). Opzionale: assente → comportamento storico (solo dai campi noti).
+  sourceText?: string | null;
+  // Ambientazione: paese principale del libro → ancora etnia/carnagione plausibili quando il testo
+  // non le specifica (es. Rep. Dominicana). Opzionale.
+  country?: string | null;
 }
 
 const MAX_LEN = 320;
@@ -23,28 +29,33 @@ export async function generateAppearance(
   engine: ContentEngine,
   input: AppearanceInput,
 ): Promise<string | null> {
-  const prompt = `Sei un direttore visivo che definisce l'ASPETTO FISICO CANONICO di un personaggio, da usare
-IDENTICO in TUTTE le illustrazioni del libro (per garantire coerenza tra le immagini). Dato il personaggio e
-le informazioni disponibili, scrivi UNA descrizione fisica PRECISA, COMPLETA e STABILE.
+  const prompt = `You are a visual director defining the CANONICAL PHYSICAL APPEARANCE of a character, to be
+used IDENTICALLY across ALL the book's illustrations (to keep images consistent). Given the character and the
+available information, write ONE PRECISE, COMPLETE and STABLE physical description.
 
-REGOLE:
-- SOLO aspetto fisico: età apparente, corporatura (e peso indicativo), altezza, capelli (COLORE + taglio/
-  lunghezza), occhi (colore), viso e lineamenti, carnagione, ed eventuali tratti distintivi permanenti
-  (barba/baffi, occhiali, nei, cicatrici, tatuaggi). Scegli valori SPECIFICI e definiti, mai vaghi.
-- RISPETTA le informazioni fisiche già date (non contraddirle); COMPLETA i dettagli MANCANTI in modo
-  plausibile e coerente col personaggio e con l'ambientazione, fissandoli una volta per tutte.
-- NIENTE vestiti o abbigliamento (li gestiamo separatamente). NIENTE personalità, ruolo, biografia,
-  emozioni o azioni. Solo come APPARE fisicamente.
-- Concisa: una frase o poche, massimo ~280 caratteri. LINGUA: scrivi la descrizione nella lingua del
-  libro (${input.language}); anche se queste istruzioni sono in italiano, l'output deve essere in
-  ${input.language}. Nessun preambolo, nessuna virgoletta: SOLO la descrizione.
+RULES:
+- PHYSICAL APPEARANCE ONLY: apparent age, build (and rough weight), height, hair (COLOR + cut/length), eyes
+  (color), face and features, skin tone/ethnicity, and any permanent distinctive traits (beard/moustache,
+  glasses, moles, scars, tattoos). Pick SPECIFIC, definite values, never vague ones.
+- FAITHFUL TO THE BOOK: if the "BOOK PASSAGES" below describe a trait (hair/eye color, height, scars, age,
+  ethnicity…), USE IT exactly; never contradict it. Only FILL IN details the book does NOT give, plausibly,
+  fixing them once and for all.
+- ETHNICITY/SKIN TONE: if the text does not specify it, anchor it plausibly to the book's setting
+  (country: ${input.country?.trim() || "not stated"}), unless the text hints otherwise.
+- Also RESPECT the "EXISTING PHYSICAL INFO" (do not contradict it).
+- NO clothing or outfit (handled separately). NO personality, role, biography, emotions or actions. Only how
+  the character physically LOOKS.
+- Concise: one sentence or a few, at most ~280 characters. Write in ${input.language}. No preamble, no quotes:
+  ONLY the description.
 
-PERSONAGGIO: ${input.name}
-RUOLO: ${input.role?.trim() || "(non specificato)"}
-OCCUPAZIONE: ${input.occupation?.trim() || "(non specificata)"}
-INFORMAZIONI FISICHE ESISTENTI: ${input.physical?.trim() || "(nessuna)"}
-NOTE: ${input.notes?.trim() || "(nessuna)"}
-LIBRO: ${input.bookTitle?.trim() || "(senza titolo)"}`;
+CHARACTER: ${input.name}
+ROLE: ${input.role?.trim() || "(unspecified)"}
+OCCUPATION: ${input.occupation?.trim() || "(unspecified)"}
+EXISTING PHYSICAL INFO: ${input.physical?.trim() || "(none)"}
+NOTES: ${input.notes?.trim() || "(none)"}
+BOOK: ${input.bookTitle?.trim() || "(untitled)"} — setting/country: ${input.country?.trim() || "(not stated)"}
+=== BOOK PASSAGES MENTIONING ${input.name.toUpperCase()} (extract the real traits from here) ===
+${input.sourceText?.trim() || "(no passage available: complete plausibly and consistently)"}`;
 
   try {
     const raw = await engine.run(prompt);

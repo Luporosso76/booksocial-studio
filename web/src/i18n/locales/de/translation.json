@@ -977,7 +977,17 @@
       "tabImage": "Bild-KI",
       "tabContentImages": "Inhaltsbilder",
       "tabQuality": "Qualitätsprüfung",
-      "fallbackModel": "Fallback-Modell"
+      "fallbackModel": "Fallback-Modell",
+      "tabExtra": "Zusatzanweisungen",
+      "extraTitle": "Zusatzanweisungen (global)",
+      "extraDescription": "Zusätzliche Hinweise, die an jeden Text- und Bild-Prompt angehängt werden.",
+      "extraNote": "Dieser Text wird ans Ende jedes Prompts angehängt, ohne die Grundregeln zu ersetzen (keine Spoiler, Sprache, Sicherheit). Er gilt für alle Bücher; für buchspezifische Hinweise nutze dessen Seite (Visuell → Art Direction).",
+      "extraTextLabel": "Zusatzanweisungen für Posts",
+      "extraTextHint": "Z. B. Tonfall, Signatur, wiederkehrender Call-to-Action, zu vermeidende Themen.",
+      "extraTextPlaceholder": "Hinweise für das Verfassen der Posts hinzufügen…",
+      "extraImageLabel": "Zusatzanweisungen für Bilder",
+      "extraImageHint": "Z. B. Farbpalette, wiederkehrender Stil, einzuschließende oder zu vermeidende Elemente.",
+      "extraImagePlaceholder": "Hinweise für die Bildgenerierung hinzufügen…"
     },
     "imageMode": {
       "title": "Inhaltsbilder",
@@ -1318,6 +1328,24 @@
     "regenBannerPending": "Regenerierung in Warteschlange",
     "regenBannerQueued": "{{n}} in Warteschlange",
     "regenCancelAll": "Alle abbrechen",
-    "regenCancelAllFailed": "Abbruch fehlgeschlagen."
+    "regenCancelAllFailed": "Abbruch fehlgeschlagen.",
+    "extraInstructionsSaved": "Zusatzanweisungen gespeichert",
+    "extraInstructionsTitle": "Zusatzanweisungen (dieses Buch)",
+    "extraInstructionsDesc": "Zusätzliche Hinweise, die nur für dieses Buch an Text- und Bild-Prompts angehängt werden.",
+    "extraInstructionsHint": "Sie ergänzen die globalen Anweisungen und den Basis-Prompt, ohne sie zu ersetzen.",
+    "extraTextLabel": "Zusatzanweisungen für Posts",
+    "extraTextPlaceholder": "Hinweise für die Posts dieses Buchs hinzufügen…",
+    "extraImageLabel": "Zusatzanweisungen für Bilder",
+    "extraImagePlaceholder": "Hinweise für die Bilder dieses Buchs hinzufügen…",
+    "formatFilterAria": "Bilder nach Format filtern",
+    "formatAll": "Alle",
+    "formatVertical": "Hochformat 9:16",
+    "formatSquare": "Quadratisch 1:1·4:5",
+    "formatLandscape": "Querformat",
+    "keyMomentLabel": "Schlüsselmoment (zentrale Handlung)",
+    "keyMomentPlaceholder": "Das visuelle Geschehen des Kapitels (ohne Spoiler): wer tut was, wo",
+    "reindexNlp": "Zitate neu extrahieren (NLP)",
+    "reindexNlpDone": "{{count}} Zitate aus dem Buch extrahiert",
+    "reindexNlpFailed": "Zitat-Extraktion fehlgeschlagen."
   }
 }
