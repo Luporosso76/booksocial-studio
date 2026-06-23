@@ -127,7 +127,7 @@ type AspectCategory = "vertical" | "square" | "landscape";
 // Categoria d'aspetto di un'immagine dal suo ratio (larghezza/altezza). null se sconosciuto.
 function aspectCategory(ratio: number | null): AspectCategory | null {
   if (ratio == null) return null;
-  if (ratio < 0.8) return "vertical"; // più alta che larga (9:16, 3:4 spinto)
+  if (ratio < 0.7) return "vertical"; // più alta che larga (9:16); 4:5 resta square
   if (ratio > 1.25) return "landscape"; // più larga che alta (1.91:1, 16:9)
   return "square"; // ~1:1 / 4:5
 }

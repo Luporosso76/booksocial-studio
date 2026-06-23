@@ -1875,7 +1875,7 @@ function MediaCard({
                           if (!img.naturalWidth || !img.naturalHeight) return;
                           const r = img.naturalWidth / img.naturalHeight;
                           const cat: AspectCat =
-                            r < 0.8 ? "vertical" : r > 1.25 ? "landscape" : "square";
+                            r < 0.7 ? "vertical" : r > 1.25 ? "landscape" : "square";
                           setAspectOf((prev) =>
                             prev[m.id] === cat ? prev : { ...prev, [m.id]: cat },
                           );

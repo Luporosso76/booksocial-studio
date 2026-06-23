@@ -15,7 +15,7 @@ export type SceneAspect = "1:1" | "4:5" | "1.91:1" | "9:16" | "16:9";
 // Dimensioni SDXL per aspect (multipli di 64, ~1MP). 9:16 verticale per reel/storie.
 const DIMS: Record<SceneAspect, { w: number; h: number }> = {
   "1:1": { w: 1024, h: 1024 },
-  "4:5": { w: 896, h: 1152 },
+  "4:5": { w: 1024, h: 1280 },
   "1.91:1": { w: 1216, h: 640 },
   "9:16": { w: 768, h: 1344 },
   "16:9": { w: 1344, h: 768 },
