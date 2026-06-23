@@ -5,6 +5,38 @@ Alle wesentlichen Änderungen an diesem Projekt werden in dieser Datei dokumenti
 Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-06-23
+
+### Hinzugefügt
+
+- **Editierbare zusätzliche Prompt-Anweisungen** (Einstellungen): Freitext, der an die Text- und Bild-Prompts angehängt wird,
+  sowohl global als auch pro Buch, zusätzlich zum entwickelten Kern (die Kernregeln werden nie überschrieben).
+- **Dashboard**: ein wöchentlicher + monatlicher **Kalender** von geplanten Inhalten mit Farben pro Buch, kompakten
+  KPIs pro Seite (Facebook + Instagram) und einer Hintergrundaktivitätskarte mit Fortschritt und Live-Timern.
+- **CLI-first KI-Anbieter**: Text- und Bildgenerierung durch Abonnement-CLIs (opencode, Codex,
+  Gemini) neben API-Keys, mit einem dedizierten Fallback-Anbieter/-Modell und einem KI-Einstellungsbereich mit vier Registerkarten.
+- **Bildformat-Tabs** (vertikal 9:16 / quadratisch / horizontal) mit Anzahl in der Bildbibliothek eines Buches.
+- **Schnelle NLP-Reindexierung**-Aktion: echte Zitate erneut extrahieren, ohne die vollständige Analyse erneut auszuführen.
+- **Schlüsselmoment**-Feld auf Szenenkarten pro Kapitel, das zur Verankerung des Bildmotivs verwendet wird.
+- UI und Dokumentation in **fünf Sprachen** (IT/EN/FR/ES/DE).
+
+### Geändert
+
+- **Weniger Wiederholungen**: Posts, reels und stories wählen jetzt die am längsten nicht verwendeten Zitate, Bilder, Musik
+  und Kapitel über verschiedene Durchläufe hinweg aus, sodass aufeinanderfolgende wöchentliche Pläne und Regenerierungen das gesamte
+  Material durchlaufen, anstatt es zu wiederholen.
+- **KI-Prompts auf Englisch neu geschrieben**, während die generierte Ausgabe immer in der Sprache des Buches bleibt.
+- **Präziserer visueller Kanon**: Das Aussehen der Charaktere und die Outfits basieren auf echten Buchpassagen,
+  mit Verankerung von Ethnizität/Land/Ära und Kleidungs-Keywords, die aus dem tatsächlichen Vokabular des Buches stammen.
+- Ein zusätzlicher **Anti-KI-Humanisierungs**-Durchgang für generierte Posts, angewendet in der Ausgabesprache.
+
+### Behoben
+
+- Das Löschen eines Entwurfs gibt dessen Zitate, Bilder, Musik und Kapitel sofort zur Wiederverwendung frei.
+- Nativ geplante Facebook-Posts werden nach ihrer geplanten Zeit mit "veröffentlicht" abgeglichen (keine
+  Einträge mehr, die als "in der Vergangenheit geplant" feststecken).
+- Veröffentlichte Posts können aus dem Dashboard ausgeblendet werden, ohne sie zu löschen.
+
 ## [0.1.0] - 2026-06-20
 
 Erste öffentliche, selbst-hostbare Version.
@@ -22,4 +54,5 @@ Erste öffentliche, selbst-hostbare Version.
 - **Optionales Basic Auth** zum Schutz der App beim Self-Hosting.
 - **Dokumentation**: Benutzerhandbuch, Setup, KI-Provider, Instagram, Architektur und Contributing.
 
+[0.2.0]: https://github.com/Luporosso76/booksocial-studio/releases/tag/v0.2.0
 [0.1.0]: https://github.com/Luporosso76/booksocial-studio/releases/tag/v0.1.0

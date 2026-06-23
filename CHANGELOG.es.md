@@ -5,6 +5,38 @@ Todos los cambios notables de este proyecto están documentados en este archivo.
 El formato se basa en [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 y este proyecto se adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-06-23
+
+### Añadido
+
+- **Instrucciones de prompt adicionales editables** (Ajustes): texto libre añadido a los prompts de texto e imagen,
+  tanto globales como por libro, además del núcleo diseñado (las reglas del núcleo nunca se sobrescriben).
+- **Dashboard**: un **calendario** semanal + mensual de contenido programado con colores por libro, KPI compactos
+  por página (Facebook + Instagram) y una tarjeta de actividad en segundo plano con progreso y temporizadores en vivo.
+- **Proveedores de IA centrados en CLI**: generación de texto e imagen a través de CLI de suscripción (opencode, Codex,
+  Gemini) junto con claves API, con un proveedor/modelo de respaldo dedicado y un panel de ajustes de IA de cuatro pestañas.
+- **Pestañas de formato de imagen** (vertical 9:16 / cuadrado / horizontal) con recuentos en la biblioteca de imágenes de un libro.
+- Acción **Fast NLP re-index**: volver a extraer citas reales sin volver a ejecutar el análisis completo.
+- Campo **Key moment** en las tarjetas de escena por capítulo, utilizado para anclar el sujeto de la imagen.
+- Interfaz de usuario y documentación en **cinco idiomas** (IT/EN/FR/ES/DE).
+
+### Cambiado
+
+- **Menos repetición**: las publicaciones, reels y stories ahora eligen las citas, imágenes, música
+  y capítulos menos utilizados recientemente entre ejecuciones, por lo que los planes semanales consecutivos y las
+  regeneraciones recorren todo el material en lugar de repetirlo.
+- **Prompts de IA reescritos en inglés**, mientras que el resultado generado siempre permanece en el idioma del libro.
+- **Canon visual más preciso**: la apariencia y la vestimenta de los personajes se basan en pasajes reales del libro,
+  con anclaje de etnia/país/época y palabras clave de ropa tomadas del vocabulario real del libro.
+- Un paso adicional de **humanización anti-IA** en las publicaciones generadas, aplicado en el idioma de salida.
+
+### Corregido
+
+- Eliminar un borrador ahora libera sus citas, imágenes, música y capítulo para su reutilización inmediata.
+- Las publicaciones de Facebook programadas de forma nativa se concilian como "publicadas" después de su hora programada (no más
+  entradas atascadas como "programadas en el pasado").
+- Las publicaciones publicadas se pueden ocultar del dashboard sin eliminarlas.
+
 ## [0.1.0] - 2026-06-20
 
 Primera versión pública, autoalojable.
@@ -22,4 +54,5 @@ Primera versión pública, autoalojable.
 - **Basic Auth opcional** para proteger la aplicación cuando es autoalojada.
 - **Documentación**: manual de usuario, configuración, proveedores de IA, Instagram, arquitectura y contribución.
 
+[0.2.0]: https://github.com/Luporosso76/booksocial-studio/releases/tag/v0.2.0
 [0.1.0]: https://github.com/Luporosso76/booksocial-studio/releases/tag/v0.1.0
