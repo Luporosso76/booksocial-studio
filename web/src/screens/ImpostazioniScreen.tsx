@@ -5,6 +5,7 @@ import {
   Check,
   Images,
   KeyRound,
+  Languages,
   Plug,
   ShieldCheck,
   SlidersHorizontal,
@@ -14,6 +15,7 @@ import {
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { LanguageSwitcher } from "@/components/layout/LanguageSwitcher";
 import { Badge, ErrorBanner, Skeleton } from "@/components/ui/misc";
 import { Input, Textarea, Field, selectClass } from "@/components/ui/Input";
 import { useToast } from "@/components/ui/toast";
@@ -63,6 +65,21 @@ export function ImpostazioniScreen() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader title={t("settings.title")} description={t("settings.subtitle")} />
+
+      <Card>
+        <CardHeader
+          title={t("settings.languageTitle")}
+          description={t("settings.languageDescription")}
+          action={
+            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent-soft text-accent">
+              <Languages className="h-4 w-4" />
+            </span>
+          }
+        />
+        <CardBody>
+          <LanguageSwitcher />
+        </CardBody>
+      </Card>
 
       <div className="flex flex-wrap items-center gap-1" role="tablist">
         {tabs.map((tb) => (

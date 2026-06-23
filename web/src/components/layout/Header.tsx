@@ -18,7 +18,6 @@ import { useJobs } from "@/lib/jobs";
 import { Badge, Spinner } from "@/components/ui/misc";
 import { visualKindLabel } from "@/lib/labels";
 import { cn } from "@/lib/cn";
-import { LanguageSwitcher } from "@/components/layout/LanguageSwitcher";
 
 const TITLE_KEYS: Record<string, string> = {
   "/connessione": "nav.connection",
@@ -90,7 +89,6 @@ export function Header() {
             </span>
           </>
         ) : null}
-        <LanguageSwitcher />
       </div>
     </header>
   );

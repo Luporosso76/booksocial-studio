@@ -1011,7 +1011,9 @@
       "turnedOn": "Quality check enabled.",
       "turnedOff": "Quality check disabled.",
       "saveFailed": "Failed to save."
-    }
+    },
+    "languageTitle": "Language",
+    "languageDescription": "Interface language."
   },
   "visualGen": {
     "kindQuoteCard": "Quote card",

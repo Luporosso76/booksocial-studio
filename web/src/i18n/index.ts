@@ -24,14 +24,14 @@ void i18n
   .use(initReactI18next)
   .init({
     resources,
-    fallbackLng: "it",
+    fallbackLng: "en",
     supportedLngs: SUPPORTED_LANGUAGES,
     nonExplicitSupportedLngs: true,
     interpolation: {
       escapeValue: false,
     },
     detection: {
-      order: ["localStorage", "navigator"],
+      order: ["localStorage"],
       lookupLocalStorage: STORAGE_KEY,
       caches: ["localStorage"],
     },

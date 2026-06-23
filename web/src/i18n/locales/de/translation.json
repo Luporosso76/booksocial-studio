@@ -1011,7 +1011,9 @@
       "turnedOn": "Qualitätskontrolle aktiviert.",
       "turnedOff": "Qualitätskontrolle deaktiviert.",
       "saveFailed": "Speichern fehlgeschlagen."
-    }
+    },
+    "languageTitle": "Sprache",
+    "languageDescription": "Sprache der Oberfläche."
   },
   "visualGen": {
     "kindQuoteCard": "Zitat-Karte",

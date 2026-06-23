@@ -1011,7 +1011,9 @@
       "turnedOn": "Control de calidad activado.",
       "turnedOff": "Control de calidad desactivado.",
       "saveFailed": "Error al guardar."
-    }
+    },
+    "languageTitle": "Idioma",
+    "languageDescription": "Idioma de la interfaz."
   },
   "visualGen": {
     "kindQuoteCard": "Tarjeta de cita",
