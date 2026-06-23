@@ -56,6 +56,12 @@ RULES:
   (country: ${input.country?.trim() || "not stated"}). No vagueness like "comfortable clothes".
 - ERA: if the book is set in a specific era/historical context (or a passage is a flashback/memory of the
   past), dress the character coherently with that era, not contemporary.
+- MODERN, NOT AGING (UNLESS the era/role truly requires otherwise): dress the character in CONTEMPORARY,
+  current everyday clothes. AVOID garments that read as dated or that make people look older than they are —
+  NO cardigan, NO blazer or sport coat for casual scenes, NO twin-set, NO waistcoat/gilet, NO pleated dress
+  trousers, NO buttoned-up shirt-and-belt "smart casual" by default. Prefer modern pieces suited to age and
+  context: t-shirts, knit jumpers/sweatshirts/hoodies, jeans or chinos, casual dresses, sneakers/boots, and
+  jackets like denim/bomber/field/leather. Formal wear (suit, dress) ONLY when the scene is genuinely formal.
 - "contexts": 0 to ${MAX_CTX} entries, ONLY for the recurring situations where this character plausibly
   appears. Each "when" is a few KEYWORDS taken FROM THE VOCABULARY of the SETTINGS below (so they will match
   the chapter scene cards), written in ${input.language} (e.g. "beach, sea, surf" or "meditation, yoga, mat"
