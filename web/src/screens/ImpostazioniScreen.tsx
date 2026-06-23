@@ -48,7 +48,7 @@ import type {
 } from "@/api/types";
 import { cn } from "@/lib/cn";
 
-type AiTab = "text" | "image" | "contentImages" | "quality" | "extra";
+type AiTab = "text" | "image" | "contentImages" | "quality" | "extra" | "language";
 
 export function ImpostazioniScreen() {
   const { t } = useTranslation();
@@ -60,26 +60,12 @@ export function ImpostazioniScreen() {
     { id: "contentImages", label: t("settings.ai.tabContentImages") },
     { id: "quality", label: t("settings.ai.tabQuality") },
     { id: "extra", label: t("settings.ai.tabExtra") },
+    { id: "language", label: t("language.label") },
   ];
 
   return (
     <div className="flex flex-col gap-6">
       <PageHeader title={t("settings.title")} description={t("settings.subtitle")} />
-
-      <Card>
-        <CardHeader
-          title={t("settings.languageTitle")}
-          description={t("settings.languageDescription")}
-          action={
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent-soft text-accent">
-              <Languages className="h-4 w-4" />
-            </span>
-          }
-        />
-        <CardBody>
-          <LanguageSwitcher />
-        </CardBody>
-      </Card>
 
       <div className="flex flex-wrap items-center gap-1" role="tablist">
         {tabs.map((tb) => (
@@ -105,6 +91,22 @@ export function ImpostazioniScreen() {
       {tab === "contentImages" && <AiImageModeCard />}
       {tab === "quality" && <QaCheckCard />}
       {tab === "extra" && <PromptExtrasCard />}
+      {tab === "language" && (
+        <Card>
+          <CardHeader
+            title={t("settings.languageTitle")}
+            description={t("settings.languageDescription")}
+            action={
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent-soft text-accent">
+                <Languages className="h-4 w-4" />
+              </span>
+            }
+          />
+          <CardBody>
+            <LanguageSwitcher />
+          </CardBody>
+        </Card>
+      )}
     </div>
   );
 }
