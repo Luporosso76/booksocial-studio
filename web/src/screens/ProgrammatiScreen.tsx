@@ -39,11 +39,13 @@ import {
 } from "@/api/endpoints";
 import type { FacebookPage, ScheduledPost } from "@/api/types";
 
-// Etichetta leggibile del tipo di contenuto in coda: preferisce il mediaType
-// (REEL/STORY/…), altrimenti il visualKind del formato editoriale.
+// Etichetta leggibile del tipo di contenuto in coda. Per reel/storia usa il visualKind del formato
+// (affidabile), perché il mediaType del gemello Instagram può risultare generico (es. "IMAGE").
+// Per gli altri tipi (testo/foto) usa il mediaType, con fallback sul visualKind.
 function programmatoKindLabel(p: ScheduledPost, t: (key: string) => string): string {
-  if (p.mediaType) return mediaTypeLabel(p.mediaType);
   const vk = p.contentFormat?.visualKind;
+  if (vk === "reel" || vk === "story") return contentVisualKindLabel(vk);
+  if (p.mediaType) return mediaTypeLabel(p.mediaType);
   if (vk && vk !== "none") return contentVisualKindLabel(vk);
   return t("programmati.kindContent");
 }
@@ -158,14 +160,13 @@ function ProgrammatoCard({
 
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2">
-          {isInstagram ? (
+          {isInstagram && (
             <Badge className="border-[#C13584]/40 bg-[#C13584]/10 text-[#C13584]">
               <Instagram className="h-3 w-3" />
               {t("instagram.badge")}
             </Badge>
-          ) : (
-            <Badge tone="accent">{programmatoKindLabel(post, t)}</Badge>
           )}
+          <Badge tone="accent">{programmatoKindLabel(post, t)}</Badge>
           {isInstagram && post.linkedPostId && (
             <span className="text-2xs font-medium text-content-tertiary">
               {t("instagram.linkedToFb")}

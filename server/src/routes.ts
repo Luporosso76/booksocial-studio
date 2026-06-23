@@ -2438,15 +2438,35 @@ export function buildApi(deps: AppDeps): Hono {
   // Dietro conferma esplicita lato UI.
   api.post("/pages/:id/schedule-drafts", async (c) => {
     const pageId = c.req.param("id");
-    if (!(await pages.find(pageId))) return c.json(err("Pagina non trovata"), 404);
+    const page = await pages.find(pageId);
+    if (!page) return c.json(err("Pagina non trovata"), 404);
     const all = await posts.byPage(pageId, 500);
     const now = Date.now();
     const FB_MIN_AHEAD = 11 * 60 * 1000; // FB richiede scheduled_publish_time >= ~10 min nel futuro
 
+    // Se la pagina ha Instagram collegato, creiamo automaticamente il job IG gemello per ogni
+    // Reel/Storia programmato (Instagram non ha programmazione nativa: lo pubblica il job interno).
+    const igEnabled = page.igUserId != null && page.igUserId.trim() !== "";
+
     let fbScheduled = 0; // post programmati nativamente su Facebook
     let jobScheduled = 0; // reel/storie (+ fallback) gestiti dal job interno
+    let igCreated = 0; // job IG gemelli creati in automatico
     let skipped = 0;
     const messages: string[] = [];
+
+    // Crea il gemello Instagram di un Reel/Storia appena programmato (idempotente). Best-effort:
+    // se non è eleggibile (niente video) o fallisce, si salta senza bloccare la programmazione.
+    const maybeIg = async (post: (typeof all)[number]): Promise<void> => {
+      if (!igEnabled) return;
+      const ch = channelFor(post);
+      if (ch !== "REEL" && ch !== "STORY") return;
+      try {
+        await createInstagramJob(post);
+        igCreated++;
+      } catch {
+        /* non eleggibile / nessun video pronto: salta */
+      }
+    };
 
     // Token recuperato in modo lazy: serve solo se c'è almeno un post FB-programmabile.
     let token: string | null | undefined;
@@ -2488,6 +2508,7 @@ export function buildApi(deps: AppDeps): Hono {
           const fbId = await publishDraft(post, tk, Math.floor(post.scheduledAt / 1000));
           await setStatus(post, fbId);
           fbScheduled++;
+          await maybeIg(post);
           continue;
         } catch (e) {
           // Programmazione nativa fallita (incluso reel rifiutato) → ripiega sul job interno.
@@ -2497,6 +2518,7 @@ export function buildApi(deps: AppDeps): Hono {
       // Job interno: storie, post troppo vicini/non pronti, o fallback.
       await setStatus(post, null);
       jobScheduled++;
+      await maybeIg(post);
     }
 
     return c.json({
@@ -2504,6 +2526,7 @@ export function buildApi(deps: AppDeps): Hono {
       scheduled: fbScheduled + jobScheduled,
       fbScheduled,
       jobScheduled,
+      igCreated,
       skipped,
       ...(messages.length ? { messages } : {}),
     });
