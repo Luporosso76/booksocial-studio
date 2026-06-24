@@ -485,6 +485,14 @@ export class ContentService {
 
     const recent = pageId == null ? [] : await posts.recentMessages(pageId, 8);
     const book = await books.get(bookId);
+    // Non generare su una scheda VECCHIA: se il libro è stato reimportato (testo cambiato) e l'analisi
+    // non è ancora stata rifatta, il profilo non combacia col contentHash → blocca con messaggio chiaro
+    // (meglio fermarsi che produrre post fondati su una scheda superata).
+    if (book && !profileIsFresh(profile, book)) {
+      throw new ContentError(
+        "La scheda del libro non è aggiornata rispetto al contenuto importato. Esegui prima l'analisi del libro.",
+      );
+    }
     const language = book?.language ?? "it";
     const avoid = new Set(opts?.avoidChapterIndexes ?? []);
     const excerpt = await this.safeChapterExcerpt(bookId, avoid);

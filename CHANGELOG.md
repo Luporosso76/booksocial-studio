@@ -35,6 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Re-importing a book with changed text now invalidates its chapter marketing cards, so posts are grounded on the new text.
+- Post generation is blocked when the book's profile is out of date relative to the imported text, so posts are never based on a stale book sheet.
 - Editing a draft's hashtags now saves correctly.
 - Posts, reels and stories without a visual stay as drafts instead of failing on publish.
 

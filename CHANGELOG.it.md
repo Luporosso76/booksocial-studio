@@ -37,6 +37,7 @@ e questo progetto aderisce al [Semantic Versioning](https://semver.org/spec/v2.0
 ### Corretto
 
 - Reimportare un libro con testo modificato ora invalida le schede marketing dei capitoli, così i post si basano sul nuovo testo.
+- La generazione dei post viene bloccata quando la scheda del libro non è aggiornata rispetto al testo importato, così i post non si basano mai su una scheda superata.
 - La modifica degli hashtag di una bozza ora viene salvata correttamente.
 - Post, reel e storie senza visual restano bozze invece di fallire in pubblicazione.
 

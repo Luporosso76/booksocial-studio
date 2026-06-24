@@ -36,6 +36,7 @@ y este proyecto se adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.
 ### Corregido
 
 - Reimportar un libro con texto modificado ahora invalida sus fichas de marketing por capítulo, de modo que los posts se basan en el nuevo texto.
+- La generación de posts se bloquea cuando la ficha del libro no está actualizada respecto al texto importado, para que los posts nunca se basen en una ficha obsoleta.
 - La edición de los hashtags de un borrador ahora se guarda correctamente.
 - Los posts, reels e historias sin visual permanecen como borradores en lugar de fallar al publicar.
 

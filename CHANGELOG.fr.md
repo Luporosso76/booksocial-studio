@@ -37,6 +37,7 @@ et ce projet respecte le [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 ### Corrigé
 
 - Réimporter un livre dont le texte a changé invalide désormais ses fiches marketing de chapitre, afin que les posts s'appuient sur le nouveau texte.
+- La génération de posts est bloquée lorsque la fiche du livre n'est pas à jour par rapport au texte importé, afin que les posts ne reposent jamais sur une fiche obsolète.
 - La modification des hashtags d'un brouillon est désormais enregistrée correctement.
 - Les posts, reels et stories sans visuel restent des brouillons au lieu d'échouer à la publication.
 

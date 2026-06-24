@@ -37,6 +37,7 @@ und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/spec/v
 ### Behoben
 
 - Der erneute Import eines Buchs mit geändertem Text macht nun seine Kapitel-Marketing-Karten ungültig, damit Posts auf dem neuen Text basieren.
+- Die Post-Generierung wird blockiert, wenn das Buchprofil nicht zum importierten Text passt, damit Posts nie auf einem veralteten Buchdatenblatt basieren.
 - Das Bearbeiten der Hashtags eines Entwurfs wird jetzt korrekt gespeichert.
 - Posts, Reels und Storys ohne Visual bleiben Entwürfe, anstatt bei der Veröffentlichung zu scheitern.
 
