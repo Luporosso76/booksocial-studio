@@ -5,6 +5,37 @@ Toutes les modifications notables apportées à ce projet sont documentées dans
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 et ce projet respecte le [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-06-24
+
+### Ajouté
+
+- **Fiches marketing de chapitre** : une compréhension narrative persistante de chaque chapitre (résumé
+  sans spoiler, cœur émotionnel, question au lecteur, citations sûres et angles de post notés) qui sert
+  de base à la génération des posts, construite une fois par chapitre et réutilisée.
+- **Classeur d'idées avec rotation des angles** : les posts puisent dans les angles pré-validés du
+  chapitre et les font tourner, de sorte qu'un chapitre réutilisé donne un angle différent à chaque fois.
+- **Juge de qualité** : une passe finale qui rejette les posts génériques (ceux qui conviendraient à
+  n'importe quel livre) et les régénère une fois avec une indication ciblée.
+- **Éditeur de présence des personnages par chapitre** : définissez manuellement dans quels chapitres un personnage apparaît.
+- **Images reproductibles** : la graine (seed) de génération est enregistrée avec chaque image générée.
+
+### Modifié
+
+- **Posts plus ancrés** : une checklist interne oblige chaque post à utiliser un détail concret du
+  chapitre, avec de vraies citations sans spoiler et une formulation plus anti-générique et anti-IA.
+- **Les tenues et objets de scène suivent la direction artistique du livre** : les vêtements de
+  pratique/cérémonie/époque et les objets clés décrits dans les directives visuelles sont désormais
+  respectés dans le canon et les fiches de scène des chapitres.
+- **Les quotas du planificateur correspondent au total de la période choisie** (semaine/mois/
+  personnalisé), sans mise à l'échelle cachée ; le planificateur garantit désormais que chaque contenu
+  demandé est placé, même avec peu de créneaux.
+- **Panneau d'images de scène redessiné** : sections Chapitres/Personnages repliables et mise en page plus compacte.
+
+### Corrigé
+
+- La modification des hashtags d'un brouillon est désormais enregistrée correctement.
+- Les posts, reels et stories sans visuel restent des brouillons au lieu d'échouer à la publication.
+
 ## [0.2.0] - 2026-06-23
 
 ### Ajouté

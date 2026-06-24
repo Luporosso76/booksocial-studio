@@ -1,7 +1,7 @@
 import type { ContentEngine } from "./engine.js";
 import { ContentError } from "./engine.js";
 import { parseModelJson } from "./modelJson.js";
-import type { BookProfile, MediaType } from "../domain.js";
+import type { BookProfile, ChapterMarketingCardData, MediaType } from "../domain.js";
 import { MEDIA_TYPES } from "../domain.js";
 
 // Generates one post from the compact book scheda (not the whole book), the
@@ -29,6 +29,10 @@ export interface GenerateRequest {
   // Istruzioni-extra APPEND-ONLY: globale + per-libro, già combinate dal chiamante. Accodate in
   // fondo al prompt come guida aggiuntiva; NON sostituiscono il core (no-spoiler/lingua/JSON restano).
   extraInstructions?: string | null;
+  // Scheda marketing del capitolo (comprensione narrativa pre-calcolata): se presente, è la FONTE
+  // primaria dell'idea. `chosenAngle` = angolo scelto dall'idea ranker (hook+tipo) da preferire.
+  marketingCard?: ChapterMarketingCardData | null;
+  chosenAngle?: { type: string; hook: string } | null;
 }
 
 export interface GeneratedPost {
@@ -41,13 +45,39 @@ export interface GeneratedPost {
   // Indice del capitolo da cui è stata estratta l'idea (pipeline skill), o null.
   // Lo valorizza ContentService, che conosce il capitolo scelto.
   sourceChapterIndex?: number | null;
+  // Chiave dell'angolo marketing-card usato (per la rotazione LRU degli angoli). Lo valorizza
+  // ContentService. null se nessuna card/angolo.
+  chosenAngleKey?: string | null;
 }
 
 export async function generatePost(
   engine: ContentEngine,
   req: GenerateRequest,
 ): Promise<GeneratedPost> {
-  const prompt = buildPrompt(req);
+  const first = await generateOnce(engine, req);
+  // TERZO PASSO — QUALITY JUDGE: scarta i post GENERICI (che starebbero bene per qualunque libro),
+  // senza dettaglio reale dal capitolo, da "quarta di copertina" o con rischio spoiler. Se bocciato,
+  // UNA rigenerazione mirata (con il motivo del rifiuto) e si tiene il migliore. Best-effort: se il
+  // giudice non risponde, si tiene il post così com'è (non blocca mai la generazione).
+  const verdict = await judgePost(engine, first.message, req).catch(() => null);
+  if (!verdict || !verdict.needsRegeneration) return first;
+  const retry = await generateOnce(engine, req, verdict).catch(() => null);
+  if (!retry) return first;
+  const v2 = await judgePost(engine, retry.message, req).catch(() => null);
+  // Tieni il retry se NON va più rigenerato o se è almeno meno generico del primo.
+  const retryBetter =
+    !v2 || !v2.needsRegeneration || v2.genericnessScore <= verdict.genericnessScore;
+  return retryBetter ? retry : first;
+}
+
+// Una singola generazione (idea → post → umanizzazione). `regenHint` (opzionale) = verdetto del
+// giudice sul tentativo precedente, accodato come correzione mirata per evitare lo stesso difetto.
+async function generateOnce(
+  engine: ContentEngine,
+  req: GenerateRequest,
+  regenHint?: PostVerdict,
+): Promise<GeneratedPost> {
+  const prompt = buildPrompt(req, regenHint);
   const response = await engine.run(prompt);
   const j = parseModelJson(response) as Record<string, unknown>;
 
@@ -72,6 +102,79 @@ export async function generatePost(
     specificHashtags: specific,
     mediaType: media,
     rationale: text(j, "rationale"),
+  };
+}
+
+// Verdetto del QUALITY JUDGE su un post generato.
+interface PostVerdict {
+  genericnessScore: number; // 0 = unico per questo libro, 10 = va bene per qualunque libro
+  usesRealChapterDetail: boolean;
+  soundsLikeBackCover: boolean;
+  spoilerRisk: "low" | "medium" | "high";
+  needsRegeneration: boolean;
+}
+
+// TERZO PASSO anti-genericità: un editor severo giudica il post contro la FONTE (capitolo o scheda).
+// Boccia (needsRegeneration) se il post potrebbe valere per qualunque libro, non usa un dettaglio
+// reale, suona da quarta di copertina o rischia spoiler. La soglia è ricalcolata in codice (non ci si
+// fida solo del flag del modello). Throwa su parse fallito → il chiamante lo ignora (non blocca).
+async function judgePost(
+  engine: ContentEngine,
+  message: string,
+  req: GenerateRequest,
+): Promise<PostVerdict> {
+  const lang = req.language || "Italian";
+  const hasChapter =
+    !!req.chapterExcerpt &&
+    req.chapterExcerpt.trim() !== "" &&
+    req.chapterExcerpt.trim() !== "(non fornito)";
+  const source = hasChapter
+    ? `CHAPTER (the post should draw a concrete detail from here):\n${req.chapterExcerpt!.slice(0, 8000)}`
+    : `BOOK SCHEDA:\nSynopsis: ${nz(req.profile.synopsisShort)}\nTone: ${nz(req.profile.tone)}`;
+  const prompt = `You are a STRICT social editor for a book page. Judge the POST below against its SOURCE.
+The post is in ${lang}. Reply with ONLY a valid JSON object, nothing else:
+{
+  "genericness_score": 0-10 (0 = clearly born from THIS specific book/chapter, 10 = could be posted for ANY book),
+  "uses_real_chapter_detail": true/false (does it use a concrete, specific detail/image/line from the SOURCE?),
+  "has_specific_image": true/false (is there a concrete image/moment, not just abstractions?),
+  "sounds_like_back_cover": true/false (does it read like generic blurb / marketing back-cover?),
+  "spoiler_risk": "low" | "medium" | "high",
+  "needs_regeneration": true/false
+}
+RULE: if the post could fit ANY book, or has no concrete detail from the SOURCE, or reads like a back-cover blurb → needs_regeneration = true. Be strict.
+
+=== SOURCE ===
+${source}
+
+=== POST TO JUDGE ===
+${message}`;
+
+  const raw = await engine.run(prompt);
+  const j = parseModelJson(raw) as Record<string, unknown>;
+  const num = (v: unknown): number => {
+    const n = typeof v === "number" ? v : Number(v);
+    return Number.isFinite(n) ? Math.min(10, Math.max(0, n)) : 5;
+  };
+  const bool = (v: unknown): boolean => v === true || v === "true";
+  const genericnessScore = num(j["genericness_score"]);
+  const usesRealChapterDetail = bool(j["uses_real_chapter_detail"]);
+  const soundsLikeBackCover = bool(j["sounds_like_back_cover"]);
+  const risk = String(j["spoiler_risk"] ?? "low").toLowerCase();
+  const spoilerRisk: PostVerdict["spoilerRisk"] =
+    risk === "high" ? "high" : risk === "medium" ? "medium" : "low";
+  // Soglia ricalcolata in codice: non fidarsi solo del flag del modello.
+  const needsRegeneration =
+    bool(j["needs_regeneration"]) ||
+    genericnessScore >= 7 ||
+    !usesRealChapterDetail ||
+    soundsLikeBackCover ||
+    spoilerRisk === "high";
+  return {
+    genericnessScore,
+    usesRealChapterDetail,
+    soundsLikeBackCover,
+    spoilerRisk,
+    needsRegeneration,
   };
 }
 
@@ -139,7 +242,7 @@ ${original}`;
   return cleaned;
 }
 
-function buildPrompt(req: GenerateRequest): string {
+function buildPrompt(req: GenerateRequest, regenHint?: PostVerdict): string {
   // Se abbiamo il testo reale di un capitolo, usa il prompt "capitolo": trova UNA idea viva
   // del capitolo e la rende umana. La logica delle ex-skill OpenCode (idea-extractor + tagore)
   // e' INCORPORATA nel prompt, quindi funziona con QUALSIASI modello (openai/anthropic/google/
@@ -149,7 +252,23 @@ function buildPrompt(req: GenerateRequest): string {
     req.chapterExcerpt.trim() !== "" &&
     req.chapterExcerpt.trim() !== "(non fornito)";
   const base = hasChapter ? buildChapterPrompt(req) : buildSchedaPrompt(req);
-  return appendExtraInstructions(base, req.extraInstructions);
+  return appendRegenHint(appendExtraInstructions(base, req.extraInstructions), regenHint);
+}
+
+// Sul retry, accoda la diagnosi del giudice come correzione mirata: forza un dettaglio concreto
+// della fonte ed evita il difetto rilevato (genericità / quarta di copertina / spoiler).
+function appendRegenHint(prompt: string, hint: PostVerdict | undefined): string {
+  if (!hint) return prompt;
+  const issues: string[] = [];
+  if (!hint.usesRealChapterDetail) issues.push("it did NOT use a concrete detail from the source");
+  if (hint.soundsLikeBackCover) issues.push("it sounded like a generic back-cover blurb");
+  if (hint.genericnessScore >= 7) issues.push("it was too generic (could fit any book)");
+  if (hint.spoilerRisk === "high") issues.push("it risked a spoiler");
+  const why = issues.length > 0 ? issues.join("; ") : "it was too generic";
+  return `${prompt}
+
+=== RETRY — the previous attempt was REJECTED (${why}) ===
+Write a DIFFERENT post that anchors on a CONCRETE, specific detail, image or line from THIS chapter/book. It must NOT read like a back-cover blurb and must NOT fit any other book. Keep it strictly non-spoiler.`;
 }
 
 // Accoda (APPEND-ONLY) le istruzioni-extra dell'utente in fondo al prompt, senza toccare il core.
@@ -178,7 +297,16 @@ function buildChapterPrompt(req: GenerateRequest): string {
 
 PROCEDURE (two steps, to do INTERNALLY — show ONLY the final post in the JSON):
 
-1. FIND THE IDEA from the CHAPTER below. Look for the "live wire": ONE single idea, scene, image, line, contradiction, choice, cost or question that would make a reader stop — interesting even to someone who has NOT read the book. NOT a summary of the chapter. Mentally consider 2-3 candidate ideas and pick the strongest based on: relevance to the reader, concreteness (a real moment / line / image), tension, standalone value (it holds up without explaining the whole chapter), consistency with the book's voice, anti-spoiler safety. Do NOT show the candidates, scores or analysis.
+1. FIND THE IDEA from the CHAPTER below. Before writing, internally extract (this is REASONING — never show it):
+   - the most CONCRETE image or moment in the chapter (something you could almost see);
+   - the human TENSION or truth behind it (what is really at stake for a person);
+   - ONE reader-facing QUESTION it raises;
+   - ONE short, real, NON-SPOILER quote or phrase from the chapter, if available;
+   - ONE reason this matters OUTSIDE the plot (why a stranger should care);
+   - ONE clichéd / generic version to AVOID.
+   Then pick the single strongest idea, judged on: concreteness (a real moment / line / image, not a summary), tension, standalone value (holds up without explaining the chapter), consistency with the book's voice, anti-spoiler safety.
+   HARD FILTER: the chosen idea MUST contain at least one CONCRETE detail from THIS chapter. If the post you are about to write could fit ANY book, discard it and choose another idea. Do NOT show the candidates, the checklist or the scores.
+   If a "CHAPTER MARKETING CARD" is provided below, use it as the PRIMARY, pre-vetted source: build the post from its CHOSEN ANGLE and its concrete details / safe quotes (unless the REQUESTED ANGLE clearly points elsewhere). You must still satisfy the HARD FILTER above.
 
 2. WRITE the post, humanizing that idea. Avoid the "AI flavor" (crucial, otherwise it reads as machine-written): no inflated meaning, no AI-words (in the OUTPUT language: words like "journey", "tapestry", "testament", "in today's world", "dive in/let yourself be carried", "a work that", "it's not just... it's also..."), no triplets of adjectives, no promotional superlatives ("unmissable", "extraordinary", "masterpiece"), no run of em-dashes (—), at most one emoji and only if useful. Concrete and specific beats ten adjectives. Open with something real (an image, a line from the book, a sharp question), never with clichés or meta-openings ("In this chapter", "This post"). Alternate short and long sentences, keep ONE emotional thread, close with a line that opens a thought (not a generic CTA). Show, don't promise emotions.
 
@@ -211,7 +339,7 @@ ${characters}
 
 === REQUESTED ANGLE (steers the idea choice) ===
 ${nz(req.angle)}
-
+${marketingCardBlock(req.marketingCard, req.chosenAngle)}
 === CHAPTER (SOURCE: extract the single idea from here, quote only non-spoiler passages) ===
 ${req.chapterExcerpt}
 
@@ -318,6 +446,35 @@ function text(j: Record<string, unknown>, field: string): string | null {
 
 function nz(s: string | null): string {
   return s == null ? "" : s;
+}
+
+// Blocco "scheda marketing del capitolo": comprensione narrativa pre-calcolata + angolo scelto dal
+// ranker. Vuoto se la card non è disponibile (fallback al comportamento storico).
+function marketingCardBlock(
+  card: ChapterMarketingCardData | null | undefined,
+  chosen: { type: string; hook: string } | null | undefined,
+): string {
+  if (!card) return "";
+  const lines: string[] = [
+    "",
+    "=== CHAPTER MARKETING CARD (pre-computed, grounded analysis of THIS chapter — use it as the PRIMARY source of the idea) ===",
+  ];
+  if (card.nonSpoilerSummary) lines.push(`Non-spoiler summary: ${card.nonSpoilerSummary}`);
+  if (card.emotionalCore) lines.push(`Emotional core: ${card.emotionalCore}`);
+  if (card.humanTruth) lines.push(`Human truth: ${card.humanTruth}`);
+  if (card.readerQuestion) lines.push(`Reader question: ${card.readerQuestion}`);
+  if (card.mainTension) lines.push(`Main tension: ${card.mainTension}`);
+  if (card.visualMoment) lines.push(`Visual moment: ${card.visualMoment}`);
+  const quotes = card.safeQuotes.filter((q) => q.spoilerRisk !== "high" && q.quote.trim() !== "");
+  if (quotes.length > 0) {
+    lines.push(`Safe quotes you may use: ${quotes.map((q) => `«${q.quote}»`).join(" ")}`);
+  }
+  if (chosen && chosen.hook.trim() !== "") {
+    lines.push(
+      `CHOSEN ANGLE (prefer this hook unless the REQUESTED ANGLE points elsewhere) — [${chosen.type}] "${chosen.hook}"`,
+    );
+  }
+  return lines.join("\n");
 }
 
 // Riga concisa per personaggio: Nome — ruolo/lavoro — carattere — aspetto fisico.

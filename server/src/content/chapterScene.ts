@@ -12,6 +12,9 @@ export interface ChapterSceneInput {
   chapterTitle?: string | null;
   language: string; // lingua del libro: la scheda è scritta in questa lingua (user-facing + editabile)
   knownCharacters: string[]; // nomi del cast noti (dal pre-pass NLP/analisi) per il match
+  // DIRETTIVE VISIVE del libro (autoriali): possono evidenziare oggetti/luoghi/dettagli importanti
+  // (es. design fisso di un oggetto ricorrente) da nominare con precisione nella scheda. Opzionale.
+  directives?: string | null;
 }
 
 // Risultato grezzo dell'estrazione (senza i campi di persistenza source/model/updatedAt).
@@ -173,11 +176,16 @@ RULES:
   NARRATOR ("I") — IS present in the scenes they take part in: ALWAYS include them if identifiable, using
   their NAME from the cast. But if in THIS chapter they do not appear in a scene (e.g. a chapter from another's
   POV, a prologue, a scene where they are not present), do NOT include them.
+- BOOK ART DIRECTION (below): if it names objects/places/details important to THIS book (e.g. the fixed
+  design of a recurring object, a signature vehicle, a specific setting), and that element is PHYSICALLY
+  PRESENT in this chapter's scene, name it PRECISELY in the matching field (main_objects/secondary_objects/
+  location/environment) using the direction's wording. It does NOT add things that are not in the scene.
 - Concrete and visual: no abstract emotions, no events/plot, no spoilers. Only what you SEE.
 - If a field cannot be determined, use "" (empty string) or [] (empty list). No inventions.
 - Write in ${input.language}.
 
 KNOWN CHARACTERS (for matching): ${cast}
+BOOK ART DIRECTION (object/detail hints, if any): ${input.directives?.trim() || "(none)"}
 CHAPTER TITLE: ${input.chapterTitle?.trim() || "(none)"}
 === CHAPTER TEXT ===
 ${text}`;

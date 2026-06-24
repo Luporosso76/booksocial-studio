@@ -591,12 +591,12 @@
     "edit": "Edit",
     "draftDeleteFailed": "Deletion failed.",
     "regenerateFailed": "Regeneration failed.",
-    "quotasTitle": "Weekly quotas",
-    "quotasDescription": "Set how many publications you want: the engine automatically decides days, times and formats.",
+    "quotasTitle": "Period quotas",
+    "quotasDescription": "Set how many publications you want in the chosen period: the engine automatically decides days, times and formats.",
     "quotaPosts": "Posts",
     "quotaReels": "Reels",
     "quotaStories": "Stories",
-    "quotaPerWeek": "{{label}} per week",
+    "quotaPerWeek": "{{label}} in the period",
     "scheduleAll": "Schedule publishing",
     "scheduleResult": "{{count}} contents scheduled",
     "scheduleResultFb": " · {{count}} on Facebook",
@@ -1348,6 +1348,14 @@
     "keyMomentPlaceholder": "The visual happening of the chapter (non-spoiler): who does what, where",
     "reindexNlp": "Re-extract quotes (NLP)",
     "reindexNlpDone": "{{count}} quotes extracted from the book",
-    "reindexNlpFailed": "Quote extraction failed."
+    "reindexNlpFailed": "Quote extraction failed.",
+    "characterChaptersLabel": "Chapters where present",
+    "characterChaptersHint": "Select the chapters where the character appears: it determines the characters available when regenerating images.",
+    "sceneGenChaptersTitle": "Chapters",
+    "sceneGenCharactersTitle": "Characters",
+    "sceneGenHelp": "Select the chapters and choose how many images to create <strong>for each chapter</strong>; without selection it is «Auto» (various chapters). You can <strong>queue</strong> multiple requests (e.g., first in 9:16, then change format to 1:1 and add again): the queue runs in sequence without stopping until you press <strong>Cancel</strong>. Generation is slow (a few minutes per image) and runs locally: the server must stay on.",
+    "flashbackEnable": "Enable flashback / memory",
+    "flashbackSummaryYears": "−{{years}} years",
+    "flashbackSummaryOff": "Off"
   }
 }

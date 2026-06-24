@@ -302,6 +302,35 @@ const MIGRATIONS: Migration[] = [
       `ALTER TABLE book ADD COLUMN image_extra_instructions TEXT NULL`,
     ],
   },
+  {
+    // Seed di generazione delle immagini scena: consente di riprodurre la stessa immagine.
+    version: 4,
+    statements: [`ALTER TABLE media_asset ADD COLUMN gen_seed INTEGER NULL`],
+  },
+  {
+    // Comprensione narrativa persistente del capitolo, base per i post: una card per capitolo.
+    version: 5,
+    statements: [
+      `CREATE TABLE IF NOT EXISTS chapter_marketing_card (
+        id             INTEGER PRIMARY KEY AUTOINCREMENT,
+        book_id        INTEGER NOT NULL,
+        chapter_index  INTEGER NOT NULL,
+        schema_version INTEGER NOT NULL,
+        spoiler_level  TEXT    NULL,
+        card_json      TEXT    NOT NULL,
+        model          TEXT    NULL,
+        created_at     INTEGER NOT NULL,
+        updated_at     INTEGER NOT NULL,
+        FOREIGN KEY (book_id) REFERENCES book(id) ON DELETE CASCADE
+      )`,
+      `CREATE UNIQUE INDEX IF NOT EXISTS ux_marketing_card_book_chapter ON chapter_marketing_card(book_id, chapter_index)`,
+    ],
+  },
+  {
+    // Angolo di marketing usato da un contenuto: abilita la rotazione LRU degli angoli per capitolo.
+    version: 6,
+    statements: [`ALTER TABLE content_usage ADD COLUMN angle_key TEXT NULL`],
+  },
 ];
 
 async function currentVersion(): Promise<number> {

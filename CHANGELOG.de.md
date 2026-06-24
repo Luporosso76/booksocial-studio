@@ -5,6 +5,37 @@ Alle wesentlichen Änderungen an diesem Projekt werden in dieser Datei dokumenti
 Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-06-24
+
+### Hinzugefügt
+
+- **Marketing-Karten je Kapitel**: ein dauerhaftes narratives Verständnis jedes Kapitels (spoilerfreie
+  Zusammenfassung, emotionaler Kern, Leserfrage, sichere Zitate und bewertete Post-Blickwinkel), das die
+  Post-Generierung untermauert, einmal pro Kapitel erstellt und wiederverwendet.
+- **Ideen-Ranker mit Blickwinkel-Rotation**: Posts greifen auf die vorgeprüften Blickwinkel des Kapitels
+  zurück und rotieren durch sie, sodass ein wiederverwendetes Kapitel jedes Mal einen anderen Blickwinkel liefert.
+- **Qualitätsrichter**: ein abschließender Durchlauf, der generische Posts (die zu jedem Buch passen
+  würden) verwirft und sie einmal mit einem gezielten Hinweis neu generiert.
+- **Editor für die Kapitel-Präsenz von Figuren**: lege manuell fest, in welchen Kapiteln eine Figur vorkommt.
+- **Reproduzierbare Bilder**: der Generierungs-Seed wird bei jedem generierten Bild gespeichert.
+
+### Geändert
+
+- **Posts mit mehr Bezug zum Buch**: eine interne Checkliste zwingt jeden Post, ein konkretes Detail aus
+  dem Kapitel zu verwenden, mit echten spoilerfreien Zitaten und stärker anti-generischer, anti-KI-Sprache.
+- **Outfits und Szenenobjekte folgen der Bildsprache des Buches**: Kleidung für Praxis/Zeremonie/Epoche
+  und die in den visuellen Vorgaben beschriebenen Schlüsselobjekte werden nun im Kanon und in den
+  Szenenkarten der Kapitel berücksichtigt.
+- **Planer-Kontingente sind die Gesamtmenge für den gewählten Zeitraum** (Woche/Monat/benutzerdefiniert),
+  ohne verborgene Skalierung; der Planer stellt nun sicher, dass jeder angeforderte Inhalt platziert wird,
+  auch bei wenigen Zeitfenstern.
+- **Szenenbild-Panel neu gestaltet**: einklappbare Abschnitte für Kapitel/Figuren und kompakteres Layout.
+
+### Behoben
+
+- Das Bearbeiten der Hashtags eines Entwurfs wird jetzt korrekt gespeichert.
+- Posts, Reels und Storys ohne Visual bleiben Entwürfe, anstatt bei der Veröffentlichung zu scheitern.
+
 ## [0.2.0] - 2026-06-23
 
 ### Hinzugefügt

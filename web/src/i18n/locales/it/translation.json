@@ -591,12 +591,12 @@
     "edit": "Modifica",
     "draftDeleteFailed": "Eliminazione non riuscita.",
     "regenerateFailed": "Rigenerazione non riuscita.",
-    "quotasTitle": "Quote settimanali",
-    "quotasDescription": "Imposta quante pubblicazioni vuoi: il motore decide automaticamente giorni, orari e formati.",
+    "quotasTitle": "Quote del periodo",
+    "quotasDescription": "Imposta quante pubblicazioni vuoi nel periodo scelto: il motore decide automaticamente giorni, orari e formati.",
     "quotaPosts": "Post",
     "quotaReels": "Reel",
     "quotaStories": "Storie",
-    "quotaPerWeek": "{{label}} a settimana",
+    "quotaPerWeek": "{{label}} nel periodo",
     "scheduleAll": "Programma pubblicazione",
     "scheduleResult": "{{count}} contenuti programmati",
     "scheduleResultFb": " · {{count}} su Facebook",
@@ -1348,6 +1348,14 @@
     "keyMomentPlaceholder": "Cosa succede di visivo nel capitolo (non-spoiler): chi fa cosa, dove",
     "reindexNlp": "Ri-estrai frasi (NLP)",
     "reindexNlpDone": "{{count}} frasi estratte dal libro",
-    "reindexNlpFailed": "Estrazione frasi non riuscita."
+    "reindexNlpFailed": "Estrazione frasi non riuscita.",
+    "characterChaptersLabel": "Capitoli in cui compare",
+    "characterChaptersHint": "Seleziona i capitoli dove il personaggio è presente: determina i personaggi selezionabili quando rigeneri le immagini.",
+    "sceneGenChaptersTitle": "Capitoli",
+    "sceneGenCharactersTitle": "Personaggi",
+    "sceneGenHelp": "Seleziona i capitoli e scegli quante immagini fare <strong>per ciascun capitolo</strong>; senza selezione è «Auto» (capitoli vari). Puoi <strong>accodare</strong> più richieste (es. prima in 9:16, poi cambi formato in 1:1 e aggiungi di nuovo): la coda gira in sequenza senza fermarsi finché non premi <strong>Annulla</strong>. La generazione è lenta (qualche minuto per immagine) e gira in locale: il server deve restare acceso.",
+    "flashbackEnable": "Attiva flashback / ricordo",
+    "flashbackSummaryYears": "−{{years}} anni",
+    "flashbackSummaryOff": "Disattivo"
   }
 }

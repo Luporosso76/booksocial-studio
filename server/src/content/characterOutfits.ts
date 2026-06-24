@@ -24,6 +24,10 @@ export interface OutfitsInput {
   sourceText?: string | null;
   // Paese del libro → coerenza di clima/cultura del vestiario quando il testo non specifica. Opzionale.
   country?: string | null;
+  // DIRETTIVE VISIVE del libro (autoriali): possono prescrivere come ci si veste in attività/scene
+  // specifiche (es. pratica spirituale/yoga/meditazione, cerimonia, sport). Se presenti, sono
+  // AUTORITATIVE e devono diventare un contesto outfit dedicato. Opzionale.
+  directives?: string | null;
 }
 
 const MAX_CTX = 5;
@@ -48,6 +52,12 @@ Reply with ONLY a valid JSON object, no text before or after:
 }
 
 RULES:
+- BOOK ART DIRECTION IS AUTHORITATIVE: if the "BOOK ART DIRECTION" below states how a character dresses for
+  a specific activity or scene type (e.g. spiritual practice / yoga / meditation / reiki, ceremony, sport,
+  work), you MUST add a DEDICATED context for it: its "when" keywords name that activity (prefer words from
+  the SETTINGS vocabulary so they match the scene cards, e.g. "meditazione, yoga, reiki, tappetino") and its
+  "outfit" is EXACTLY the clothing the direction describes. This OVERRIDES the "MODERN, NOT AGING" default
+  below for that context. Never leave such an activity dressed in the generic everyday outfit.
 - FAITHFUL TO THE BOOK: if the "BOOK PASSAGES" below say what the character wears (a garment, a color, an
   accessory in a certain scene), RESPECT it and put it in the right context; do NOT invent against the text.
   Only fill in what the book does not say.
@@ -76,6 +86,8 @@ OCCUPATION: ${input.occupation?.trim() || "(unspecified)"}
 APPEARANCE (for consistency, do NOT describe it in the outfits): ${input.physical?.trim() || "(none)"}
 BOOK: ${input.bookTitle?.trim() || "(untitled)"} — country/setting: ${input.country?.trim() || "(not stated)"}
 RECURRING SETTINGS OF THE BOOK (use these words for the "when" keywords): ${settings}
+=== BOOK ART DIRECTION (authoritative on clothing for specific activities/scenes) ===
+${input.directives?.trim() || "(none)"}
 === BOOK PASSAGES MENTIONING ${input.name.toUpperCase()} (garments worn, if cited) ===
 ${input.sourceText?.trim() || "(no passage available)"}`;
 

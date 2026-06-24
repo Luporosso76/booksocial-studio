@@ -5,6 +5,37 @@ Tutte le modifiche rilevanti a questo progetto sono documentate in questo file.
 Il formato è basato su [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 e questo progetto aderisce al [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-06-24
+
+### Aggiunto
+
+- **Schede marketing del capitolo**: una comprensione narrativa persistente di ogni capitolo (sintesi
+  non-spoiler, nucleo emotivo, domanda al lettore, citazioni sicure e angoli-post con punteggio) che
+  fonda la generazione dei post, costruita una volta per capitolo e riusata.
+- **Idea ranker con rotazione degli angoli**: i post attingono agli angoli pre-vagliati del capitolo e
+  ruotano tra loro, così un capitolo riusato dà ogni volta un angolo diverso (massima varietà).
+- **Giudice di qualità**: un passaggio finale che scarta i post generici (quelli che andrebbero bene per
+  qualunque libro) e li rigenera una volta con un'indicazione mirata.
+- **Editor della presenza personaggio per capitolo**: imposta a mano in quali capitoli compare un personaggio.
+- **Immagini riproducibili**: il seed di generazione viene salvato con ogni immagine generata.
+
+### Modificato
+
+- **Post più ancorati al libro**: una checklist interna impone a ogni post di usare un dettaglio concreto
+  del capitolo, con citazioni reali non-spoiler e un linguaggio più anti-generico e anti-AI.
+- **Abiti e oggetti di scena seguono le direttive visive del libro**: gli abiti per pratiche/cerimonie/
+  epoca e gli oggetti chiave descritti nelle direttive vengono ora rispettati nel canone e nelle schede
+  scena dei capitoli.
+- **Le quote del pianificatore sono il totale del periodo scelto** (settimana/mese/personalizzato),
+  senza scalature nascoste; il pianificatore ora garantisce che ogni contenuto richiesto venga piazzato,
+  anche con pochi slot orari.
+- **Pannello immagini di scena ridisegnato**: sezioni Capitoli/Personaggi collassabili e layout più compatto.
+
+### Corretto
+
+- La modifica degli hashtag di una bozza ora viene salvata correttamente.
+- Post, reel e storie senza visual restano bozze invece di fallire in pubblicazione.
+
 ## [0.2.0] - 2026-06-23
 
 ### Aggiunto

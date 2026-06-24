@@ -591,12 +591,12 @@
     "edit": "Modifier",
     "draftDeleteFailed": "Échec de la suppression.",
     "regenerateFailed": "Échec de la régénération.",
-    "quotasTitle": "Quotas hebdomadaires",
-    "quotasDescription": "Définissez combien de publications vous souhaitez : le moteur décide automatiquement des jours, horaires et formats.",
+    "quotasTitle": "Quotas de la période",
+    "quotasDescription": "Définissez combien de publications vous souhaitez sur la période choisie : le moteur décide automatiquement des jours, horaires et formats.",
     "quotaPosts": "Posts",
     "quotaReels": "Reel",
     "quotaStories": "Storie",
-    "quotaPerWeek": "{{label}} par semaine",
+    "quotaPerWeek": "{{label}} sur la période",
     "scheduleAll": "Programmer la publication",
     "scheduleResult": "{{count}} contenus programmés",
     "scheduleResultFb": " · {{count}} sur Facebook",
@@ -1348,6 +1348,14 @@
     "keyMomentPlaceholder": "Ce qui se passe visuellement dans le chapitre (sans spoiler) : qui fait quoi, où",
     "reindexNlp": "Ré-extraire les citations (NLP)",
     "reindexNlpDone": "{{count}} citations extraites du livre",
-    "reindexNlpFailed": "Échec de l’extraction des citations."
+    "reindexNlpFailed": "Échec de l’extraction des citations.",
+    "characterChaptersLabel": "Chapitres où il apparaît",
+    "characterChaptersHint": "Sélectionnez les chapitres où le personnage apparaît : cela détermine les personnages disponibles lors de la régénération des images.",
+    "sceneGenChaptersTitle": "Chapitres",
+    "sceneGenCharactersTitle": "Personnages",
+    "sceneGenHelp": "Sélectionnez les chapitres et choisissez combien d'images créer <strong>pour chaque chapitre</strong> ; sans sélection, c'est « Auto » (chapitres variés). Vous pouvez <strong>mettre en file d'attente</strong> plusieurs requêtes (ex. d'abord en 9:16, puis vous changez le format en 1:1 et ajoutez de nouveau) : la file d'attente tourne en séquence sans s'arrêter jusqu'à ce que vous cliquiez sur <strong>Annuler</strong>. La génération est lente (quelques minutes par image) et tourne en local : le serveur doit rester allumé.",
+    "flashbackEnable": "Activer flashback / souvenir",
+    "flashbackSummaryYears": "−{{years}} ans",
+    "flashbackSummaryOff": "Désactivé"
   }
 }

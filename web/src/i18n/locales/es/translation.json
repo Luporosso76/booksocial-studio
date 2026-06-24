@@ -591,12 +591,12 @@
     "edit": "Editar",
     "draftDeleteFailed": "Eliminación fallida.",
     "regenerateFailed": "Regeneración fallida.",
-    "quotasTitle": "Cuotas semanales",
-    "quotasDescription": "Establece cuántas publicaciones quieres: el motor decide automáticamente días, horarios y formatos.",
+    "quotasTitle": "Cuotas del periodo",
+    "quotasDescription": "Establece cuántas publicaciones quieres en el periodo elegido: el motor decide automáticamente días, horarios y formatos.",
     "quotaPosts": "Post",
     "quotaReels": "Reel",
     "quotaStories": "Storie",
-    "quotaPerWeek": "{{label}} a la semana",
+    "quotaPerWeek": "{{label}} en el periodo",
     "scheduleAll": "Programar publicación",
     "scheduleResult": "{{count}} contenidos programados",
     "scheduleResultFb": " · {{count}} en Facebook",
@@ -1348,6 +1348,14 @@
     "keyMomentPlaceholder": "Lo que ocurre visualmente en el capítulo (sin spoiler): quién hace qué, dónde",
     "reindexNlp": "Reextraer frases (NLP)",
     "reindexNlpDone": "{{count}} frases extraídas del libro",
-    "reindexNlpFailed": "Error al extraer las frases."
+    "reindexNlpFailed": "Error al extraer las frases.",
+    "characterChaptersLabel": "Capítulos en los que aparece",
+    "characterChaptersHint": "Selecciona los capítulos donde aparece el personaje: determina los personajes disponibles al regenerar imágenes.",
+    "sceneGenChaptersTitle": "Capítulos",
+    "sceneGenCharactersTitle": "Personajes",
+    "sceneGenHelp": "Selecciona los capítulos y elige cuántas imágenes hacer <strong>para cada capítulo</strong>; sin selección es «Auto» (capítulos varios). Puedes <strong>poner en cola</strong> más solicitudes (ej. primero en 9:16, luego cambias formato a 1:1 y añades de nuevo): la cola gira en secuencia sin detenerse hasta que pulses <strong>Cancelar</strong>. La generación es lenta (algunos minutos por imagen) y se ejecuta en local: el servidor debe seguir encendido.",
+    "flashbackEnable": "Activar flashback / recuerdo",
+    "flashbackSummaryYears": "−{{years}} años",
+    "flashbackSummaryOff": "Desactivado"
   }
 }

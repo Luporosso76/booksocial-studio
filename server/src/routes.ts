@@ -27,6 +27,7 @@ import {
   contentUsage,
   insights,
   links,
+  marketingCards,
   media,
   music,
   pages,
@@ -40,6 +41,7 @@ import * as aiSettings from "./content/aiSettings.js";
 import { Director } from "./media/director.js";
 import { SceneImageService } from "./services/sceneImageService.js";
 import { ChapterSceneService } from "./services/chapterSceneService.js";
+import { ChapterMarketingService } from "./services/chapterMarketingService.js";
 import { VISUAL_DOMAINS, isVisualDomainKey } from "./content/imageDomains.js";
 import { generateFromPrompt, imageGenAvailable, type SceneAspect } from "./media/imageGen.js";
 import { imageAspectRatio } from "./media/imageDimensions.js";
@@ -237,6 +239,8 @@ let mediaRegenWorkerRunning = false;
 // Guard contro la doppia esecuzione concorrente del ricalcolo presenza personaggi (per libro):
 // l'operazione è sincrona e lenta (1 chiamata GPT per capitolo), quindi blocchiamo i doppioni.
 const recomputingChapters = new Set<number>();
+// Stato del build (per libro) delle schede marketing, esposto da /marketing-cards/status.
+const marketingBuilds = new Map<number, { running: boolean; done: number; total: number }>();
 
 // Aspect SDXL dell'immagine dal suo ratio reale (per rigenerarla nella stessa forma).
 async function sceneAspectOfFile(path: string): Promise<SceneAspect> {
@@ -1032,6 +1036,20 @@ export function buildApi(deps: AppDeps): Hono {
       updatedAt: Date.now(),
     };
     await characters.update(updated);
+    // Presenza per capitolo editabile a mano: sovrascrive book_character.chapters (indici 0-based,
+    // dedup+ordinati). Utile quando la derivazione dalle schede scena GPT manca un presente (es.
+    // protagonista in prima persona mai nominato). NB: un ricalcolo completo della presenza
+    // (recompute-character-chapters / build bibbia visiva) ricostruisce dai cards e può sovrascrivere.
+    if (Array.isArray(body.chapters)) {
+      const chs = [
+        ...new Set(
+          (body.chapters as unknown[])
+            .map((x) => Number(x))
+            .filter((n) => Number.isInteger(n) && n >= 0),
+        ),
+      ].sort((a, b) => a - b);
+      await characters.setChapters(id, chs);
+    }
     const fresh = await characters.get(id);
     return c.json(fresh ? characterDto(fresh) : err("Personaggio non trovato"));
   });
@@ -1246,6 +1264,47 @@ export function buildApi(deps: AppDeps): Hono {
     } finally {
       recomputingChapters.delete(id);
     }
+  });
+
+  // GET /books/:id/marketing-cards — tutte le schede marketing del libro (ispezione/UI futura).
+  api.get("/books/:id/marketing-cards", async (c) => {
+    const id = Number(c.req.param("id"));
+    return c.json(await marketingCards.byBook(id));
+  });
+
+  // GET /books/:id/marketing-cards/status — progresso del build in corso, o conteggio attuale.
+  api.get("/books/:id/marketing-cards/status", async (c) => {
+    const id = Number(c.req.param("id"));
+    const st = marketingBuilds.get(id);
+    if (st) return c.json(st);
+    return c.json({ running: false, done: await marketingCards.countByBook(id), total: 0 });
+  });
+
+  // POST /books/:id/marketing-cards/build — costruisce in BACKGROUND tutte le schede marketing
+  // (fire-and-forget, una chiamata GPT per capitolo). Stato via /marketing-cards/status.
+  api.post("/books/:id/marketing-cards/build", async (c) => {
+    const id = Number(c.req.param("id"));
+    const book = await books.get(id);
+    if (!book) return c.json(err("Libro non trovato"), 404);
+    if (marketingBuilds.get(id)?.running) {
+      return c.json(err("Costruzione schede marketing già in corso"), 409);
+    }
+    marketingBuilds.set(id, { running: true, done: 0, total: 0 });
+    const svc = new ChapterMarketingService({ engine: deps.engine });
+    void svc
+      .buildAll(id, {
+        onTotal: (n) => marketingBuilds.set(id, { running: true, done: 0, total: n }),
+        onItem: () => {
+          const st = marketingBuilds.get(id);
+          if (st) st.done += 1;
+        },
+      })
+      .catch(() => {})
+      .finally(() => {
+        const st = marketingBuilds.get(id);
+        if (st) st.running = false;
+      });
+    return c.json({ started: true });
   });
 
   // ---------------- links ----------------
@@ -2492,6 +2551,13 @@ export function buildApi(deps: AppDeps): Hono {
       }
       const channel = channelFor(post);
       const hasMedia = post.mediaPath != null && post.mediaPath !== "";
+      // Niente visual pronto per un formato che lo richiede (PHOTO/REEL/STORY): NON programmare —
+      // resta DRAFT. Altrimenti diventerebbe SCHEDULED senza media e poi FAILED in pubblicazione.
+      if (channel !== "TEXT" && !hasMedia) {
+        skipped++;
+        messages.push(`#${post.id}: nessun visual pronto, resta in bozza`);
+        continue;
+      }
       // Programmazione NATIVA FB: testo, foto (con media) e ora anche Reel (con media).
       // Le storie restano sempre sul job interno (FB non le programma).
       const fbSchedulable =
@@ -2584,7 +2650,14 @@ export function buildApi(deps: AppDeps): Hono {
     if (typeof body.message === "string" && body.message.trim() !== "") {
       post.message = body.message;
     }
-    if (typeof body.hashtags === "string") {
+    // Il frontend invia hashtags come ARRAY (string[]); accettiamo anche la stringa (retrocompat).
+    if (Array.isArray(body.hashtags)) {
+      const joined = (body.hashtags as unknown[])
+        .map((t) => String(t).trim())
+        .filter((t) => t !== "")
+        .join(" ");
+      post.hashtags = joined === "" ? null : joined;
+    } else if (typeof body.hashtags === "string") {
       post.hashtags = body.hashtags.trim() === "" ? null : body.hashtags;
     }
     if (typeof body.scheduledAt === "number" && Number.isFinite(body.scheduledAt)) {

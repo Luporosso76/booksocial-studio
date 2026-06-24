@@ -591,12 +591,12 @@
     "edit": "Bearbeiten",
     "draftDeleteFailed": "Löschen fehlgeschlagen.",
     "regenerateFailed": "Regenerierung fehlgeschlagen.",
-    "quotasTitle": "Wöchentliche Quoten",
-    "quotasDescription": "Lege fest, wie viele Veröffentlichungen du möchtest: Die Engine bestimmt automatisch Tage, Zeiten und Formate.",
+    "quotasTitle": "Quoten für den Zeitraum",
+    "quotasDescription": "Lege fest, wie viele Veröffentlichungen du im gewählten Zeitraum möchtest: Die Engine bestimmt automatisch Tage, Zeiten und Formate.",
     "quotaPosts": "Posts",
     "quotaReels": "Reel",
     "quotaStories": "Stories",
-    "quotaPerWeek": "{{label}} pro Woche",
+    "quotaPerWeek": "{{label}} im Zeitraum",
     "scheduleAll": "Veröffentlichung planen",
     "scheduleResult": "{{count}} geplante Inhalte",
     "scheduleResultFb": " · {{count}} auf Facebook",
@@ -1348,6 +1348,14 @@
     "keyMomentPlaceholder": "Das visuelle Geschehen des Kapitels (ohne Spoiler): wer tut was, wo",
     "reindexNlp": "Zitate neu extrahieren (NLP)",
     "reindexNlpDone": "{{count}} Zitate aus dem Buch extrahiert",
-    "reindexNlpFailed": "Zitat-Extraktion fehlgeschlagen."
+    "reindexNlpFailed": "Zitat-Extraktion fehlgeschlagen.",
+    "characterChaptersLabel": "Kapitel mit Auftritt",
+    "characterChaptersHint": "Wähle die Kapitel, in denen die Figur vorkommt: bestimmt die verfügbaren Figuren beim Neugenerieren der Bilder.",
+    "sceneGenChaptersTitle": "Kapitel",
+    "sceneGenCharactersTitle": "Charaktere",
+    "sceneGenHelp": "Wähle die Kapitel aus und lege fest, wie viele Bilder <strong>pro Kapitel</strong> erstellt werden sollen; ohne Auswahl gilt «Auto» (verschiedene Kapitel). Du kannst mehrere Anfragen <strong>in die Warteschlange einreihen</strong> (z. B. erst 9:16, dann Format auf 1:1 ändern und erneut hinzufügen): Die Warteschlange wird nacheinander abgearbeitet, bis du auf <strong>Abbrechen</strong> klickst. Die Generierung ist langsam (einige Minuten pro Bild) und läuft lokal: Der Server muss eingeschaltet bleiben.",
+    "flashbackEnable": "Flashback / Erinnerung aktivieren",
+    "flashbackSummaryYears": "−{{years}} Jahre",
+    "flashbackSummaryOff": "Aus"
   }
 }

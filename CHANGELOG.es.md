@@ -5,6 +5,36 @@ Todos los cambios notables de este proyecto están documentados en este archivo.
 El formato se basa en [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 y este proyecto se adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-06-24
+
+### Añadido
+
+- **Fichas de marketing por capítulo**: una comprensión narrativa persistente de cada capítulo (resumen
+  sin spoilers, núcleo emocional, pregunta al lector, citas seguras y ángulos de post puntuados) que
+  fundamenta la generación de posts, creada una vez por capítulo y reutilizada.
+- **Clasificador de ideas con rotación de ángulos**: los posts usan los ángulos previamente validados del
+  capítulo y los rotan, de modo que un capítulo reutilizado da un ángulo distinto cada vez.
+- **Juez de calidad**: una pasada final que descarta los posts genéricos (los que servirían para
+  cualquier libro) y los regenera una vez con una indicación específica.
+- **Editor de presencia de personajes por capítulo**: define manualmente en qué capítulos aparece un personaje.
+- **Imágenes reproducibles**: la semilla (seed) de generación se guarda con cada imagen generada.
+
+### Cambiado
+
+- **Posts más fundamentados**: una checklist interna obliga a cada post a usar un detalle concreto del
+  capítulo, con citas reales sin spoilers y un lenguaje más anti-genérico y anti-IA.
+- **La ropa y los objetos de escena siguen la dirección artística del libro**: la ropa de
+  práctica/ceremonia/época y los objetos clave descritos en las directrices visuales ahora se respetan en
+  el canon y en las fichas de escena de los capítulos.
+- **Las cuotas del planificador son el total del período elegido** (semana/mes/personalizado), sin
+  escalado oculto; el planificador ahora garantiza que cada contenido solicitado se coloque, incluso con pocos horarios.
+- **Panel de imágenes de escena rediseñado**: secciones de Capítulos/Personajes plegables y diseño más compacto.
+
+### Corregido
+
+- La edición de los hashtags de un borrador ahora se guarda correctamente.
+- Los posts, reels e historias sin visual permanecen como borradores en lugar de fallar al publicar.
+
 ## [0.2.0] - 2026-06-23
 
 ### Añadido

@@ -124,6 +124,7 @@ export async function stepOutfits(
       settings,
       sourceText,
       country,
+      directives: book.visualDirectives ?? null,
     });
     if (outfits) {
       await characters.update({ ...ch, outfits, updatedAt: Date.now() });

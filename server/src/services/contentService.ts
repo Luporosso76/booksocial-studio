@@ -8,11 +8,28 @@ import {
   type GeneratedPost,
 } from "../content/postGenerator.js";
 import { parseModelJson } from "../content/modelJson.js";
+import { pickBestAngle, marketingAngleKey } from "../content/postIdeaRanker.js";
+import { ChapterMarketingService } from "./chapterMarketingService.js";
 import { readBook, joinChapters, sha256, type ImportedBook } from "../content/importer.js";
 import { indexBook } from "../content/nlpIndex.js";
-import { books, characters, generations, links, pages, posts, quotes } from "../db/repositories.js";
+import {
+  books,
+  characters,
+  contentUsage,
+  generations,
+  links,
+  marketingCards,
+  pages,
+  posts,
+  quotes,
+} from "../db/repositories.js";
 import * as aiSettings from "../content/aiSettings.js";
-import { CURRENT_PROMPT_VERSION, type Book, type MediaType } from "../domain.js";
+import {
+  CURRENT_PROMPT_VERSION,
+  type Book,
+  type ChapterMarketingCardData,
+  type MediaType,
+} from "../domain.js";
 
 // Combina istruzioni-extra globali + per-libro in un unico blocco accodato ai prompt. Scarta i
 // vuoti; "" se non c'è nulla (prompt invariato).
@@ -278,6 +295,9 @@ export class ContentService {
     // "Rigenera tutto tranne link e immagini": azzera le schede visive dei capitoli così
     // verranno ricostruite da zero on-demand. NON tocca book_link né media_asset (preservati).
     await books.clearChapterScenes(bookId);
+    // Le schede marketing dipendono dal contenuto del capitolo: invalidale così verranno
+    // ricostruite on-demand alla prossima generazione.
+    await marketingCards.deleteByBook(bookId);
   }
 
   // Ri-esegue SOLO il pre-pass NLP (citazioni reali + metriche personaggi) e lo persiste, senza
@@ -396,6 +416,41 @@ export class ContentService {
     return chosen.length === 0 ? "" : `\n\n${chosen.join("\n")}`;
   }
 
+  // Carica (o costruisce on-demand, in cache) la scheda marketing del capitolo e fa scegliere
+  // all'idea ranker l'angolo migliore. Best-effort: su errore o capitolo assente ritorna {null,null} e
+  // la generazione ricade sul solo capitolo (comportamento storico).
+  private async marketingFor(
+    bookId: number,
+    chapterIndex: number | null,
+    pageId: string | null,
+  ): Promise<{
+    card: ChapterMarketingCardData | null;
+    chosenAngle: { type: string; hook: string } | null;
+    chosenAngleKey: string | null;
+  }> {
+    if (chapterIndex == null) return { card: null, chosenAngle: null, chosenAngleKey: null };
+    try {
+      const marketing = new ChapterMarketingService({ engine: this.engine });
+      const built = await marketing.getOrBuild(bookId, chapterIndex);
+      if (!built) return { card: null, chosenAngle: null, chosenAngleKey: null };
+      // Rotazione LRU: pesca i conteggi d'uso degli angoli per QUESTO capitolo → scegli il meno usato.
+      const usedCounts =
+        pageId == null
+          ? undefined
+          : await contentUsage
+              .marketingAngleCounts(pageId, bookId, chapterIndex)
+              .catch(() => undefined);
+      const best = pickBestAngle(built.data.postAngles, { usedCounts });
+      return {
+        card: built.data,
+        chosenAngle: best ? { type: best.type, hook: best.hook } : null,
+        chosenAngleKey: best ? marketingAngleKey(best) : null,
+      };
+    } catch {
+      return { card: null, chosenAngle: null, chosenAngleKey: null };
+    }
+  }
+
   // Personaggi del libro (briefs concisi) da iniettare nel prompt di generazione.
   private async characterBriefs(bookId: number): Promise<CharacterBrief[]> {
     const list = await characters.byBook(bookId);
@@ -430,6 +485,9 @@ export class ContentService {
     const avoid = new Set(opts?.avoidChapterIndexes ?? []);
     const excerpt = await this.safeChapterExcerpt(bookId, avoid);
     const characterBriefs = await this.characterBriefs(bookId);
+    // Scheda marketing del capitolo (comprensione pre-calcolata) + idea ranker. Best-effort: se
+    // manca/fallisce, il post si genera comunque dal solo capitolo (comportamento storico).
+    const marketing = await this.marketingFor(bookId, excerpt?.chapterIndex ?? null, pageId);
 
     const generated = await generatePost(this.engine, {
       profile,
@@ -444,6 +502,8 @@ export class ContentService {
         aiSettings.getPromptExtras().text,
         book?.textExtraInstructions,
       ),
+      marketingCard: marketing.card,
+      chosenAngle: marketing.chosenAngle,
     });
 
     // Accoda i link SOLO per i post (testo/foto), dove sono cliccabili. Reel/storie: niente link.
@@ -462,6 +522,7 @@ export class ContentService {
       mediaType: generated.mediaType,
       rationale: generated.rationale,
       sourceChapterIndex: excerpt?.chapterIndex ?? null,
+      chosenAngleKey: marketing.chosenAngleKey,
     };
 
     await generations.insert({
@@ -512,6 +573,11 @@ export class ContentService {
     const language = book?.language ?? "it";
     const excerpt = await this.safeChapterExcerpt(post.bookId);
     const characterBriefs = await this.characterBriefs(post.bookId);
+    const marketing = await this.marketingFor(
+      post.bookId,
+      excerpt?.chapterIndex ?? null,
+      post.pageId,
+    );
 
     const generated = await generatePost(this.engine, {
       profile,
@@ -526,6 +592,8 @@ export class ContentService {
         aiSettings.getPromptExtras().text,
         book?.textExtraInstructions,
       ),
+      marketingCard: marketing.card,
+      chosenAngle: marketing.chosenAngle,
     });
 
     const isPost =

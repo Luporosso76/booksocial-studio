@@ -305,10 +305,14 @@ export class SceneImageService {
 
     if (opts?.signal?.aborted) return null;
     const outPath = join(mediaDir(), `scene-${bookId}-${randomUUID()}.png`);
+    // Seed generato QUI (non dentro il backend) così possiamo PERSISTERLO: con stesso prompt+seed
+    // l'immagine è riproducibile. Vale per il backend locale sd-cli; i provider HTTP lo ignorano.
+    const seed = Math.floor(Math.random() * 1_000_000_000);
     const ok = await generateSceneImage({
       subjectScene: scene.description,
       aspect,
       outPath,
+      seed,
       signal: opts?.signal,
     });
     if (!ok) return null;
@@ -323,6 +327,7 @@ export class SceneImageService {
       genPrompt: buildScenePrompt(scene.description),
       chapterIdx: scene.chapterIndex, // capitolo di riferimento (catalogazione)
       tags: scene.tags, // soggetti/mood (catalogazione + selezione per pertinenza)
+      seed, // seed di generazione (riproducibilità)
       addedAt: Date.now(), // qa: default null; il verdetto QA è riempito sotto (best-effort)
     });
     // QUALITY CHECK visivo: un modello multimodale GUARDA l'immagine e segnala i problemi.

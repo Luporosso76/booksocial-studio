@@ -5,6 +5,35 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-06-24
+
+### Added
+
+- **Chapter marketing cards**: a persistent narrative understanding of each chapter (non-spoiler
+  summary, emotional core, reader question, safe quotes and scored post angles) that grounds post
+  generation, built once per chapter and reused.
+- **Idea ranker with angle rotation**: posts draw from the chapter's pre-vetted angles and rotate
+  through them, so a reused chapter yields a different angle each time (maximum variety).
+- **Quality judge**: a final pass that rejects generic posts (ones that could fit any book) and
+  regenerates them once with a targeted hint.
+- **Per-character chapter presence editor**: manually set in which chapters a character appears.
+- **Reproducible images**: the generation seed is stored with each generated image.
+
+### Changed
+
+- **Posts are more grounded**: an internal checklist forces each post to use a concrete detail from the
+  chapter, with real non-spoiler quotes and stronger anti-generic, anti-AI wording.
+- **Outfits and scene objects follow the book's art direction**: practice/ceremony/era clothing and the
+  key objects described in the visual directives are now respected in the canon and the chapter scene cards.
+- **Planner quotas are the total for the chosen period** (week/month/custom), with no hidden scaling;
+  the planner now guarantees every requested item is placed, even with few posting slots.
+- **Scene image panel redesigned**: collapsible Chapters/Characters sections and a more compact layout.
+
+### Fixed
+
+- Editing a draft's hashtags now saves correctly.
+- Posts, reels and stories without a visual stay as drafts instead of failing on publish.
+
 ## [0.2.0] - 2026-06-23
 
 ### Added

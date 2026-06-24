@@ -414,6 +414,7 @@ export const updateCharacter = (
   patch: Partial<CharacterInput> & {
     physical?: string | null;
     outfits?: CharacterOutfits;
+    chapters?: number[];
   },
 ) => apiPut<BookCharacter>(`/characters/${characterId}`, patch);
 

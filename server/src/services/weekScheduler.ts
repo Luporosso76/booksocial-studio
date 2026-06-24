@@ -259,6 +259,35 @@ export function buildSchedule(opts: ScheduleOpts): ScheduledItem[] {
     guard++;
   }
 
+  // ---- FALLBACK GARANTITO: la spaziatura ideale (1/giorno, ≥90 min storia↔principale, bias serale)
+  // può lasciare fuori dei contenuti quando i giorni/finestre scarseggiano. Qui completiamo la QUOTA
+  // del periodo piazzando i mancanti in QUALSIASI finestra futura dell'orizzonte (unico vincolo: niente
+  // collisione di minuto esatto). Meglio 5 contenuti un po' più ravvicinati che 4. "vedi = ottieni".
+  const placedByType: Record<ContentType, number> = { post: 0, reel: 0, story: 0 };
+  for (const it of items) placedByType[it.type] += 1;
+  const want: Record<ContentType, number> = {
+    post: Math.max(0, opts.quotas.posts),
+    reel: Math.max(0, opts.quotas.reels),
+    story: Math.max(0, opts.quotas.stories),
+  };
+  const placeAnywhere = (): Date | null => {
+    for (const day of byWeight) {
+      for (const w of day.windows) {
+        const when = pickWithinWindow(day, w, opts.from, taken, rng, false);
+        if (when) return when;
+      }
+    }
+    return null;
+  };
+  for (const type of ["post", "reel", "story"] as ContentType[]) {
+    while (placedByType[type] < want[type]) {
+      const when = placeAnywhere();
+      if (!when) break; // nessuno slot futuro libero in tutto l'orizzonte (finestre sature)
+      items.push({ when, type });
+      placedByType[type] += 1;
+    }
+  }
+
   items.sort((a, b) => a.when.getTime() - b.when.getTime());
   return items;
 }

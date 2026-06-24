@@ -108,26 +108,15 @@ export class WeekPlanner {
       };
     }
 
-    // Orizzonte: settimana (7), mese (~28) o range personalizzato. Le quote settimanali
-    // vengono scalate in proporzione ai giorni. Garanzia: un range corto produce comunque
-    // almeno UN contenuto (utile per un test "solo oggi").
+    // Orizzonte: settimana (7), mese (~28) o range personalizzato. Le quote sono il TOTALE per il
+    // periodo scelto (nessuna scalatura): imposti 2 post / 2 reel / 1 storia → generi esattamente
+    // quello nel periodo, qualunque sia la sua durata. "vedi = ottieni".
     const horizonDays = Math.max(1, Math.floor(period?.horizonDays ?? 7));
-    const scale = horizonDays / 7;
     const quotas = {
-      posts: Math.round(weekly.posts * scale),
-      reels: Math.round(weekly.reels * scale),
-      stories: Math.round(weekly.stories * scale),
+      posts: Math.max(0, weekly.posts),
+      reels: Math.max(0, weekly.reels),
+      stories: Math.max(0, weekly.stories),
     };
-    if (quotas.posts + quotas.reels + quotas.stories <= 0) {
-      // Range troppo corto perché la proporzione arrotondi a >0: metti 1 del tipo dominante.
-      if (weekly.posts >= weekly.reels && weekly.posts >= weekly.stories && weekly.posts > 0) {
-        quotas.posts = 1;
-      } else if (weekly.reels >= weekly.stories && weekly.reels > 0) {
-        quotas.reels = 1;
-      } else if (weekly.stories > 0) {
-        quotas.stories = 1;
-      }
-    }
 
     // Finestre orarie permesse: dagli slot della pagina, o default best-practice.
     const pageSlots = await slots.byPage(pageId);
@@ -205,7 +194,7 @@ export class WeekPlanner {
         const mediaType = formatToMediaType(cf);
 
         // 2) Testo coerente col textMode; evita i capitoli già usati (anche di questa settimana).
-        const { message, hashtags, chapterIndex } = await this.generateText(
+        const { message, hashtags, chapterIndex, chosenAngleKey } = await this.generateText(
           cf,
           bookId,
           pageId,
@@ -286,6 +275,9 @@ export class WeekPlanner {
           // Registra il capitolo del VISUAL (per textMode 'none' coincide col capitolo fresco
           // scelto sopra): così la rotazione per-capitolo persiste anche tra run successive.
           chapterIndex: visualChapterIndex,
+          // Angolo marketing-card usato dal TESTO (null per textMode 'none'): abilita la rotazione LRU
+          // degli angoli per capitolo. Scoped allo stesso chapter_index del testo (quando c'è testo).
+          angleKey: chosenAngleKey,
           createdAt: now,
         };
         await contentUsage.insert(usage).catch((e: unknown) => {
@@ -369,10 +361,20 @@ export class WeekPlanner {
     angle: string,
     mediaType: MediaType,
     avoidChapterIndexes: number[],
-  ): Promise<{ message: string; hashtags: string | null; chapterIndex: number | null }> {
+  ): Promise<{
+    message: string;
+    hashtags: string | null;
+    chapterIndex: number | null;
+    chosenAngleKey: string | null;
+  }> {
     if (cf.textMode === "none") {
       // Niente testo, ma SEMPRE hashtag nella caption (trovabilità): base del libro o derivati.
-      return { message: "", hashtags: await this.bookHashtags(bookId), chapterIndex: null };
+      return {
+        message: "",
+        hashtags: await this.bookHashtags(bookId),
+        chapterIndex: null,
+        chosenAngleKey: null,
+      };
     }
     const effAngle =
       cf.textMode === "short"
@@ -381,7 +383,12 @@ export class WeekPlanner {
     const g = await this.content.generatePost(bookId, pageId, pageName, effAngle, mediaType, {
       avoidChapterIndexes,
     });
-    return { message: g.message, hashtags: g.hashtags, chapterIndex: g.sourceChapterIndex ?? null };
+    return {
+      message: g.message,
+      hashtags: g.hashtags,
+      chapterIndex: g.sourceChapterIndex ?? null,
+      chosenAngleKey: g.chosenAngleKey ?? null,
+    };
   }
 
   // Sceglie una traccia musicale per i formati video (reel/storia video) con rotazione LRU:

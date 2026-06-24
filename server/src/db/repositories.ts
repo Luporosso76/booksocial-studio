@@ -18,6 +18,8 @@ import {
   type BookVisualExtras,
   type BookLink,
   type BookProfile,
+  type ChapterMarketingCard,
+  type ChapterMarketingCardData,
   type ContentUsage,
   type FacebookPage,
   type FormatAspect,
@@ -345,6 +347,7 @@ function mapMedia(r: Row): MediaAsset {
             .filter(Boolean)
         : [],
     qa: parseQa(r.qa_json),
+    seed: r.gen_seed == null ? null : Number(r.gen_seed),
     addedAt: Number(r.added_at),
   };
 }
@@ -443,6 +446,7 @@ function mapUsage(r: Row): ContentUsage {
     quoteKey: (r.quote_key as string | null) ?? null,
     musicId: r.music_id == null ? null : Number(r.music_id),
     chapterIndex: r.chapter_index == null ? null : Number(r.chapter_index),
+    angleKey: (r.angle_key as string | null) ?? null,
     createdAt: Number(r.created_at),
   };
 }
@@ -973,9 +977,11 @@ export const media = {
     await execute("DELETE FROM media_asset WHERE path=?", [toDataRelative(path)]);
   },
 
-  async insert(m: Omit<MediaAsset, "id" | "qa"> & { qa?: SceneQa | null }): Promise<MediaAsset> {
+  async insert(
+    m: Omit<MediaAsset, "id" | "qa" | "seed"> & { qa?: SceneQa | null; seed?: number | null },
+  ): Promise<MediaAsset> {
     const r = await execute(
-      "INSERT INTO media_asset(book_id, chapter_id, scope, path, caption, gen_prompt, chapter_idx, tags, added_at) VALUES (?,?,?,?,?,?,?,?,?)",
+      "INSERT INTO media_asset(book_id, chapter_id, scope, path, caption, gen_prompt, chapter_idx, tags, gen_seed, added_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
       [
         m.bookId,
         m.chapterId,
@@ -985,6 +991,7 @@ export const media = {
         m.genPrompt,
         m.chapterIdx,
         m.tags.length > 0 ? m.tags.join(",") : null,
+        m.seed ?? null,
         m.addedAt,
       ],
     );
@@ -1461,8 +1468,8 @@ export const contentUsage = {
   async insert(u: Omit<ContentUsage, "id">): Promise<ContentUsage> {
     const r = await execute(
       `INSERT INTO content_usage(page_id, book_id, post_id, text_mode, visual_kind,
-              visual_content, aspect, image_ids, quote_key, music_id, chapter_index, created_at)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
+              visual_content, aspect, image_ids, quote_key, music_id, chapter_index, angle_key, created_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       [
         u.pageId,
         u.bookId,
@@ -1475,6 +1482,7 @@ export const contentUsage = {
         u.quoteKey,
         u.musicId,
         u.chapterIndex,
+        u.angleKey,
         u.createdAt,
       ],
     );
@@ -1496,6 +1504,24 @@ export const contentUsage = {
   // torna subito disponibile per la rotazione invece di restare consumato.
   async deleteByPost(postId: number): Promise<void> {
     await execute("DELETE FROM content_usage WHERE post_id=?", [postId]);
+  },
+
+  // Conteggi d'uso degli ANGOLI (marketing card) per UN capitolo: quante volte ogni angolo è già
+  // stato usato per quel (pagina, libro, capitolo). Guida la rotazione LRU dell'idea ranker.
+  async marketingAngleCounts(
+    pageId: string,
+    bookId: number,
+    chapterIndex: number,
+  ): Promise<Map<string, number>> {
+    const rows = await query<{ angle_key: string | null }>(
+      "SELECT angle_key FROM content_usage WHERE page_id=? AND book_id=? AND chapter_index=? AND angle_key IS NOT NULL",
+      [pageId, bookId, chapterIndex],
+    );
+    const m = new Map<string, number>();
+    for (const r of rows) {
+      if (r.angle_key) m.set(r.angle_key, (m.get(r.angle_key) ?? 0) + 1);
+    }
+    return m;
   },
 
   // Conteggi d'uso (rotazione LRU) su tutto lo storico pagina+libro: quante volte ogni
@@ -1591,5 +1617,94 @@ export const contentUsage = {
       leastUsedImageIds: byCountAsc.slice(0, 20),
       recentQuoteKeys: quoteOrder.slice(0, 20),
     };
+  },
+};
+
+function mapMarketingCard(r: Row): ChapterMarketingCard {
+  let data: ChapterMarketingCardData;
+  try {
+    data = JSON.parse(r.card_json as string) as ChapterMarketingCardData;
+  } catch {
+    // Riga corrotta: card vuota tollerante (il chiamante può rigenerare).
+    data = {
+      spoilerLevel: "low",
+      nonSpoilerSummary: "",
+      emotionalCore: "",
+      humanTruth: "",
+      readerQuestion: "",
+      mainTension: "",
+      visualMoment: "",
+      safeQuotes: [],
+      characterFocus: [],
+      postAngles: [],
+    };
+  }
+  return {
+    bookId: Number(r.book_id),
+    chapterIndex: Number(r.chapter_index),
+    schemaVersion: Number(r.schema_version),
+    data,
+    model: (r.model as string | null) ?? null,
+    updatedAt: Number(r.updated_at),
+  };
+}
+
+export const marketingCards = {
+  async get(bookId: number, chapterIndex: number): Promise<ChapterMarketingCard | null> {
+    const rows = await query(
+      "SELECT * FROM chapter_marketing_card WHERE book_id=? AND chapter_index=?",
+      [bookId, chapterIndex],
+    );
+    return rows.length ? mapMarketingCard(rows[0]) : null;
+  },
+
+  async byBook(bookId: number): Promise<ChapterMarketingCard[]> {
+    const rows = await query(
+      "SELECT * FROM chapter_marketing_card WHERE book_id=? ORDER BY chapter_index",
+      [bookId],
+    );
+    return rows.map(mapMarketingCard);
+  },
+
+  async countByBook(bookId: number): Promise<number> {
+    const rows = await query("SELECT COUNT(*) AS n FROM chapter_marketing_card WHERE book_id=?", [
+      bookId,
+    ]);
+    return rows.length ? Number(rows[0].n) : 0;
+  },
+
+  // Inserisce o aggiorna (UNIQUE book_id+chapter_index) la scheda marketing del capitolo.
+  async upsert(c: {
+    bookId: number;
+    chapterIndex: number;
+    schemaVersion: number;
+    data: ChapterMarketingCardData;
+    model: string | null;
+  }): Promise<void> {
+    const now = Date.now();
+    await execute(
+      `INSERT INTO chapter_marketing_card(book_id, chapter_index, schema_version, spoiler_level, card_json, model, created_at, updated_at)
+       VALUES (?,?,?,?,?,?,?,?)
+       ON CONFLICT(book_id, chapter_index) DO UPDATE SET
+         schema_version=excluded.schema_version,
+         spoiler_level=excluded.spoiler_level,
+         card_json=excluded.card_json,
+         model=excluded.model,
+         updated_at=excluded.updated_at`,
+      [
+        c.bookId,
+        c.chapterIndex,
+        c.schemaVersion,
+        c.data.spoilerLevel,
+        JSON.stringify(c.data),
+        c.model,
+        now,
+        now,
+      ],
+    );
+  },
+
+  async deleteByBook(bookId: number): Promise<void> {
+    await execute("DELETE FROM chapter_marketing_card WHERE book_id=?", [bookId]);
   },
 };

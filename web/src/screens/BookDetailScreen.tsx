@@ -11,6 +11,7 @@ import {
   EyeOff,
   FileText,
   ImagePlus,
+  Info,
   Link as LinkIcon,
   MoreVertical,
   Palette,
@@ -3019,11 +3020,34 @@ function SceneGenSection({
 
   const busy = progress !== null;
 
+  // Riepiloghi mostrati nell'header dei Collapsible quando sono chiusi (la riga resta scannerabile
+  // senza espandere): stato capitoli/personaggi/flashback in una frase corta.
+  const chaptersSummary =
+    selectedChapters.length === 0
+      ? t("book.sceneGen.chaptersAuto")
+      : t("book.sceneGen.chaptersSelected", { count: selectedChapters.length, each: count });
+  const charactersSummary =
+    selectedCharacters.length === 0
+      ? t("book.sceneGen.charactersAuto")
+      : selectedCharacters.slice(0, 3).join(", ") +
+        (selectedCharacters.length > 3 ? ` +${selectedCharacters.length - 3}` : "");
+  const flashbackSummary = flashbackOn
+    ? t("bookDetail.flashbackSummaryYears", { years: flashbackYears }) +
+      (flashbackSetting.trim() ? ` · ${flashbackSetting.trim()}` : "")
+    : t("bookDetail.flashbackSummaryOff");
+
   return (
     <div className="flex flex-col gap-3 rounded-lg border border-accent/20 bg-accent-soft/40 p-4">
       <div className="flex items-center gap-2">
         <Wand2 className="h-4 w-4 text-accent" />
         <h4 className="text-sm font-semibold text-content-primary">{t("book.sceneGen.heading")}</h4>
+        <Tooltip
+          content={<Trans i18nKey="bookDetail.sceneGenHelp" components={{ strong: <strong /> }} />}
+        >
+          <span className="ml-auto inline-flex shrink-0 text-content-tertiary">
+            <Info className="h-4 w-4" />
+          </span>
+        </Tooltip>
       </div>
 
       {error && <ErrorBanner message={error} />}
@@ -3064,114 +3088,120 @@ function SceneGenSection({
         </Button>
       </div>
 
-      <Field
-        label={
-          selectedChapters.length === 0
-            ? t("book.sceneGen.chaptersAuto")
-            : t("book.sceneGen.chaptersSelected", { count: selectedChapters.length, each: count })
-        }
-      >
-        <div className="flex max-h-40 flex-col gap-1 overflow-y-auto rounded-md border border-border-subtle bg-bg-card p-2">
-          {chapters
-            .filter((ch) => ch.index != null)
-            .map((ch) => {
-              const idx = ch.index as number;
-              const isExcluded = ch.excluded === true;
-              const on = selectedChapters.includes(idx);
-              return (
-                <label
-                  key={ch.id}
-                  className={cn(
-                    "flex items-center gap-2 text-xs text-content-secondary",
-                    isExcluded ? "cursor-not-allowed opacity-50" : "cursor-pointer",
-                  )}
-                >
-                  <input
-                    type="checkbox"
-                    checked={on && !isExcluded}
-                    disabled={starting || isExcluded}
-                    onChange={() =>
-                      setSelectedChapters((prev) =>
-                        on ? prev.filter((x) => x !== idx) : [...prev, idx].sort((a, b) => a - b),
-                      )
-                    }
-                  />
-                  <span className="truncate">
-                    {idx}. {ch.title?.trim() || t("book.sceneGen.untitled")}
-                  </span>
-                  {isExcluded && <Badge tone="neutral">{t("book.sceneGen.excluded")}</Badge>}
-                </label>
-              );
-            })}
-        </div>
-      </Field>
-
-      {cast.length > 0 && (
-        <Field
-          label={
-            selectedCharacters.length === 0
-              ? t("book.sceneGen.charactersAuto")
-              : t("book.sceneGen.charactersSelected", { count: selectedCharacters.length })
-          }
+      {/* Capitoli + Personaggi: collassati per default, affiancati su schermi larghi. */}
+      <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
+        <Collapsible
+          title={t("bookDetail.sceneGenChaptersTitle")}
+          summary={chaptersSummary}
+          bodyClassName="p-0"
         >
-          <div className="flex max-h-40 flex-col gap-1 overflow-y-auto rounded-md border border-border-subtle bg-bg-card p-2">
-            {cast.map((c) => {
-              const on = selectedCharacters.includes(c.name);
-              return (
-                <label
-                  key={c.id}
-                  className="flex cursor-pointer items-center gap-2 text-xs text-content-secondary"
-                >
-                  <input
-                    type="checkbox"
-                    checked={on}
-                    disabled={starting}
-                    onChange={() =>
-                      setSelectedCharacters((prev) =>
-                        on ? prev.filter((x) => x !== c.name) : [...prev, c.name],
-                      )
-                    }
+          <div className="flex max-h-48 flex-col gap-1 overflow-y-auto p-3">
+            {chapters
+              .filter((ch) => ch.index != null)
+              .map((ch) => {
+                const idx = ch.index as number;
+                const isExcluded = ch.excluded === true;
+                const on = selectedChapters.includes(idx);
+                return (
+                  <label
+                    key={ch.id}
+                    className={cn(
+                      "flex items-center gap-2 text-xs text-content-secondary",
+                      isExcluded ? "cursor-not-allowed opacity-50" : "cursor-pointer",
+                    )}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={on && !isExcluded}
+                      disabled={starting || isExcluded}
+                      onChange={() =>
+                        setSelectedChapters((prev) =>
+                          on ? prev.filter((x) => x !== idx) : [...prev, idx].sort((a, b) => a - b),
+                        )
+                      }
+                    />
+                    <span className="truncate">
+                      {idx}. {ch.title?.trim() || t("book.sceneGen.untitled")}
+                    </span>
+                    {isExcluded && <Badge tone="neutral">{t("book.sceneGen.excluded")}</Badge>}
+                  </label>
+                );
+              })}
+          </div>
+        </Collapsible>
+
+        {cast.length > 0 && (
+          <Collapsible
+            title={t("bookDetail.sceneGenCharactersTitle")}
+            summary={charactersSummary}
+            bodyClassName="p-0"
+          >
+            <div className="flex flex-col gap-2 p-3">
+              <div className="flex max-h-48 flex-col gap-1 overflow-y-auto">
+                {cast.map((c) => {
+                  const on = selectedCharacters.includes(c.name);
+                  return (
+                    <label
+                      key={c.id}
+                      className="flex cursor-pointer items-center gap-2 text-xs text-content-secondary"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={on}
+                        disabled={starting}
+                        onChange={() =>
+                          setSelectedCharacters((prev) =>
+                            on ? prev.filter((x) => x !== c.name) : [...prev, c.name],
+                          )
+                        }
+                      />
+                      <span className="truncate">
+                        {c.name} (
+                        {c.chapters.length
+                          ? t("book.sceneGen.charChapters", { chapters: c.chapters.join(", ") })
+                          : t("book.sceneGen.charNoChapter")}
+                        )
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+              {selectedCharacters.length > 0 && (
+                <p className="text-xs text-content-tertiary">
+                  <Trans
+                    i18nKey="book.sceneGen.charactersFeatureNote"
+                    values={{ names: selectedCharacters.join(", ") }}
+                    components={{ 1: <strong /> }}
                   />
-                  <span className="truncate">
-                    {c.name} (
-                    {c.chapters.length
-                      ? t("book.sceneGen.charChapters", { chapters: c.chapters.join(", ") })
-                      : t("book.sceneGen.charNoChapter")}
-                    )
-                  </span>
-                </label>
-              );
-            })}
-          </div>
-          {selectedCharacters.length > 0 && (
-            <p className="mt-1 text-xs text-content-tertiary">
-              <Trans
-                i18nKey="book.sceneGen.charactersFeatureNote"
-                values={{ names: selectedCharacters.join(", ") }}
-                components={{ 1: <strong /> }}
-              />
-            </p>
-          )}
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            <Button
-              variant="secondary"
-              size="sm"
-              loading={recomputing}
-              disabled={recomputing}
-              onClick={recomputeChapters}
-            >
-              {t("book.sceneGen.recomputePresence")}
-            </Button>
-            <span className="text-xs text-content-tertiary">
-              {t("book.sceneGen.recomputeHint")}
-            </span>
-          </div>
-        </Field>
-      )}
+                </p>
+              )}
+              <div className="flex flex-wrap items-center gap-2 border-t border-border-subtle pt-2">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  loading={recomputing}
+                  disabled={recomputing}
+                  onClick={recomputeChapters}
+                >
+                  {t("book.sceneGen.recomputePresence")}
+                </Button>
+                <span className="text-xs text-content-tertiary">
+                  {t("book.sceneGen.recomputeHint")}
+                </span>
+              </div>
+            </div>
+          </Collapsible>
+        )}
+      </div>
 
       {/* FLASHBACK/ricordo (opzionale): per le scene del passato. Scavalca età e outfit canonici e
           rende i personaggi più giovani, vestiti per l'epoca/luogo del ricordo. */}
-      <div className="rounded-md border border-border-subtle bg-bg-card p-3">
+      <Collapsible
+        title={t("book.sceneGen.flashback")}
+        summary={flashbackSummary}
+        defaultOpen={flashbackOn}
+        bodyClassName="flex flex-col gap-3"
+      >
         <label className="flex cursor-pointer items-center gap-2 text-sm text-content-secondary">
           <input
             type="checkbox"
@@ -3179,10 +3209,10 @@ function SceneGenSection({
             disabled={starting}
             onChange={(e) => setFlashbackOn(e.target.checked)}
           />
-          <span className="font-medium">{t("book.sceneGen.flashback")}</span>
+          <span className="font-medium">{t("bookDetail.flashbackEnable")}</span>
         </label>
         {flashbackOn && (
-          <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-[10rem_auto] sm:items-end">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-[10rem_auto] sm:items-end">
             <Field label={t("book.sceneGen.flashbackYears")}>
               <Input
                 type="number"
@@ -3211,7 +3241,7 @@ function SceneGenSection({
             </p>
           </div>
         )}
-      </div>
+      </Collapsible>
 
       {busy && (
         <div className="flex flex-col gap-2 rounded-md border border-border-subtle bg-bg-card/60 p-3">
@@ -3754,6 +3784,9 @@ function CharactersTab({
   const toast = useToast();
   const { t } = useTranslation();
   const characters = useAsync<BookCharacter[]>((s) => getCharacters(bookId, s), [bookId]);
+  // Elenco capitoli per l'editor della presenza per-personaggio (chip capitolo nel modal).
+  const chaptersQ = useAsync<BookChapterFull[]>((s) => getChapters(bookId, s), [bookId]);
+  const chapterList = chaptersQ.data ?? [];
   const [adding, setAdding] = useState(false);
   // Flusso async+resumable condiviso con il pannello "Bibbia visiva": i pulsanti avviano uno step
   // del build globale e si affidano allo stato condiviso per l'avanzamento. A fine build ricarica.
@@ -3848,7 +3881,12 @@ function CharactersTab({
       ) : (
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           {list.map((c) => (
-            <CharacterCard key={c.id} character={c} onChanged={() => characters.reload()} />
+            <CharacterCard
+              key={c.id}
+              character={c}
+              chapters={chapterList}
+              onChanged={() => characters.reload()}
+            />
           ))}
         </div>
       )}
@@ -3857,6 +3895,7 @@ function CharactersTab({
         <CharacterEditorModal
           bookId={bookId}
           character={null}
+          chapters={chapterList}
           onClose={() => setAdding(false)}
           onSaved={() => {
             setAdding(false);
@@ -3877,9 +3916,11 @@ const CHARACTER_FIELDS: { key: keyof BookCharacter; labelKey: string }[] = [
 
 function CharacterCard({
   character,
+  chapters,
   onChanged,
 }: {
   character: BookCharacter;
+  chapters: BookChapterFull[];
   onChanged: () => void;
 }) {
   const toast = useToast();
@@ -3987,6 +4028,7 @@ function CharacterCard({
         <CharacterEditorModal
           bookId={character.bookId}
           character={character}
+          chapters={chapters}
           onClose={() => setEditing(false)}
           onSaved={() => {
             setEditing(false);
@@ -4022,11 +4064,13 @@ function CharacterCard({
 function CharacterEditorModal({
   bookId,
   character,
+  chapters,
   onClose,
   onSaved,
 }: {
   bookId: string;
   character: BookCharacter | null;
+  chapters: BookChapterFull[];
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -4041,10 +4085,22 @@ function CharacterEditorModal({
   const [outfitContexts, setOutfitContexts] = useState<CharacterOutfit[]>(
     character?.outfits?.contexts ?? [],
   );
+  const [chapterSet, setChapterSet] = useState<Set<number>>(
+    () => new Set(character?.chapters ?? []),
+  );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const isNew = character === null;
+
+  function toggleChapter(idx: number) {
+    setChapterSet((prev) => {
+      const next = new Set(prev);
+      if (next.has(idx)) next.delete(idx);
+      else next.add(idx);
+      return next;
+    });
+  }
 
   function addContext() {
     setOutfitContexts((prev) => [...prev, { when: "", outfit: "" }]);
@@ -4088,6 +4144,7 @@ function CharacterEditorModal({
             default: outfitDefault.trim() === "" ? null : outfitDefault.trim(),
             contexts: cleanContexts,
           },
+          chapters: [...chapterSet].sort((a, b) => a - b),
         });
       }
       onSaved();
@@ -4146,6 +4203,35 @@ function CharacterEditorModal({
         <Field label={t("book.characters.physicalLabel")}>
           <Textarea value={physical} onChange={(e) => setPhysical(e.target.value)} rows={3} />
         </Field>
+        {!isNew && chapters.length > 0 && (
+          <Field label={t("bookDetail.characterChaptersLabel")}>
+            <p className="mb-2 text-xs text-content-tertiary">
+              {t("bookDetail.characterChaptersHint")}
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {chapters.map((ch) => {
+                const on = chapterSet.has(ch.index);
+                return (
+                  <button
+                    key={ch.id}
+                    type="button"
+                    onClick={() => toggleChapter(ch.index)}
+                    title={ch.title ?? undefined}
+                    aria-pressed={on}
+                    className={cn(
+                      "inline-flex h-8 min-w-8 items-center justify-center rounded-lg border px-2 text-xs font-medium tabular-nums transition-colors duration-150 ease-out-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-ring",
+                      on
+                        ? "border-accent bg-accent/15 text-content-primary"
+                        : "border-border-subtle text-content-tertiary hover:bg-bg-hover hover:text-content-secondary",
+                    )}
+                  >
+                    {ch.index}
+                  </button>
+                );
+              })}
+            </div>
+          </Field>
+        )}
         {!isNew && (
           <div className="flex flex-col gap-3 rounded-lg border border-border-subtle bg-bg-inset p-3">
             <h4 className="text-2xs font-semibold uppercase tracking-wide text-content-faint">

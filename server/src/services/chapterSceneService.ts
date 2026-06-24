@@ -117,11 +117,13 @@ export class ChapterSceneService {
 
   private async buildAndSave(bookId: number, chapter: BookChapter): Promise<ChapterScene | null> {
     const cast = await characters.byBook(bookId);
+    const book = await books.get(bookId);
     const extracted = await extractChapterScene(this.deps.engine, {
       chapterText: chapter.text,
       chapterTitle: chapter.title,
-      language: (await books.get(bookId))?.language ?? "italiano",
+      language: book?.language ?? "italiano",
       knownCharacters: cast.map((c) => c.name),
+      directives: book?.visualDirectives ?? null,
     });
     if (!extracted) return null;
     const scene: ChapterScene = {

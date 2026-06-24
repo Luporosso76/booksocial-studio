@@ -237,7 +237,60 @@ export interface MediaAsset {
   tags: string[]; // tag/soggetti (megattere, mare, tartaruga, mood, personaggi…)
   // Verdetto del QA visivo, o null se non eseguito / non disponibile (best-effort).
   qa: SceneQa | null;
+  // Seed di generazione (backend locale sd-cli), per riproducibilità. null = upload o provider HTTP.
+  seed: number | null;
   addedAt: number;
+}
+
+// ---- SCHEDA MARKETING DI CAPITOLO ----
+// Comprensione NARRATIVA persistente del capitolo (separata dalla scheda scena, che è visiva), usata
+// per fondare la generazione dei post. Vedi `content/chapterMarketingCard.ts`.
+export type SpoilerLevel = "low" | "medium" | "high";
+
+export interface MarketingSafeQuote {
+  quote: string;
+  whyItWorks: string;
+  spoilerRisk: SpoilerLevel;
+}
+
+export interface MarketingCharacterFocus {
+  name: string;
+  stateInChapter: string;
+  desire: string;
+  fear: string;
+  changeWithoutSpoiler: string;
+}
+
+export interface MarketingPostAngle {
+  type: string; // micro-scene | reader-question | character | symbol | quote | conflict
+  hook: string;
+  reason: string;
+  concreteness: number; // 0-10
+  emotionalStrength: number; // 0-10
+  spoilerSafety: number; // 0-10 (10 = totalmente sicuro)
+  freshness: number; // 0-10
+}
+
+export interface ChapterMarketingCardData {
+  spoilerLevel: SpoilerLevel;
+  nonSpoilerSummary: string;
+  emotionalCore: string;
+  humanTruth: string;
+  readerQuestion: string;
+  mainTension: string;
+  visualMoment: string;
+  safeQuotes: MarketingSafeQuote[];
+  characterFocus: MarketingCharacterFocus[];
+  postAngles: MarketingPostAngle[];
+}
+
+export interface ChapterMarketingCard {
+  bookId: number;
+  chapterIndex: number;
+  schemaVersion: number;
+  data: ChapterMarketingCardData;
+  model: string | null;
+  updatedAt: number;
 }
 
 // Tipo di pubblicazione di alto livello, deciso dalle QUOTE settimanali. Le sotto-scelte
@@ -344,6 +397,7 @@ export interface ContentUsage {
   quoteKey: string | null; // chiave normalizzata della citazione usata
   musicId: number | null; // music_track.id usata (per variare anche la musica)
   chapterIndex: number | null; // indice del capitolo da cui è nata l'idea (per variare i capitoli)
+  angleKey: string | null; // angolo marketing-card usato (per ruotare gli angoli dello stesso capitolo)
   createdAt: number;
 }
 
