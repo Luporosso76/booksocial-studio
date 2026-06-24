@@ -96,8 +96,9 @@ ${text.slice(0, 20000)}`;
   // presenti nel capitolo (match tollerante: minuscole, senza virgolette, spazi normalizzati).
   const normalizeForMatch = (s: string): string =>
     s
+      .normalize("NFKC")
       .toLowerCase()
-      .replace(/[«»""''"']/g, "")
+      .replace(/[«»“”‘’"']/g, "")
       .replace(/\s+/g, " ")
       .trim();
   const hayNorm = normalizeForMatch(text);

@@ -582,6 +582,13 @@ export class ContentService {
 
     const recent = await posts.recentMessages(post.pageId, 8);
     const book = await books.get(post.bookId);
+    // Non rigenerare su una scheda VECCHIA (stesso guard di generatePost): se il libro è stato
+    // reimportato e l'analisi non è ancora rifatta, blocca con messaggio chiaro.
+    if (book && !profileIsFresh(profile, book)) {
+      throw new ContentError(
+        "La scheda del libro non è aggiornata rispetto al contenuto importato. Esegui prima l'analisi del libro.",
+      );
+    }
     const language = book?.language ?? "it";
     const excerpt = await this.safeChapterExcerpt(post.bookId);
     const characterBriefs = await this.characterBriefs(post.bookId);
