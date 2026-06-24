@@ -95,6 +95,10 @@ export class ContentService {
       book = existing;
     } else if (existing) {
       await books.replaceChapters(existing.id, imp.chapters);
+      // Testo del libro cambiato: le schede marketing (tabella separata, per book+capitolo) sono
+      // derivate dal vecchio testo → invalidale, verranno ricostruite on-demand sul nuovo testo.
+      // (Le schede scena si azzerano da sole: replaceChapters reinserisce capitoli con scene vuota.)
+      await marketingCards.deleteByBook(existing.id);
       await books.updateContent(
         existing.id,
         imp.contentHash,

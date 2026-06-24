@@ -29,8 +29,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the planner now guarantees every requested item is placed, even with few posting slots.
 - **Scene image panel redesigned**: collapsible Chapters/Characters sections and a more compact layout.
 
+- The quality judge also checks posts against the chapter marketing card, not only the chapter excerpt, avoiding unfair rejections.
+- Marketing-card quotes are verified against the real chapter text; invented or paraphrased quotes are dropped.
+
 ### Fixed
 
+- Re-importing a book with changed text now invalidates its chapter marketing cards, so posts are grounded on the new text.
 - Editing a draft's hashtags now saves correctly.
 - Posts, reels and stories without a visual stay as drafts instead of failing on publish.
 

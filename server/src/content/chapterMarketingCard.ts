@@ -92,6 +92,15 @@ ${text.slice(0, 20000)}`;
     return null;
   }
 
+  // Validazione citazioni: il modello può inventare/parafrasare. Tieni SOLO le citazioni davvero
+  // presenti nel capitolo (match tollerante: minuscole, senza virgolette, spazi normalizzati).
+  const normalizeForMatch = (s: string): string =>
+    s
+      .toLowerCase()
+      .replace(/[«»""''"']/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+  const hayNorm = normalizeForMatch(text);
   const safeQuotes = Array.isArray(j["safe_quote_candidates"])
     ? (j["safe_quote_candidates"] as unknown[])
         .map((x) => {
@@ -102,7 +111,11 @@ ${text.slice(0, 20000)}`;
             spoilerRisk: risk(o.spoiler_risk),
           };
         })
-        .filter((q) => q.quote !== "")
+        .filter((q) => {
+          if (q.quote === "") return false;
+          const qn = normalizeForMatch(q.quote);
+          return qn.length >= 8 && hayNorm.includes(qn);
+        })
         .slice(0, 4)
     : [];
   const characterFocus = Array.isArray(j["character_focus"])

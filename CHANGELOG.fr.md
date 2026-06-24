@@ -31,8 +31,12 @@ et ce projet respecte le [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   demandé est placé, même avec peu de créneaux.
 - **Panneau d'images de scène redessiné** : sections Chapitres/Personnages repliables et mise en page plus compacte.
 
+- Le juge de qualité évalue aussi les posts par rapport à la fiche marketing du chapitre, et pas seulement à l'extrait, évitant les rejets injustes.
+- Les citations de la fiche marketing sont vérifiées sur le texte réel du chapitre ; celles inventées ou paraphrasées sont écartées.
+
 ### Corrigé
 
+- Réimporter un livre dont le texte a changé invalide désormais ses fiches marketing de chapitre, afin que les posts s'appuient sur le nouveau texte.
 - La modification des hashtags d'un brouillon est désormais enregistrée correctement.
 - Les posts, reels et stories sans visuel restent des brouillons au lieu d'échouer à la publication.
 

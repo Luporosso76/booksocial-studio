@@ -31,8 +31,12 @@ und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/spec/v
   auch bei wenigen Zeitfenstern.
 - **Szenenbild-Panel neu gestaltet**: einklappbare Abschnitte für Kapitel/Figuren und kompakteres Layout.
 
+- Der Qualitätsrichter bewertet Posts auch anhand der Marketing-Karte des Kapitels, nicht nur anhand des Auszugs, und vermeidet so ungerechte Ablehnungen.
+- Zitate der Marketing-Karte werden gegen den echten Kapiteltext geprüft; erfundene oder paraphrasierte Zitate werden verworfen.
+
 ### Behoben
 
+- Der erneute Import eines Buchs mit geändertem Text macht nun seine Kapitel-Marketing-Karten ungültig, damit Posts auf dem neuen Text basieren.
 - Das Bearbeiten der Hashtags eines Entwurfs wird jetzt korrekt gespeichert.
 - Posts, Reels und Storys ohne Visual bleiben Entwürfe, anstatt bei der Veröffentlichung zu scheitern.
 

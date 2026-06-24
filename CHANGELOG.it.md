@@ -31,8 +31,12 @@ e questo progetto aderisce al [Semantic Versioning](https://semver.org/spec/v2.0
   anche con pochi slot orari.
 - **Pannello immagini di scena ridisegnato**: sezioni Capitoli/Personaggi collassabili e layout più compatto.
 
+- Il giudice di qualità valuta i post anche rispetto alla scheda marketing del capitolo, non solo all'estratto, evitando bocciature ingiuste.
+- Le citazioni della scheda marketing vengono verificate sul testo reale del capitolo; quelle inventate o parafrasate vengono scartate.
+
 ### Corretto
 
+- Reimportare un libro con testo modificato ora invalida le schede marketing dei capitoli, così i post si basano sul nuovo testo.
 - La modifica degli hashtag di una bozza ora viene salvata correttamente.
 - Post, reel e storie senza visual restano bozze invece di fallire in pubblicazione.
 

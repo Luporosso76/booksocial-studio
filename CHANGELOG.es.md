@@ -30,8 +30,12 @@ y este proyecto se adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.
   escalado oculto; el planificador ahora garantiza que cada contenido solicitado se coloque, incluso con pocos horarios.
 - **Panel de imágenes de escena rediseñado**: secciones de Capítulos/Personajes plegables y diseño más compacto.
 
+- El juez de calidad evalúa los posts también frente a la ficha de marketing del capítulo, no solo frente al extracto, evitando rechazos injustos.
+- Las citas de la ficha de marketing se verifican contra el texto real del capítulo; las inventadas o parafraseadas se descartan.
+
 ### Corregido
 
+- Reimportar un libro con texto modificado ahora invalida sus fichas de marketing por capítulo, de modo que los posts se basan en el nuevo texto.
 - La edición de los hashtags de un borrador ahora se guarda correctamente.
 - Los posts, reels e historias sin visual permanecen como borradores en lugar de fallar al publicar.
 

@@ -128,9 +128,15 @@ async function judgePost(
     !!req.chapterExcerpt &&
     req.chapterExcerpt.trim() !== "" &&
     req.chapterExcerpt.trim() !== "(non fornito)";
+  // La FONTE per il giudizio deve combaciare con quella che ha GUIDATO la generazione: l'excerpt è
+  // breve ma la marketing card può contenere citazioni/dettagli presi più in profondità nel capitolo.
+  // Includerla evita che il judge bocci ingiustamente un post che usa un dettaglio reale della card.
+  const cardSource = req.marketingCard
+    ? `\n\nCHAPTER MARKETING CARD (also a valid source of real details/quotes):\n${JSON.stringify(req.marketingCard).slice(0, 6000)}`
+    : "";
   const source = hasChapter
-    ? `CHAPTER (the post should draw a concrete detail from here):\n${req.chapterExcerpt!.slice(0, 8000)}`
-    : `BOOK SCHEDA:\nSynopsis: ${nz(req.profile.synopsisShort)}\nTone: ${nz(req.profile.tone)}`;
+    ? `CHAPTER (the post should draw a concrete detail from here):\n${req.chapterExcerpt!.slice(0, 8000)}${cardSource}`
+    : `BOOK SCHEDA:\nSynopsis: ${nz(req.profile.synopsisShort)}\nTone: ${nz(req.profile.tone)}${cardSource}`;
   const prompt = `You are a STRICT social editor for a book page. Judge the POST below against its SOURCE.
 The post is in ${lang}. Reply with ONLY a valid JSON object, nothing else:
 {
