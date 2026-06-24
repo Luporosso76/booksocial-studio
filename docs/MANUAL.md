@@ -345,7 +345,7 @@ It uses quotas, time windows, the selected book, and the selected Page to genera
 | --- | --- |
 | Pick a Page | Select the connected Page to generate for. |
 | Pick a Book | Select the associated book to generate from. |
-| Set weekly quotas | Choose how many posts, reels, and stories per week. |
+| Set quotas | Choose how many posts, reels and stories to generate in the chosen period (total, not per week). |
 | Set time windows | Add one time or one time range per weekday. |
 | Remove time windows | Remove windows individually. |
 | Choose a period | Select week, month, or custom date range. |
@@ -623,7 +623,7 @@ Facebook permissions include examples such as `pages_read_engagement`, `pages_ma
 1. Open **Planner**.
 2. Pick a Page.
 3. Pick a Book associated with that Page.
-4. Set weekly quotas for posts, reels, and stories.
+4. Set the quotas (total for the chosen period) for posts, reels, and stories.
 5. Add weekday time windows or leave them empty to use defaults.
 6. Choose **week** as the period.
 7. Select **Generate**.

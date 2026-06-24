@@ -345,7 +345,7 @@ Utilizza quote, finestre di tempo, il libro selezionato e la Pagina selezionata 
 | --- | --- |
 | Scegliere una Pagina | Seleziona la Pagina connessa per cui generare. |
 | Scegliere un Libro | Seleziona il libro associato da cui generare. |
-| Impostare quote settimanali | Scegli quanti post, reel e storie a settimana. |
+| Impostare le quote | Scegli quanti post, reel e storie generare nel periodo scelto (totale, non a settimana). |
 | Impostare finestre di tempo | Aggiungi un orario o un intervallo di tempo per giorno feriale. |
 | Rimuovere finestre di tempo | Rimuovi le finestre singolarmente. |
 | Scegliere un periodo | Seleziona settimana, mese o intervallo di date personalizzato. |
@@ -623,7 +623,7 @@ I permessi di Facebook includono esempi come `pages_read_engagement`, `pages_man
 1. Apri **Planner**.
 2. Scegli una Pagina.
 3. Scegli un Libro associato a quella Pagina.
-4. Imposta le quote settimanali per post, reel e storie.
+4. Imposta le quote (totale per il periodo scelto) per post, reel e storie.
 5. Aggiungi finestre di tempo per i giorni feriali o lasciale vuote per usare i valori predefiniti.
 6. Scegli **week** come periodo.
 7. Seleziona **Generate**.

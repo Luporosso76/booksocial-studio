@@ -345,7 +345,7 @@ Usa cuotas, ventanas de tiempo, el libro seleccionado y la Página seleccionada 
 | --- | --- |
 | Elegir una Página | Seleccionar la Página conectada para la que generar. |
 | Elegir un Libro | Seleccionar el libro asociado desde el cual generar. |
-| Establecer cuotas semanales | Elegir cuántas publicaciones, reels y stories por semana. |
+| Establecer cuotas | Elegir cuántas publicaciones, reels y stories generar en el período elegido (total, no por semana). |
 | Establecer ventanas de tiempo | Agregar una hora o un rango de horas por día de la semana. |
 | Eliminar ventanas de tiempo | Eliminar ventanas individualmente. |
 | Elegir un período | Seleccionar semana, mes o rango de fechas personalizado. |
@@ -622,7 +622,7 @@ Los permisos de Facebook incluyen ejemplos como `pages_read_engagement`, `pages_
 1. Abre **Planner**.
 2. Elige una Página.
 3. Elige un Libro asociado a esa Página.
-4. Establece cuotas semanales para publicaciones, reels y stories.
+4. Establece las cuotas (total para el período elegido) para publicaciones, reels y stories.
 5. Añade ventanas de tiempo para los días de semana o déjalas vacías para usar los valores predeterminados.
 6. Elige **week** como período.
 7. Selecciona **Generate**.

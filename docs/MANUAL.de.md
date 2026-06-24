@@ -345,7 +345,7 @@ Es verwendet Quoten, Zeitfenster, das ausgewählte Buch und die ausgewählte Sei
 | --- | --- |
 | Pick a Page | Wählen Sie die verbundene Seite aus, für die generiert werden soll. |
 | Pick a Book | Wählen Sie das verknüpfte Buch aus, aus dem generiert werden soll. |
-| Set weekly quotas | Wählen Sie, wie viele Beiträge, Reels und Stories pro Woche erstellt werden sollen. |
+| Set quotas | Wählen Sie, wie viele Beiträge, Reels und Stories im gewählten Zeitraum erstellt werden sollen (Gesamtmenge, nicht pro Woche). |
 | Set time windows | Fügen Sie eine Uhrzeit oder einen Zeitbereich pro Wochentag hinzu. |
 | Remove time windows | Entfernen Sie Zeitfenster einzeln. |
 | Choose a period | Wählen Sie Woche, Monat oder benutzerdefinierten Datumsbereich. |
@@ -623,7 +623,7 @@ Zu den Facebook-Berechtigungen gehören Beispiele wie `pages_read_engagement`, `
 1. Öffnen Sie **Planner**.
 2. Wählen Sie eine Seite.
 3. Wählen Sie ein Buch, das mit dieser Seite verknüpft ist.
-4. Legen Sie wöchentliche Quoten für Beiträge, Reels und Stories fest.
+4. Legen Sie die Quoten (Gesamtmenge für den gewählten Zeitraum) für Beiträge, Reels und Stories fest.
 5. Fügen Sie Zeitfenster für Wochentage hinzu oder lassen Sie sie leer, um Standardwerte zu verwenden.
 6. Wählen Sie **week** als Zeitraum.
 7. Wählen Sie **Generate**.

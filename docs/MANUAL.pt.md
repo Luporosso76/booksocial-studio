@@ -345,7 +345,7 @@ Ele utiliza cotas, janelas de tempo, o livro selecionado e a Página escolhida p
 | --- | --- |
 | Escolher uma Página | Selecione a Página conectada para gerar o conteúdo. |
 | Escolher um Livro | Selecione o livro associado a partir do qual gerar o conteúdo. |
-| Definir cotas semanais | Escolha quantas postagens, reels e stories gerar por semana. |
+| Definir cotas | Escolha quantas postagens, reels e stories gerar no período escolhido (total, não por semana). |
 | Definir janelas de tempo | Adicione um horário ou um intervalo de tempo por dia da semana. |
 | Remover janelas de tempo | Remova as janelas de tempo individualmente. |
 | Escolher um período | Selecione a semana, o mês ou um intervalo de datas personalizado. |
@@ -623,7 +623,7 @@ As permissões do Facebook incluem exemplos como `pages_read_engagement`, `pages
 1. Abra o **Planner**.
 2. Escolha uma Página.
 3. Escolha um Livro associado a essa Página.
-4. Defina as cotas semanais para posts, reels e stories.
+4. Defina as cotas (total para o período escolhido) para posts, reels e stories.
 5. Adicione janelas de tempo nos dias úteis ou deixe-as em branco para usar os padrões.
 6. Escolha **week** como o período.
 7. Selecione **Generate**.

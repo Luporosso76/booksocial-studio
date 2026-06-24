@@ -345,7 +345,7 @@ Il utilise des quotas, des fenêtres de temps, le livre sélectionné et la Page
 | --- | --- |
 | Choisir une Page | Sélectionnez la Page connectée pour laquelle générer. |
 | Choisir un Livre | Sélectionnez le livre associé à partir duquel générer. |
-| Définir les quotas hebdomadaires | Choisissez le nombre de publications, de reels et de stories par semaine. |
+| Définir les quotas | Choisissez combien de publications, reels et stories générer sur la période choisie (total, pas par semaine). |
 | Définir des fenêtres de temps | Ajoutez une heure ou une plage horaire par jour de la semaine. |
 | Retirer des fenêtres de temps | Retirez des fenêtres individuellement. |
 | Choisir une période | Sélectionnez une semaine, un mois ou une plage de dates personnalisée. |
@@ -623,7 +623,7 @@ Les autorisations Facebook incluent des exemples tels que `pages_read_engagement
 1. Ouvrez le **Planificateur**.
 2. Choisissez une Page.
 3. Choisissez un livre associé à cette Page.
-4. Définissez les quotas hebdomadaires pour les publications, les reels et les stories.
+4. Définissez les quotas (total pour la période choisie) pour les publications, les reels et les stories.
 5. Ajoutez des fenêtres de temps pour les jours de la semaine ou laissez-les vides pour utiliser les valeurs par défaut.
 6. Choisissez **semaine** (week) comme période.
 7. Sélectionnez **Générer**.
