@@ -56,7 +56,8 @@
     "jobSceneGen": "Generazione immagini",
     "jobMediaRegen": "Rigenerazione immagini",
     "jobVisualBible": "Bibbia visiva",
-    "jobVisualBibleRunning": "in corso"
+    "jobVisualBibleRunning": "in corso",
+    "jobWaiting": "(in coda)"
   },
   "language": {
     "label": "Lingua",
@@ -301,7 +302,11 @@
       "engineUnavailable": "Il motore di generazione non è disponibile su questo ambiente.",
       "queueFailed": "Accodamento non riuscito.",
       "cancelling": "Annullamento in corso…",
-      "cancelFailed": "Annullamento non riuscito."
+      "cancelFailed": "Annullamento non riuscito.",
+      "queueInProgress": "In corso",
+      "queueWaiting": "In coda",
+      "cancelThis": "Annulla questo",
+      "cancelAll": "Annulla tutto"
     },
     "pages": {
       "title": "Pagine associate",
@@ -1356,6 +1361,9 @@
     "sceneGenHelp": "Seleziona i capitoli e scegli quante immagini fare <strong>per ciascun capitolo</strong>; senza selezione è «Auto» (capitoli vari). Puoi <strong>accodare</strong> più richieste (es. prima in 9:16, poi cambi formato in 1:1 e aggiungi di nuovo): la coda gira in sequenza senza fermarsi finché non premi <strong>Annulla</strong>. La generazione è lenta (qualche minuto per immagine) e gira in locale: il server deve restare acceso.",
     "flashbackEnable": "Attiva flashback / ricordo",
     "flashbackSummaryYears": "−{{years}} anni",
-    "flashbackSummaryOff": "Disattivo"
+    "flashbackSummaryOff": "Disattivo",
+    "queueWaiting": "In coda",
+    "cancelThis": "Annulla questo",
+    "cancelThisFailed": "Annullamento non riuscito."
   }
 }

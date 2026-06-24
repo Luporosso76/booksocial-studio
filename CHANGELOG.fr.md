@@ -5,6 +5,24 @@ Toutes les modifications notables apportées à ce projet sont documentées dans
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 et ce projet respecte le [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] - 2026-06-24
+
+### Ajouté
+
+- **Annuler les éléments en file individuellement** : vous pouvez désormais annuler un seul lot en attente
+  dans la file de génération d'images, en plus de « Tout annuler ».
+
+### Modifié
+
+- **Génération d'images sérialisée** : les générations de livres différents et les régénérations sont
+  désormais mises en file et exécutées une à la fois au lieu d'être parallèles ; l'indicateur d'activité
+  distingue « en cours » de « en file ».
+
+### Corrigé
+
+- **Panneau d'activité au premier plan** : le menu d'activité de l'en-tête s'affiche désormais au-dessus de
+  la grille d'images lors du défilement.
+
 ## [0.3.0] - 2026-06-24
 
 ### Ajouté

@@ -5,6 +5,24 @@ Alle wesentlichen Änderungen an diesem Projekt werden in dieser Datei dokumenti
 Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] - 2026-06-24
+
+### Hinzugefügt
+
+- **Einzelne Warteschlangen-Einträge abbrechen**: Sie können jetzt einen einzelnen wartenden Stapel in der
+  Bildgenerierungs-Warteschlange abbrechen, zusätzlich zu „Alles abbrechen".
+
+### Geändert
+
+- **Bildgenerierung serialisiert**: Generierungen verschiedener Bücher und Neugenerierungen werden nun in
+  eine Warteschlange gestellt und nacheinander ausgeführt statt parallel; die Aktivitätsanzeige
+  unterscheidet „Läuft" von „In Warteschlange".
+
+### Behoben
+
+- **Aktivitätsfenster im Vordergrund**: Das Aktivitätsmenü der Kopfzeile erscheint beim Scrollen nun über
+  dem Bildraster.
+
 ## [0.3.0] - 2026-06-24
 
 ### Hinzugefügt

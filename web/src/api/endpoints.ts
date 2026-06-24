@@ -285,6 +285,9 @@ export const getSceneGen = (bookId: string, signal?: AbortSignal) =>
 export const cancelBookImages = (bookId: string) =>
   apiPost<{ cancelled: boolean }>(`/books/${bookId}/generate-images/cancel`);
 
+export const cancelSceneQueueBatch = (bookId: string, batchId: string) =>
+  apiPost<{ cancelled: boolean }>(`/books/${bookId}/generate-images/queue/${batchId}/cancel`);
+
 // --- Impostazioni: modalità immagini dei contenuti ---
 export const getAiImageMode = (signal?: AbortSignal) =>
   apiGet<AiImageModeState>("/settings/ai-image-mode", signal);

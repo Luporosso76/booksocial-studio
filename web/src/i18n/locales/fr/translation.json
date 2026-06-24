@@ -56,7 +56,8 @@
     "jobSceneGen": "Génération d'images",
     "jobMediaRegen": "Régénération d'images",
     "jobVisualBible": "Bible visuelle",
-    "jobVisualBibleRunning": "en cours"
+    "jobVisualBibleRunning": "en cours",
+    "jobWaiting": "(en file)"
   },
   "language": {
     "label": "Langue",
@@ -301,7 +302,11 @@
       "engineUnavailable": "Le moteur de génération n'est pas disponible sur cet environnement.",
       "queueFailed": "Échec de la mise en file d'attente.",
       "cancelling": "Annulation en cours…",
-      "cancelFailed": "Échec de l'annulation."
+      "cancelFailed": "Échec de l'annulation.",
+      "queueInProgress": "En cours",
+      "queueWaiting": "En file",
+      "cancelThis": "Annuler celui-ci",
+      "cancelAll": "Tout annuler"
     },
     "pages": {
       "title": "Pages associées",
@@ -1356,6 +1361,9 @@
     "sceneGenHelp": "Sélectionnez les chapitres et choisissez combien d'images créer <strong>pour chaque chapitre</strong> ; sans sélection, c'est « Auto » (chapitres variés). Vous pouvez <strong>mettre en file d'attente</strong> plusieurs requêtes (ex. d'abord en 9:16, puis vous changez le format en 1:1 et ajoutez de nouveau) : la file d'attente tourne en séquence sans s'arrêter jusqu'à ce que vous cliquiez sur <strong>Annuler</strong>. La génération est lente (quelques minutes par image) et tourne en local : le serveur doit rester allumé.",
     "flashbackEnable": "Activer flashback / souvenir",
     "flashbackSummaryYears": "−{{years}} ans",
-    "flashbackSummaryOff": "Désactivé"
+    "flashbackSummaryOff": "Désactivé",
+    "queueWaiting": "En file",
+    "cancelThis": "Annuler celui-ci",
+    "cancelThisFailed": "Échec de l'annulation."
   }
 }

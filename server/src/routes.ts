@@ -49,6 +49,8 @@ import {
   enqueueSceneBatch,
   nextSceneBatch,
   clearSceneQueue,
+  cancelSceneBatch,
+  setSceneGenWaiting,
   bumpSceneCreated,
   finishSceneGen,
   failSceneGen,
@@ -236,6 +238,15 @@ const activeWeekGen = new Map<string, AbortController>();
 // annullare. La coda vera è in mediaRegenJobs.ts (globale, seriale). Flag = un solo worker per-processo.
 const regeneratingMedia = new Map<number, AbortController>();
 let mediaRegenWorkerRunning = false;
+let imageGenGate: Promise<void> = Promise.resolve();
+function runImageGenExclusive(fn: () => Promise<void>): Promise<void> {
+  const run = imageGenGate.then(fn);
+  imageGenGate = run.then(
+    () => {},
+    () => {},
+  );
+  return run;
+}
 // Guard contro la doppia esecuzione concorrente del ricalcolo presenza personaggi (per libro):
 // l'operazione è sincrona e lenta (1 chiamata GPT per capitolo), quindi blocchiamo i doppioni.
 const recomputingChapters = new Set<number>();
@@ -280,135 +291,137 @@ export function buildApi(deps: AppDeps): Hono {
     if (mediaRegenWorkerRunning) return;
     mediaRegenWorkerRunning = true;
     try {
-      let job;
-      while ((job = nextMediaRegen())) {
-        const ac = new AbortController();
-        regeneratingMedia.set(job.mediaId, ac);
-        try {
-          const m = await media.get(job.mediaId);
-          if (!m || !m.genPrompt || ac.signal.aborted) continue;
-          // REBUILD: ricostruisce il prompt dal CAPITOLO con la pipeline attuale (regole aggiornate),
-          // così un semplice "Rigenera dal capitolo" NON riusa il vecchio gen_prompt. Fallback al
-          // gen_prompt salvato se la ricostruzione non è disponibile (capitolo assente, ecc.).
-          let basePrompt: string;
-          // Il FLASHBACK richiede la ricostruzione dal capitolo (l'override vive nella pipeline del
-          // prompt), quindi forza il ramo rebuild anche senza flag rebuild esplicito.
-          if ((job.rebuild || job.flashback) && m.chapterIdx != null) {
-            // Con personaggi selezionati: la ricostruzione li featura sul capitolo dell'immagine.
-            const rebuilt = await deps.sceneImages.buildPromptForChapter(m.bookId, m.chapterIdx, {
-              ...(job.characters && job.characters.length > 0
-                ? { featureCharacters: job.characters }
-                : {}),
-              ...(job.flashback ? { flashback: job.flashback } : {}),
-            });
-            basePrompt = rebuilt && rebuilt.trim() !== "" ? rebuilt : m.genPrompt;
-          } else if (job.prompt && job.prompt.trim() !== "") {
-            // Prompt esplicito passato dal chiamante: usalo tale e quale.
-            basePrompt = job.prompt.trim();
-          } else if (job.changes && job.changes.trim() !== "" && m.chapterIdx != null) {
-            // #5: "Rigenera con modifiche" parte dal CANONE AGGIORNATO (non dal vecchio gen_prompt),
-            // così le tue variazioni si applicano sopra le configurazioni correnti (aspetto/abiti/oggetti).
-            const rebuilt = await deps.sceneImages.buildPromptForChapter(m.bookId, m.chapterIdx, {
-              ...(job.characters && job.characters.length > 0
-                ? { featureCharacters: job.characters }
-                : {}),
-            });
-            basePrompt = rebuilt && rebuilt.trim() !== "" ? rebuilt : m.genPrompt;
-          } else {
-            // Re-roll semplice (nessuna modifica): riusa il prompt salvato, cambia solo il seed.
-            basePrompt = m.genPrompt;
-          }
-          if (ac.signal.aborted) continue;
-          // Modifiche in ITALIANO: l'IA fonde (vecchio prompt + modifiche) → nuovo prompt. Con rebuild
-          // si applicano DOPO la ricostruzione (eventuale ritocco sul prompt già aggiornato).
-          let prompt = basePrompt;
-          if (job.changes && job.changes.trim() !== "") {
-            const revised = await reviseScenePrompt(deps.engine, {
-              oldPrompt: basePrompt,
-              changes: job.changes.trim(),
-            });
-            if (revised && !ac.signal.aborted) prompt = revised;
-          }
-          if (ac.signal.aborted) continue;
-          const aspect = await sceneAspectOfFile(resolveDataPath(m.path));
-          const newPath = join(mediaDir(), `scene-${m.bookId}-${randomUUID()}.png`);
-          const ok = await generateFromPrompt({
-            prompt,
-            aspect,
-            outPath: newPath,
-            signal: ac.signal,
-          });
-          if (ok && !ac.signal.aborted) {
-            const oldPath = resolveDataPath(m.path);
-            await media.updateAfterRegen(job.mediaId, {
-              path: newPath,
-              genPrompt: prompt,
-              addedAt: Date.now(),
-            });
-            if (oldPath !== newPath) await unlink(oldPath).catch(() => {});
-            bumpMediaRegenCompleted(); // avanza il contatore "fatte" del run (indicatore globale)
-
-            // QUALITY CHECK visivo: un modello multimodale GUARDA la nuova immagine e segnala i
-            // problemi. Best-effort: non far MAI fallire la rigenerazione se la QA si rompe.
-            try {
-              // Gate globale: il controllo qualità si può disattivare dal pulsante in Impostazioni.
-              if ((await settings.get("qa_enabled")) !== "off") {
-                let curPath = newPath;
-                let verdict = await verifySceneImage({
-                  imagePath: curPath,
-                  genPrompt: prompt,
-                  binary: appConfig.opencodeBinary,
-                  model: appConfig.opencodeModel,
-                  timeoutMs: appConfig.visionTimeoutMs,
-                });
-                // AUTO-RETRY (opt-in): solo se verify=true E il verdetto è bocciato (ok=false). Una SOLA
-                // volta, con un nuovo seed: rigenera (stesso prompt), scambia il file e ri-valuta.
-                if (
-                  job.verify === true &&
-                  verdict != null &&
-                  verdict.ok === false &&
-                  !ac.signal.aborted
-                ) {
-                  const retryPath = join(mediaDir(), `scene-${m.bookId}-${randomUUID()}.png`);
-                  const retryOk = await generateFromPrompt({
-                    prompt,
-                    aspect,
-                    outPath: retryPath,
-                    signal: ac.signal,
-                  });
-                  if (retryOk && !ac.signal.aborted) {
-                    await media.updateAfterRegen(job.mediaId, {
-                      path: retryPath,
-                      genPrompt: prompt,
-                      addedAt: Date.now(),
-                    });
-                    if (curPath !== retryPath) await unlink(curPath).catch(() => {});
-                    curPath = retryPath;
-                    verdict = await verifySceneImage({
-                      imagePath: curPath,
-                      genPrompt: prompt,
-                      binary: appConfig.opencodeBinary,
-                      model: appConfig.opencodeModel,
-                      timeoutMs: appConfig.visionTimeoutMs,
-                    });
-                  }
-                }
-                await media.setQa(job.mediaId, verdict);
-              }
-            } catch {
-              /* QA best-effort: ignora qualunque errore */
+      await runImageGenExclusive(async () => {
+        let job;
+        while ((job = nextMediaRegen())) {
+          const ac = new AbortController();
+          regeneratingMedia.set(job.mediaId, ac);
+          try {
+            const m = await media.get(job.mediaId);
+            if (!m || !m.genPrompt || ac.signal.aborted) continue;
+            // REBUILD: ricostruisce il prompt dal CAPITOLO con la pipeline attuale (regole aggiornate),
+            // così un semplice "Rigenera dal capitolo" NON riusa il vecchio gen_prompt. Fallback al
+            // gen_prompt salvato se la ricostruzione non è disponibile (capitolo assente, ecc.).
+            let basePrompt: string;
+            // Il FLASHBACK richiede la ricostruzione dal capitolo (l'override vive nella pipeline del
+            // prompt), quindi forza il ramo rebuild anche senza flag rebuild esplicito.
+            if ((job.rebuild || job.flashback) && m.chapterIdx != null) {
+              // Con personaggi selezionati: la ricostruzione li featura sul capitolo dell'immagine.
+              const rebuilt = await deps.sceneImages.buildPromptForChapter(m.bookId, m.chapterIdx, {
+                ...(job.characters && job.characters.length > 0
+                  ? { featureCharacters: job.characters }
+                  : {}),
+                ...(job.flashback ? { flashback: job.flashback } : {}),
+              });
+              basePrompt = rebuilt && rebuilt.trim() !== "" ? rebuilt : m.genPrompt;
+            } else if (job.prompt && job.prompt.trim() !== "") {
+              // Prompt esplicito passato dal chiamante: usalo tale e quale.
+              basePrompt = job.prompt.trim();
+            } else if (job.changes && job.changes.trim() !== "" && m.chapterIdx != null) {
+              // #5: "Rigenera con modifiche" parte dal CANONE AGGIORNATO (non dal vecchio gen_prompt),
+              // così le tue variazioni si applicano sopra le configurazioni correnti (aspetto/abiti/oggetti).
+              const rebuilt = await deps.sceneImages.buildPromptForChapter(m.bookId, m.chapterIdx, {
+                ...(job.characters && job.characters.length > 0
+                  ? { featureCharacters: job.characters }
+                  : {}),
+              });
+              basePrompt = rebuilt && rebuilt.trim() !== "" ? rebuilt : m.genPrompt;
+            } else {
+              // Re-roll semplice (nessuna modifica): riusa il prompt salvato, cambia solo il seed.
+              basePrompt = m.genPrompt;
             }
+            if (ac.signal.aborted) continue;
+            // Modifiche in ITALIANO: l'IA fonde (vecchio prompt + modifiche) → nuovo prompt. Con rebuild
+            // si applicano DOPO la ricostruzione (eventuale ritocco sul prompt già aggiornato).
+            let prompt = basePrompt;
+            if (job.changes && job.changes.trim() !== "") {
+              const revised = await reviseScenePrompt(deps.engine, {
+                oldPrompt: basePrompt,
+                changes: job.changes.trim(),
+              });
+              if (revised && !ac.signal.aborted) prompt = revised;
+            }
+            if (ac.signal.aborted) continue;
+            const aspect = await sceneAspectOfFile(resolveDataPath(m.path));
+            const newPath = join(mediaDir(), `scene-${m.bookId}-${randomUUID()}.png`);
+            const ok = await generateFromPrompt({
+              prompt,
+              aspect,
+              outPath: newPath,
+              signal: ac.signal,
+            });
+            if (ok && !ac.signal.aborted) {
+              const oldPath = resolveDataPath(m.path);
+              await media.updateAfterRegen(job.mediaId, {
+                path: newPath,
+                genPrompt: prompt,
+                addedAt: Date.now(),
+              });
+              if (oldPath !== newPath) await unlink(oldPath).catch(() => {});
+              bumpMediaRegenCompleted(); // avanza il contatore "fatte" del run (indicatore globale)
+
+              // QUALITY CHECK visivo: un modello multimodale GUARDA la nuova immagine e segnala i
+              // problemi. Best-effort: non far MAI fallire la rigenerazione se la QA si rompe.
+              try {
+                // Gate globale: il controllo qualità si può disattivare dal pulsante in Impostazioni.
+                if ((await settings.get("qa_enabled")) !== "off") {
+                  let curPath = newPath;
+                  let verdict = await verifySceneImage({
+                    imagePath: curPath,
+                    genPrompt: prompt,
+                    binary: appConfig.opencodeBinary,
+                    model: appConfig.opencodeModel,
+                    timeoutMs: appConfig.visionTimeoutMs,
+                  });
+                  // AUTO-RETRY (opt-in): solo se verify=true E il verdetto è bocciato (ok=false). Una SOLA
+                  // volta, con un nuovo seed: rigenera (stesso prompt), scambia il file e ri-valuta.
+                  if (
+                    job.verify === true &&
+                    verdict != null &&
+                    verdict.ok === false &&
+                    !ac.signal.aborted
+                  ) {
+                    const retryPath = join(mediaDir(), `scene-${m.bookId}-${randomUUID()}.png`);
+                    const retryOk = await generateFromPrompt({
+                      prompt,
+                      aspect,
+                      outPath: retryPath,
+                      signal: ac.signal,
+                    });
+                    if (retryOk && !ac.signal.aborted) {
+                      await media.updateAfterRegen(job.mediaId, {
+                        path: retryPath,
+                        genPrompt: prompt,
+                        addedAt: Date.now(),
+                      });
+                      if (curPath !== retryPath) await unlink(curPath).catch(() => {});
+                      curPath = retryPath;
+                      verdict = await verifySceneImage({
+                        imagePath: curPath,
+                        genPrompt: prompt,
+                        binary: appConfig.opencodeBinary,
+                        model: appConfig.opencodeModel,
+                        timeoutMs: appConfig.visionTimeoutMs,
+                      });
+                    }
+                  }
+                  await media.setQa(job.mediaId, verdict);
+                }
+              } catch {
+                /* QA best-effort: ignora qualunque errore */
+              }
+            }
+          } catch (e) {
+            // eslint-disable-next-line no-console
+            console.warn(
+              `[media] rigenerazione ${job.mediaId} fallita: ${e instanceof Error ? e.message : String(e)}`,
+            );
+          } finally {
+            regeneratingMedia.delete(job.mediaId);
+            finishMediaRegen();
           }
-        } catch (e) {
-          // eslint-disable-next-line no-console
-          console.warn(
-            `[media] rigenerazione ${job.mediaId} fallita: ${e instanceof Error ? e.message : String(e)}`,
-          );
-        } finally {
-          regeneratingMedia.delete(job.mediaId);
-          finishMediaRegen();
         }
-      }
+      });
     } finally {
       mediaRegenWorkerRunning = false;
     }
@@ -796,6 +809,7 @@ export function buildApi(deps: AppDeps): Hono {
       planned: j.planned,
       created: j.created,
       startedAt: j.startedAt,
+      waiting: j.waiting,
     }));
 
     // Rigenerazione immagini in corso (coda GLOBALE seriale): un solo job aggregato quando c'è
@@ -1500,6 +1514,7 @@ export function buildApi(deps: AppDeps): Hono {
       }
     }
     const batch: SceneBatch = {
+      id: randomUUID(),
       count,
       aspect,
       chapters,
@@ -1514,6 +1529,7 @@ export function buildApi(deps: AppDeps): Hono {
 
     const ac = new AbortController();
     activeSceneGen.set(id, ac);
+    setSceneGenWaiting(id, true);
     // VARIETÀ DI COMPOSIZIONE: ruota tra più inquadrature lungo il lotto. Due assi di varietà:
     // (1) SOLO 2 slot su 8 SENZA persone (ambientazioni/oggetti iconici); 6/8 hanno persone; (2) tra quelle
     // con persone NON sempre il protagonista — spinta ai SECONDARI (Sara, Elena, Marco…), anche DA SOLI o
@@ -1542,7 +1558,8 @@ export function buildApi(deps: AppDeps): Hono {
     ];
     // WORKER: svuota la CODA in sequenza finché ci sono batch e non è annullato. I batch accodati
     // mentre gira vengono raccolti senza fermarsi. `compIdx` ruota le composizioni su TUTTO il flusso.
-    void (async () => {
+    void runImageGenExclusive(async () => {
+      setSceneGenWaiting(id, false);
       let compIdx = 0;
       try {
         let b;
@@ -1588,7 +1605,7 @@ export function buildApi(deps: AppDeps): Hono {
       } finally {
         activeSceneGen.delete(id);
       }
-    })();
+    });
     return c.json({ queued: true, started: true, batch });
   });
 
@@ -1601,6 +1618,13 @@ export function buildApi(deps: AppDeps): Hono {
     return c.json({ cancelled: !!ac });
   });
 
+  api.post("/books/:id/generate-images/queue/:batchId/cancel", (c) => {
+    const id = Number(c.req.param("id"));
+    const batchId = c.req.param("batchId");
+    const cancelled = cancelSceneBatch(id, batchId);
+    return c.json({ cancelled });
+  });
+
   // GET /books/:id/scenegen — avanzamento: totale (tutti i batch) + batch corrente + coda + cronometri.
   api.get("/books/:id/scenegen", (c) => {
     const j = getSceneGen(Number(c.req.param("id")));
@@ -1609,6 +1633,7 @@ export function buildApi(deps: AppDeps): Hono {
         status: "idle",
         planned: 0,
         created: 0,
+        waiting: false,
         error: null,
         cancelled: false,
         startedAt: 0,
@@ -1620,12 +1645,18 @@ export function buildApi(deps: AppDeps): Hono {
       status: j.status,
       planned: j.plannedTotal, // totale immagini di tutti i batch
       created: j.createdTotal,
+      waiting: j.waiting,
       error: j.error,
       cancelled: j.cancelled,
       startedAt: j.startedAt,
       imageStartedAt: j.imageStartedAt,
       current: j.current, // { aspect, chapters, planned, created } | null
-      queued: j.queue.map((b) => ({ count: b.count, aspect: b.aspect, chapters: b.chapters })),
+      queued: j.queue.map((b) => ({
+        id: b.id,
+        count: b.count,
+        aspect: b.aspect,
+        chapters: b.chapters,
+      })),
     });
   });
 

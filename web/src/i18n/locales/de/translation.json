@@ -56,7 +56,8 @@
     "jobSceneGen": "Bilder generieren",
     "jobMediaRegen": "Bilder neu generieren",
     "jobVisualBible": "Visuelle Bibel",
-    "jobVisualBibleRunning": "in Bearbeitung"
+    "jobVisualBibleRunning": "in Bearbeitung",
+    "jobWaiting": "(in Warteschlange)"
   },
   "language": {
     "label": "Sprache",
@@ -301,7 +302,11 @@
       "engineUnavailable": "Die Generierungs-Engine ist in dieser Umgebung nicht verfügbar.",
       "queueFailed": "Einreihen in die Warteschlange fehlgeschlagen.",
       "cancelling": "Wird abgebrochen…",
-      "cancelFailed": "Abbruch fehlgeschlagen."
+      "cancelFailed": "Abbruch fehlgeschlagen.",
+      "queueInProgress": "Läuft",
+      "queueWaiting": "In Warteschlange",
+      "cancelThis": "Diesen abbrechen",
+      "cancelAll": "Alles abbrechen"
     },
     "pages": {
       "title": "Verknüpfte Seiten",
@@ -1356,6 +1361,9 @@
     "sceneGenHelp": "Wähle die Kapitel aus und lege fest, wie viele Bilder <strong>pro Kapitel</strong> erstellt werden sollen; ohne Auswahl gilt «Auto» (verschiedene Kapitel). Du kannst mehrere Anfragen <strong>in die Warteschlange einreihen</strong> (z. B. erst 9:16, dann Format auf 1:1 ändern und erneut hinzufügen): Die Warteschlange wird nacheinander abgearbeitet, bis du auf <strong>Abbrechen</strong> klickst. Die Generierung ist langsam (einige Minuten pro Bild) und läuft lokal: Der Server muss eingeschaltet bleiben.",
     "flashbackEnable": "Flashback / Erinnerung aktivieren",
     "flashbackSummaryYears": "−{{years}} Jahre",
-    "flashbackSummaryOff": "Aus"
+    "flashbackSummaryOff": "Aus",
+    "queueWaiting": "In Warteschlange",
+    "cancelThis": "Diesen abbrechen",
+    "cancelThisFailed": "Abbrechen fehlgeschlagen."
   }
 }

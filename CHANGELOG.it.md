@@ -5,6 +5,24 @@ Tutte le modifiche rilevanti a questo progetto sono documentate in questo file.
 Il formato è basato su [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 e questo progetto aderisce al [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] - 2026-06-24
+
+### Aggiunto
+
+- **Annulla i singoli elementi in coda**: ora puoi annullare un singolo lotto in attesa nella coda di
+  generazione immagini, oltre ad «Annulla tutto».
+
+### Modificato
+
+- **Generazione immagini serializzata**: le generazioni di libri diversi e le rigenerazioni vengono ora
+  accodate ed eseguite una alla volta invece che in parallelo; l'indicatore di attività distingue
+  «in corso» da «in coda».
+
+### Corretto
+
+- **Pannello attività in primo piano**: il menu attività dell'header ora compare sopra la griglia delle
+  immagini quando si scorre.
+
 ## [0.3.0] - 2026-06-24
 
 ### Aggiunto

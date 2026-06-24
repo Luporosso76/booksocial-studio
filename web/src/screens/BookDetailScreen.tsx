@@ -48,6 +48,7 @@ import {
   addCharacter,
   buildVisualBible,
   cancelBookImages,
+  cancelSceneQueueBatch,
   cancelMediaRegen,
   deleteBook,
   deleteBookLink,
@@ -1499,28 +1500,58 @@ function RegenQueueBanner({
     }
   }
 
+  async function cancelOne(mediaId: number) {
+    try {
+      await cancelMediaRegen(String(mediaId));
+      onCancelled();
+    } catch {
+      toast.error(t("bookDetail.cancelThisFailed"));
+    }
+  }
+
   return (
-    <div className="flex flex-wrap items-center gap-3 rounded-lg border border-accent/40 bg-accent-soft px-4 py-3">
-      <Spinner className="h-4 w-4 shrink-0" />
-      <div className="flex min-w-0 flex-1 flex-col">
-        <span className="text-sm font-medium text-content-primary">
-          {regen.current
-            ? t("bookDetail.regenBannerCurrent", { id: regen.current.mediaId })
-            : t("bookDetail.regenBannerPending")}
-        </span>
-        {queuedCount > 0 && (
-          <span className="text-xs text-content-secondary">
-            {t("bookDetail.regenBannerQueued", { n: queuedCount })}
+    <div className="flex flex-col gap-2 rounded-lg border border-accent/40 bg-accent-soft px-4 py-3">
+      <div className="flex flex-wrap items-center gap-3">
+        <Spinner className="h-4 w-4 shrink-0" />
+        <div className="flex min-w-0 flex-1 flex-col">
+          <span className="text-sm font-medium text-content-primary">
+            {regen.current
+              ? t("bookDetail.regenBannerCurrent", { id: regen.current.mediaId })
+              : t("bookDetail.regenBannerPending")}
           </span>
+          {queuedCount > 0 && (
+            <span className="text-xs text-content-secondary">
+              {t("bookDetail.regenBannerQueued", { n: queuedCount })}
+            </span>
+          )}
+        </div>
+        {elapsed && (
+          <span className="shrink-0 text-xs tabular-nums text-content-tertiary">{elapsed}</span>
         )}
+        <Button variant="ghost" size="sm" onClick={cancelAll} loading={cancelling}>
+          <X className="h-4 w-4" />
+          {t("bookDetail.regenCancelAll")}
+        </Button>
       </div>
-      {elapsed && (
-        <span className="shrink-0 text-xs tabular-nums text-content-tertiary">{elapsed}</span>
+      {queuedCount > 0 && (
+        <div className="flex flex-col gap-1">
+          {regen.queued.map((mediaId) => (
+            <div key={mediaId} className="flex items-center gap-2 text-xs text-content-secondary">
+              <span className="font-medium">{t("bookDetail.queueWaiting")}</span>
+              <span className="min-w-0 flex-1 truncate">#{mediaId}</span>
+              <button
+                type="button"
+                onClick={() => void cancelOne(mediaId)}
+                aria-label={t("bookDetail.cancelThis")}
+                title={t("bookDetail.cancelThis")}
+                className="shrink-0 rounded p-0.5 text-content-tertiary transition hover:bg-bg-card hover:text-content-primary"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ))}
+        </div>
       )}
-      <Button variant="ghost" size="sm" onClick={cancelAll} loading={cancelling}>
-        <X className="h-4 w-4" />
-        {t("bookDetail.regenCancelAll")}
-      </Button>
     </div>
   );
 }
@@ -2785,6 +2816,7 @@ function SceneGenSection({
   const [progress, setProgress] = useState<{ created: number; planned: number } | null>(null);
   const [current, setCurrent] = useState<SceneGenStatus["current"]>(null);
   const [queued, setQueued] = useState<SceneBatch[]>([]);
+  const [waiting, setWaiting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const pollRef = useRef<number | null>(null);
   // Cronometri a TEMPO REALE: calcolati da timestamp del SERVER (startedAt = inizio lotto;
@@ -2883,6 +2915,7 @@ function SceneGenSection({
         setProgress({ created: s.created, planned: s.planned || 1 });
         setCurrent(s.current ?? null);
         setQueued(s.queued ?? []);
+        setWaiting(s.waiting ?? false);
         syncTimers(s); // riallinea i cronometri ai timestamp del server (tempo reale anche al rientro)
         beginPolling();
       } catch {
@@ -2915,6 +2948,7 @@ function SceneGenSection({
         setProgress({ created: s.created, planned: s.planned || count });
         setCurrent(s.current ?? null);
         setQueued(s.queued ?? []);
+        setWaiting(s.waiting ?? false);
         syncTimers(s); // riallinea totale + immagine ai timestamp del server (il per-immagine si azzera da sé)
         if (s.status === "ready" || s.status === "failed") {
           stopPolling();
@@ -2922,6 +2956,7 @@ function SceneGenSection({
           setProgress(null);
           setCurrent(null);
           setQueued([]);
+          setWaiting(false);
           setCancelling(false);
           if (s.status === "ready") {
             toast.success(t("book.sceneGen.scenesGenerated"));
@@ -3003,6 +3038,17 @@ function SceneGenSection({
       toast.info(t("book.sceneGen.cancelling"));
     } catch (err) {
       setCancelling(false);
+      setError(errorMessage(err) || t("book.sceneGen.cancelFailed"));
+    }
+  }
+
+  async function cancelBatch(batchId: string) {
+    try {
+      await cancelSceneQueueBatch(bookId, batchId);
+      const s = await getSceneGen(bookId);
+      setQueued(s.queued ?? []);
+      setProgress({ created: s.created, planned: s.planned || count });
+    } catch (err) {
       setError(errorMessage(err) || t("book.sceneGen.cancelFailed"));
     }
   }
@@ -3255,6 +3301,10 @@ function SceneGenSection({
             </span>
             {current && (
               <span className="text-content-tertiary">
+                <span className="font-medium">
+                  {waiting ? t("book.sceneGen.queueWaiting") : t("book.sceneGen.queueInProgress")}
+                </span>
+                {": "}
                 {t("book.sceneGen.currentBatch", {
                   aspect: current.aspect,
                   scope: current.chapters.length
@@ -3276,23 +3326,31 @@ function SceneGenSection({
               onClick={cancel}
             >
               {!cancelling && <X className="h-4 w-4" />}
-              {t("common.cancel")}
+              {t("book.sceneGen.cancelAll")}
             </Button>
           </div>
           {queued.length > 0 && (
-            <div className="text-xs text-content-tertiary">
-              {t("book.sceneGen.queuedList", {
-                list: queued
-                  .map(
-                    (b) =>
-                      `${b.count}× ${b.aspect} ${
-                        b.chapters.length
-                          ? t("book.sceneGen.chapterScope", { chapters: b.chapters.join(",") })
-                          : t("book.sceneGen.auto")
-                      }`,
-                  )
-                  .join("  ·  "),
-              })}
+            <div className="flex flex-col gap-1">
+              {queued.map((b) => (
+                <div key={b.id} className="flex items-center gap-2 text-xs text-content-tertiary">
+                  <span className="font-medium">{t("book.sceneGen.queueWaiting")}</span>
+                  <span className="min-w-0 flex-1 truncate">
+                    {b.count}× {b.aspect}{" "}
+                    {b.chapters.length
+                      ? t("book.sceneGen.chapterScope", { chapters: b.chapters.join(",") })
+                      : t("book.sceneGen.auto")}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => void cancelBatch(b.id)}
+                    aria-label={t("book.sceneGen.cancelThis")}
+                    title={t("book.sceneGen.cancelThis")}
+                    className="shrink-0 rounded p-0.5 text-content-tertiary transition hover:bg-bg-inset hover:text-content-primary"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ))}
             </div>
           )}
         </div>

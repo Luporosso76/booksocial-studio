@@ -5,6 +5,24 @@ Todos los cambios notables de este proyecto están documentados en este archivo.
 El formato se basa en [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 y este proyecto se adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] - 2026-06-24
+
+### Añadido
+
+- **Cancelar elementos en cola individualmente**: ahora puedes cancelar un solo lote en espera en la cola
+  de generación de imágenes, además de «Cancelar todo».
+
+### Cambiado
+
+- **Generación de imágenes serializada**: las generaciones de libros distintos y las regeneraciones ahora
+  se ponen en cola y se ejecutan de una en una en lugar de en paralelo; el indicador de actividad
+  distingue «en curso» de «en cola».
+
+### Corregido
+
+- **Panel de actividad al frente**: el menú de actividad de la cabecera ahora aparece por encima de la
+  cuadrícula de imágenes al desplazarse.
+
 ## [0.3.0] - 2026-06-24
 
 ### Añadido

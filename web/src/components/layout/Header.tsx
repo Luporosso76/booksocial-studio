@@ -39,7 +39,7 @@ export function Header() {
   const sectionTitle = titleKey ? t(TITLE_KEYS[titleKey]) : t("header.appTitle");
 
   return (
-    <header className="flex h-14 shrink-0 items-center justify-between border-b border-border-subtle bg-bg-raised/80 px-6 backdrop-blur">
+    <header className="relative z-40 flex h-14 shrink-0 items-center justify-between border-b border-border-subtle bg-bg-raised/80 px-6 backdrop-blur">
       <h1 className="text-base font-semibold text-content-primary">{sectionTitle}</h1>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -211,6 +211,9 @@ function JobsIndicator() {
                         {" "}
                         {job.created ?? 0}/{job.planned}
                       </span>
+                    )}
+                    {job.waiting && (
+                      <span className="text-content-faint"> {t("header.jobWaiting")}</span>
                     )}
                   </span>
                 </li>

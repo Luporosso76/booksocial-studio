@@ -112,6 +112,7 @@ export interface BackgroundJob {
   pageId?: string;
   planned?: number;
   created?: number;
+  waiting?: boolean;
   // Rigenerazione immagini (kind === 'mediaRegen'): id dell'immagine in lavorazione (corrente).
   mediaId?: number;
   // Bibbia visiva (kind === 'visualBible'): avanzamento per-step (lo step in corso
@@ -140,6 +141,7 @@ export type AiImageMode = "library" | "direct";
 // Un batch di generazione: count immagini PER CAPITOLO (se chapters non vuoto), oppure count
 // totali su capitoli vari (chapters vuoto = Auto).
 export interface SceneBatch {
+  id: string;
   count: number;
   aspect: SceneAspect;
   chapters: number[];
@@ -149,6 +151,7 @@ export interface SceneGenStatus {
   status: "idle" | "generating" | "ready" | "failed";
   planned: number; // totale immagini di TUTTI i batch (coda inclusa)
   created: number; // immagini create finora
+  waiting?: boolean;
   error: string | null;
   // Timestamp epoch-ms per i cronometri (tempo reale, sopravvive ai cambi pagina).
   // startedAt = inizio del primo batch; imageStartedAt = inizio dell'immagine in corso. 0 se idle.

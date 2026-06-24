@@ -10,6 +10,7 @@ export type SceneGenStatus = "generating" | "ready" | "failed";
 // Un batch accodato. `count` = immagini PER CAPITOLO se `chapters` è non vuoto; se `chapters` è
 // vuoto = modalità AUTO (count immagini totali su capitoli vari, anti-spoiler).
 export interface SceneBatch {
+  id: string;
   count: number;
   aspect: string;
   chapters: number[];
@@ -30,7 +31,8 @@ export interface SceneGenState {
   plannedTotal: number; // immagini totali previste (tutti i batch: completati + corrente + coda)
   error: string | null;
   cancelled: boolean;
-  startedAt: number; // inizio del PRIMO batch (cronometro "totale")
+  waiting: boolean;
+  startedAt: number;
   imageStartedAt: number; // inizio dell'immagine in corso (cronometro "immagine"); azzerato a ogni immagine
   updatedAt: number;
 }
@@ -56,6 +58,7 @@ export function enqueueSceneBatch(bookId: number, batch: SceneBatch): boolean {
       plannedTotal: batchSize(batch),
       error: null,
       cancelled: false,
+      waiting: false,
       startedAt: now,
       imageStartedAt: now,
       updatedAt: now,
@@ -121,6 +124,25 @@ export function clearSceneQueue(bookId: number): void {
   }
 }
 
+export function setSceneGenWaiting(bookId: number, waiting: boolean): void {
+  const j = jobs.get(bookId);
+  if (j) {
+    j.waiting = waiting;
+    j.updatedAt = Date.now();
+  }
+}
+
+export function cancelSceneBatch(bookId: number, batchId: string): boolean {
+  const j = jobs.get(bookId);
+  if (!j) return false;
+  const idx = j.queue.findIndex((b) => b.id === batchId);
+  if (idx === -1) return false;
+  const [removed] = j.queue.splice(idx, 1);
+  j.plannedTotal -= batchSize(removed);
+  j.updatedAt = Date.now();
+  return true;
+}
+
 export function getSceneGen(bookId: number): SceneGenState | undefined {
   return jobs.get(bookId);
 }
@@ -136,6 +158,7 @@ export function listActiveSceneGen(): Array<{
   planned: number;
   created: number;
   startedAt: number;
+  waiting: boolean;
 }> {
   return [...jobs.entries()]
     .filter(([, j]) => j.status === "generating")
@@ -145,5 +168,6 @@ export function listActiveSceneGen(): Array<{
       planned: j.plannedTotal,
       created: j.createdTotal,
       startedAt: j.startedAt,
+      waiting: j.waiting,
     }));
 }
