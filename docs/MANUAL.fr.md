@@ -122,7 +122,7 @@ Cet écran vous permet de modifier les données du livre qui contrôlent la gén
 | --- | --- |
 | Profil | Renommer le titre et l'auteur ; modifier les hashtags de base ; configurer les directives visuelles ; modifier les accessoires et l'univers ; passer en revue les personnages mineurs ; associer le livre aux Pages connectées. |
 | Chapitres | Inclure ou exclure des chapitres ; modifier les fiches de scènes ; régénérer les fiches de scènes ; enregistrer les modifications des fiches de scènes. |
-| Personnages | Ajouter, modifier et supprimer des personnages ; générer des apparences ; générer des tenues ; consulter la présence dans les chapitres en lecture seule. |
+| Personnages | Ajouter, modifier et supprimer des personnages ; générer des apparences ; générer des tenues ; modifier la présence dans les chapitres. |
 | Liens | Ajouter, modifier et supprimer des liens de livres. |
 | Images | Générer des images de scènes ; voir les images dans une visionneuse (lightbox) ; régénérer des images ; uploader des images manuellement ; régénérer des images sélectionnées par lots. |
 | Musique | Accéder à l'onglet Musique du livre. |
@@ -173,7 +173,7 @@ L'onglet **Personnages** contrôle les informations sur la distribution et la co
 | Tenues par contexte | Définitions de vêtements pour des décors récurrents. |
 | Générer les apparences | Crée ou rafraîchit les descriptions de l'apparence des personnages. |
 | Générer les tenues | Crée ou rafraîchit les définitions de tenues. |
-| Présence | Liste en lecture seule des chapitres où le personnage apparaît. |
+| Présence | Liste modifiable des chapitres où le personnage apparaît ; activez/désactivez par chapitre. Détermine quels personnages sont sélectionnables lors de la génération d'images. |
 
 ### Onglet Liens
 

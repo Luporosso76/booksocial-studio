@@ -122,7 +122,7 @@ Esta pantalla te permite editar los datos del libro que controlan la generación
 | --- | --- |
 | Profile | Renombrar título y autor; editar hashtags base; configurar directivas visuales; editar utilería y mundo; revisar personajes secundarios; asociar el libro con Páginas conectadas. |
 | Chapters | Incluir o excluir capítulos; editar tarjetas de escena; regenerar tarjetas de escena; guardar cambios en la tarjeta de escena. |
-| Characters | Agregar, editar y eliminar personajes; generar apariencias; generar atuendos; revisar presencia en capítulos de solo lectura. |
+| Characters | Agregar, editar y eliminar personajes; generar apariencias; generar atuendos; editar la presencia en capítulos. |
 | Links | Agregar, editar y eliminar enlaces del libro. |
 | Images | Generar imágenes de escena; ver imágenes en una caja de luz; regenerar imágenes; subir imágenes manualmente; regenerar imágenes seleccionadas en lote. |
 | Music | Acceder a la pestaña de Música del libro. |
@@ -173,7 +173,7 @@ La pestaña **Characters** controla la información del elenco y la consistencia
 | Atuendos por contexto | Definiciones de ropa para escenarios recurrentes. |
 | Generar apariencias | Crea o actualiza las descripciones de apariencia de los personajes. |
 | Generar atuendos | Crea o actualiza definiciones de atuendos. |
-| Presencia | Lista de solo lectura de los capítulos donde aparece el personaje. |
+| Presencia | Lista editable de los capítulos donde aparece el personaje; activa/desactiva por capítulo. Determina qué personajes se pueden seleccionar al generar imágenes. |
 
 ### Pestaña Links
 

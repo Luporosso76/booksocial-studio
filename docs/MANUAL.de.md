@@ -122,7 +122,7 @@ In diesem Bildschirm können Sie die Buchdaten bearbeiten, die die Inhaltserstel
 | --- | --- |
 | Profile | Titel und Autor umbenennen; Basis-Hashtags bearbeiten; visuelle Richtlinien konfigurieren; Requisiten und Welt bearbeiten; Nebenfiguren überprüfen; das Buch mit verbundenen Seiten verknüpfen. |
 | Chapters | Kapitel ein- oder ausschließen; Szenenkarten bearbeiten; Szenenkarten neu generieren; Änderungen an Szenenkarten speichern. |
-| Characters | Charaktere hinzufügen, bearbeiten und löschen; Erscheinungsbilder generieren; Outfits generieren; die schreibgeschützte Kapitelpräsenz überprüfen. |
+| Characters | Charaktere hinzufügen, bearbeiten und löschen; Erscheinungsbilder generieren; Outfits generieren; die Kapitelpräsenz bearbeiten. |
 | Links | Buch-Links hinzufügen, bearbeiten und löschen. |
 | Images | Szenenbilder generieren; Bilder in einer Lightbox betrachten; Bilder neu generieren; Bilder manuell hochladen; ausgewählte Bilder im Stapel neu generieren. |
 | Music | Greifen Sie auf den Musik-Reiter des Buches zu. |
@@ -173,7 +173,7 @@ Der **Characters**-Reiter steuert Besetzungsinformationen und die visuelle Konsi
 | Outfits per context | Kleidungsdefinitionen für wiederkehrende Umgebungen. |
 | Generate appearances | Erstellt oder aktualisiert Beschreibungen des Erscheinungsbilds von Charakteren. |
 | Generate outfits | Erstellt oder aktualisiert Outfit-Definitionen. |
-| Presence | Schreibgeschützte Liste der Kapitel, in denen der Charakter vorkommt. |
+| Presence | Bearbeitbare Liste der Kapitel, in denen der Charakter vorkommt; pro Kapitel umschaltbar. Bestimmt, welche Charaktere bei der Bildgenerierung auswählbar sind. |
 
 ### Links Tab
 

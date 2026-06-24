@@ -122,7 +122,7 @@ Questa schermata ti permette di modificare i dati del libro che controllano la g
 | --- | --- |
 | Profile | Rinomina titolo e autore; modifica hashtag di base; configura direttive visive; modifica oggetti di scena e mondo; rivedi personaggi secondari; associa il libro alle Pagine connesse. |
 | Chapters | Includi o escludi capitoli; modifica schede scena; rigenera schede scena; salva le modifiche alle schede scena. |
-| Characters | Aggiungi, modifica ed elimina personaggi; generare aspetti; generare abiti; rivedere la presenza nei capitoli in sola lettura. |
+| Characters | Aggiungi, modifica ed elimina personaggi; generare aspetti; generare abiti; modificare la presenza nei capitoli. |
 | Links | Aggiungi, modifica ed elimina link del libro. |
 | Images | Genera immagini di scena; visualizza le immagini in una lightbox; rigenera immagini; carica immagini manualmente; rigenera in blocco le immagini selezionate. |
 | Music | Accedi alla scheda Music del libro. |
@@ -173,7 +173,7 @@ La scheda **Characters** controlla le informazioni sul cast e la coerenza visiva
 | Abiti per contesto | Definizioni di abbigliamento per le ambientazioni ricorrenti. |
 | Generare aspetti | Crea o aggiorna le descrizioni dell'aspetto dei personaggi. |
 | Generare abiti | Crea o aggiorna le definizioni degli abiti. |
-| Presenza | Elenco in sola lettura dei capitoli in cui appare il personaggio. |
+| Presenza | Elenco modificabile dei capitoli in cui appare il personaggio; attiva/disattiva per capitolo. Determina quali personaggi sono selezionabili nella generazione delle immagini. |
 
 ### Scheda Links
 

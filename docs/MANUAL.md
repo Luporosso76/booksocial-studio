@@ -122,7 +122,7 @@ This screen lets you edit the book data that controls content generation: title,
 | --- | --- |
 | Profile | Rename title and author; edit base hashtags; configure visual directives; edit props and world; review minor characters; associate the book with connected Pages. |
 | Chapters | Include or exclude chapters; edit scene cards; regenerate scene cards; save scene card changes. |
-| Characters | Add, edit, and delete characters; generate appearances; generate outfits; review read-only chapter presence. |
+| Characters | Add, edit, and delete characters; generate appearances; generate outfits; edit chapter presence. |
 | Links | Add, edit, and delete book links. |
 | Images | Generate scene images; view images in a lightbox; regenerate images; upload images manually; regenerate selected images in batch. |
 | Music | Access the book's Music tab. |
@@ -173,7 +173,7 @@ The **Characters** tab controls cast information and visual consistency.
 | Outfits per context | Clothing definitions for recurring settings. |
 | Generate appearances | Creates or refreshes character appearance descriptions. |
 | Generate outfits | Creates or refreshes outfit definitions. |
-| Presence | Read-only list of chapters where the character appears. |
+| Presence | Editable list of chapters where the character appears; toggle per chapter. Determines which characters are selectable when generating images. |
 
 ### Links Tab
 

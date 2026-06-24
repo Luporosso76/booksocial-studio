@@ -122,7 +122,7 @@ Esta tela permite que você edite os dados do livro que controlam a geração de
 | --- | --- |
 | Profile | Renomear título e autor; editar hashtags base; configurar diretivas visuais; editar adereços e mundo; revisar personagens secundários; associar o livro às Páginas conectadas. |
 | Chapters | Incluir ou excluir capítulos; editar cartões de cena; regenerar cartões de cena; salvar alterações no cartão de cena. |
-| Characters | Adicionar, editar e excluir personagens; gerar aparências; gerar trajes; revisar a presença nos capítulos (somente leitura). |
+| Characters | Adicionar, editar e excluir personagens; gerar aparências; gerar trajes; editar a presença nos capítulos. |
 | Links | Adicionar, editar e excluir links do livro. |
 | Images | Gerar imagens de cena; visualizar imagens em uma caixa de luz; regenerar imagens; enviar imagens manualmente; regenerar imagens selecionadas em lote. |
 | Music | Acessar a guia de Música do livro. |
@@ -173,7 +173,7 @@ A guia **Characters** controla as informações do elenco e a consistência visu
 | Trajes por contexto | Definições de roupas para cenários recorrentes. |
 | Gerar aparências | Cria ou atualiza as descrições da aparência dos personagens. |
 | Gerar trajes | Cria ou atualiza as definições de trajes. |
-| Presença | Lista somente leitura de capítulos em que o personagem aparece. |
+| Presença | Lista editável de capítulos em que o personagem aparece; alterne por capítulo. Determina quais personagens podem ser selecionados ao gerar imagens. |
 
 ### Guia Links
 
