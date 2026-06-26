@@ -1625,6 +1625,48 @@ function MediaCard({
     return c;
   }, [media, aspectOf]);
 
+  const [chapterTab, setChapterTab] = useState<"all" | "none" | number>("all");
+  const inFormat = (m: BookDetail["media"][number]) =>
+    formatTab === "all" || aspectOf[m.id] === formatTab;
+  const chapterTabs = useMemo(() => {
+    const counts = new Map<number, number>();
+    let none = 0;
+    let total = 0;
+    for (const m of media) {
+      if (!(formatTab === "all" || aspectOf[m.id] === formatTab)) continue;
+      total += 1;
+      if (m.chapterIdx == null) none += 1;
+      else counts.set(m.chapterIdx, (counts.get(m.chapterIdx) ?? 0) + 1);
+    }
+    const list = Array.from(counts.entries())
+      .sort((a, b) => a[0] - b[0])
+      .map(([idx, n]) => ({ id: idx as number, n }));
+    return { total, none, chapters: list };
+  }, [media, formatTab, aspectOf]);
+
+  useEffect(() => {
+    if (chapterTab === "all") return;
+    const stillThere =
+      chapterTab === "none"
+        ? chapterTabs.none > 0
+        : chapterTabs.chapters.some((c) => c.id === chapterTab);
+    if (!stillThere) setChapterTab("all");
+  }, [chapterTab, chapterTabs]);
+
+  const [genPrefill, setGenPrefill] = useState<SceneGenPrefill | null>(null);
+  function generateCurrentSelection() {
+    const aspect: SceneAspect | null =
+      formatTab === "vertical"
+        ? "9:16"
+        : formatTab === "landscape"
+          ? "16:9"
+          : formatTab === "square"
+            ? "1:1"
+            : null;
+    const chaptersSel = typeof chapterTab === "number" ? [chapterTab] : [];
+    setGenPrefill({ aspect, chapters: chaptersSel, nonce: Date.now() });
+  }
+
   // Cast del libro: caricato una volta qui e passato al lightbox per la multi-selezione
   // personaggi della «Rigenera dal capitolo» (filtrata al capitolo dell'immagine). Caricamento
   // soft: in caso di errore resta vuoto e il lightbox non mostra il selettore personaggi.
@@ -1781,7 +1823,12 @@ function MediaCard({
         }
       />
       <CardBody className="flex flex-col gap-5">
-        <SceneGenSection bookId={bookId} chapters={chapters} onGenerated={onChange} />
+        <SceneGenSection
+          bookId={bookId}
+          chapters={chapters}
+          onGenerated={onChange}
+          prefill={genPrefill}
+        />
         {regen && (regen.current || regen.queued.length > 0) && (
           <RegenQueueBanner regen={regen} onCancelled={onChange} />
         )}
@@ -1879,6 +1926,67 @@ function MediaCard({
                 );
               })}
             </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <div
+                role="tablist"
+                aria-label={t("bookDetail.chapterFilterAria")}
+                className="flex flex-1 flex-wrap gap-1.5"
+              >
+                {[
+                  { id: "all" as const, label: t("bookDetail.chapterTabAll"), n: chapterTabs.total },
+                  ...chapterTabs.chapters.map((c) => ({
+                    id: c.id,
+                    label: t("book.media.chapterBadge", { index: c.id }),
+                    n: c.n,
+                  })),
+                  ...(chapterTabs.none > 0
+                    ? [
+                        {
+                          id: "none" as const,
+                          label: t("bookDetail.chapterTabNone"),
+                          n: chapterTabs.none,
+                        },
+                      ]
+                    : []),
+                ].map((tab) => {
+                  const active = chapterTab === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      role="tab"
+                      aria-selected={active}
+                      onClick={() => setChapterTab(tab.id)}
+                      className={cn(
+                        "inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs font-medium",
+                        "transition-colors duration-150 ease-out-strong focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-ring",
+                        active
+                          ? "border-accent bg-accent-soft text-content-primary"
+                          : "border-border-subtle text-content-tertiary hover:text-content-primary",
+                      )}
+                    >
+                      {tab.label}
+                      <span
+                        className={cn(
+                          "rounded-full px-1.5 tabular-nums",
+                          active
+                            ? "bg-accent/20 text-content-secondary"
+                            : "bg-bg-inset text-content-tertiary",
+                        )}
+                      >
+                        {tab.n}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              {typeof chapterTab === "number" && (
+                <Button variant="secondary" size="sm" onClick={generateCurrentSelection}>
+                  <Wand2 className="h-4 w-4" />
+                  {t("bookDetail.genForSelection")}
+                </Button>
+              )}
+            </div>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
               {media.map((m) => {
                 const isCurrent = regenCurrentId === m.id;
@@ -1895,7 +2003,12 @@ function MediaCard({
                       isSelected ? "border-accent ring-2 ring-accent/40" : "border-border-subtle",
                       // Filtro per formato: nascondi i tile che non combaciano (il loro <img> resta
                       // comunque caricato così il conteggio per categoria si popola lo stesso).
-                      formatTab !== "all" && aspectOf[m.id] !== formatTab && "hidden",
+                      (!inFormat(m) ||
+                        (chapterTab !== "all" &&
+                          (chapterTab === "none"
+                            ? m.chapterIdx != null
+                            : m.chapterIdx !== chapterTab))) &&
+                        "hidden",
                     )}
                   >
                     {imgSrc ? (
@@ -2782,17 +2895,26 @@ function VisualBiblePanel({ status }: { status: VisualBibleStatus | null }) {
   );
 }
 
+interface SceneGenPrefill {
+  aspect: SceneAspect | null;
+  chapters: number[];
+  nonce: number;
+}
+
 function SceneGenSection({
   bookId,
   chapters,
   onGenerated,
+  prefill,
 }: {
   bookId: string;
   chapters: BookDetail["chapters"];
   onGenerated: () => void;
+  prefill?: SceneGenPrefill | null;
 }) {
   const toast = useToast();
   const { t } = useTranslation();
+  const sectionRef = useRef<HTMLDivElement>(null);
   // null = ancora da verificare; il resto è la disponibilità del motore.
   const [available, setAvailable] = useState<boolean | null>(null);
   const [count, setCount] = useState(4);
@@ -2865,6 +2987,14 @@ function SceneGenSection({
       });
     return () => ctrl.abort();
   }, []);
+
+  useEffect(() => {
+    if (!prefill) return;
+    if (prefill.aspect) setAspect(prefill.aspect);
+    setSelectedChapters(prefill.chapters);
+    sectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefill?.nonce]);
 
   // Carica il cast del libro per il selettore personaggio (caricamento soft: in caso di errore
   // resta vuoto e il selettore mostra solo l'opzione di default, senza bloccare la generazione).
@@ -3083,7 +3213,10 @@ function SceneGenSection({
     : t("bookDetail.flashbackSummaryOff");
 
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-accent/20 bg-accent-soft/40 p-4">
+    <div
+      ref={sectionRef}
+      className="flex flex-col gap-3 rounded-lg border border-accent/20 bg-accent-soft/40 p-4"
+    >
       <div className="flex items-center gap-2">
         <Wand2 className="h-4 w-4 text-accent" />
         <h4 className="text-sm font-semibold text-content-primary">{t("book.sceneGen.heading")}</h4>
