@@ -7,6 +7,7 @@ import {
   Cpu,
   Image as ImageIcon,
   Lock,
+  Menu,
   RefreshCw,
   Sparkles,
   Unlock,
@@ -30,7 +31,7 @@ const TITLE_KEYS: Record<string, string> = {
   "/dashboard": "nav.dashboard",
 };
 
-export function Header() {
+export function Header({ onMenu }: { onMenu?: () => void }) {
   const { pathname } = useLocation();
   const { t } = useTranslation();
   const { status, online, loading } = useStatus();
@@ -39,8 +40,18 @@ export function Header() {
   const sectionTitle = titleKey ? t(TITLE_KEYS[titleKey]) : t("header.appTitle");
 
   return (
-    <header className="relative z-40 flex h-14 shrink-0 items-center justify-between border-b border-border-subtle bg-bg-raised/80 px-6 backdrop-blur">
-      <h1 className="text-base font-semibold text-content-primary">{sectionTitle}</h1>
+    <header className="relative z-40 flex h-14 shrink-0 items-center justify-between gap-2 border-b border-border-subtle bg-bg-raised/80 px-4 backdrop-blur sm:px-6">
+      <div className="flex min-w-0 items-center gap-2">
+        <button
+          type="button"
+          onClick={onMenu}
+          aria-label={t("nav.openMenu")}
+          className="-ml-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-content-secondary hover:bg-bg-hover hover:text-content-primary md:hidden"
+        >
+          <Menu className="h-5 w-5" />
+        </button>
+        <h1 className="truncate text-base font-semibold text-content-primary">{sectionTitle}</h1>
+      </div>
 
       <div className="flex flex-wrap items-center gap-2">
         <JobsIndicator />

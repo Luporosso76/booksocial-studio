@@ -110,7 +110,7 @@ function KpiPlatformBlock({
     <div className="flex min-w-0 items-center gap-2.5">
       <BrandIcon className={cn("h-4 w-4 shrink-0", brandClass)} aria-hidden />
       {handle && <span className="truncate text-xs text-content-tertiary">{handle}</span>}
-      <div className="flex items-center gap-3 sm:gap-4">{children}</div>
+      <div className="flex flex-wrap items-center gap-3 sm:gap-4">{children}</div>
     </div>
   );
 }
@@ -575,7 +575,7 @@ function DashSectionTabs({
     <div
       role="tablist"
       aria-label={t("dashboard.sectionsAria")}
-      className="flex items-center gap-1 overflow-x-auto border-b border-border-subtle"
+      className="flex min-w-0 items-center gap-1 overflow-x-auto border-b border-border-subtle"
     >
       {tabs.map((tab) => {
         const isActive = tab.id === active;
@@ -900,7 +900,7 @@ export function DashboardScreen() {
           {pagesState.error ? (
             <ErrorBanner message={pagesState.error} onRetry={pagesState.reload} />
           ) : pagesState.loading ? (
-            <Skeleton className="h-9 w-64" />
+            <Skeleton className="h-9 w-full max-w-xs" />
           ) : pages.length === 0 ? (
             <EmptyState
               icon={<LayoutDashboard className="h-5 w-5" />}

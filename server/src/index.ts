@@ -1,6 +1,7 @@
 import { serve } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { Hono } from "hono";
+import { createServer as createHttpsServer } from "node:https";
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
@@ -20,8 +21,9 @@ import { renderJobs } from "./db/repositories.js";
 import { PublishScheduler } from "./scheduler/publishScheduler.js";
 import { RenderCleanup } from "./scheduler/renderCleanup.js";
 import * as keyring from "./secrets/keyring.js";
+import * as auth from "./services/authService.js";
+import { loadTls } from "./tls.js";
 import { buildApi, type AppDeps } from "./routes.js";
-import { basicAuthMiddleware } from "./auth/basicAuth.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -29,6 +31,8 @@ async function main(): Promise<void> {
   // 1) Migrations on SQLite (embedded, better-sqlite3).
   const applied = await runMigrations();
   console.log(`[db] migrazioni applicate in questa esecuzione: ${applied}`);
+
+  await auth.ensureSeed();
 
   // 2) Engine + services.
   // Carica la config RUNTIME dei provider AI (DB + keyring) in cache PRIMA di createEngine(),
@@ -77,21 +81,6 @@ async function main(): Promise<void> {
     return c.json({ error: message }, code as 400);
   });
 
-  // 3b) HTTP Basic Auth opzionale (self-host). Se ENTRAMBE le credenziali sono
-  // presenti, la richiediamo su TUTTE le richieste (API + statico) tranne /api/health.
-  // Il middleware va installato PRIMA delle rotte e dello static-serving.
-  if (appConfig.authUser && appConfig.authPass) {
-    app.use("*", basicAuthMiddleware({ user: appConfig.authUser, pass: appConfig.authPass }));
-    console.log("[auth] Basic Auth attiva");
-  } else {
-    console.log("[auth] nessuna autenticazione (solo localhost consigliato)");
-    if (appConfig.host === "0.0.0.0") {
-      console.warn(
-        "[sicurezza] in ascolto su 0.0.0.0 SENZA autenticazione: imposta AUTH_USER/AUTH_PASS o usa un reverse proxy",
-      );
-    }
-  }
-
   app.route("/api", buildApi(deps));
 
   // 4) In production, serve ../web/dist as static if present (dev uses Vite proxy).
@@ -109,10 +98,26 @@ async function main(): Promise<void> {
   const renderCleanup = new RenderCleanup();
   renderCleanup.start();
 
-  // 6) Listen on 127.0.0.1:PORT.
-  serve({ fetch: app.fetch, hostname: appConfig.host, port: appConfig.port }, (info) => {
-    console.log(`[server] in ascolto su http://${appConfig.host}:${info.port}`);
-  });
+  // 6) Listen: HTTPS se è disponibile materiale TLS (cert montato o self-signed), altrimenti HTTP.
+  const tls = loadTls();
+  if (tls) {
+    serve(
+      {
+        fetch: app.fetch,
+        hostname: appConfig.host,
+        port: appConfig.port,
+        createServer: createHttpsServer,
+        serverOptions: { key: tls.key, cert: tls.cert },
+      },
+      (info) => {
+        console.log(`[server] in ascolto su https://${appConfig.host}:${info.port}`);
+      },
+    );
+  } else {
+    serve({ fetch: app.fetch, hostname: appConfig.host, port: appConfig.port }, (info) => {
+      console.log(`[server] in ascolto su http://${appConfig.host}:${info.port}`);
+    });
+  }
 
   const shutdown = async () => {
     scheduler.stop();

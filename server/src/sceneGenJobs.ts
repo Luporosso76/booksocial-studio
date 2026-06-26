@@ -21,6 +21,7 @@ export interface SceneBatch {
   // Override FLASHBACK/ricordo (manuale): se valorizzato, le immagini di questo batch rendono i
   // personaggi più giovani e vestiti per l'epoca del ricordo (scavalca età e outfit canonici).
   flashback?: SceneFlashback;
+  moment?: number;
 }
 
 export interface SceneGenState {

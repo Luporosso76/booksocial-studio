@@ -103,10 +103,16 @@ export interface ChapterScene {
   keyMoment: string | null;
   kind: ChapterSceneKind;
   youngerYears: number | null;
+  characterAges: CharacterAge[];
   altMoments: ChapterMoment[];
   source: CharacterSource; // 'AI' = estratta dal modello, 'USER' = editata a mano
   model: string | null; // motore che l'ha estratta
   updatedAt: number;
+}
+
+export interface CharacterAge {
+  name: string;
+  age: number;
 }
 
 export type ChapterSceneKind = "waking" | "dream" | "flashback";
@@ -124,6 +130,7 @@ export interface ChapterMoment {
   keyMoment: string | null;
   whose: string | null;
   youngerYears: number | null;
+  characterAges: CharacterAge[];
 }
 
 export type CharacterSource = "AI" | "USER";

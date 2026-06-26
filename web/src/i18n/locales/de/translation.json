@@ -36,7 +36,8 @@
     "connection": "Verbindung",
     "pageManagement": "Seitenverwaltung",
     "books": "Bücher",
-    "settings": "Einstellungen"
+    "settings": "Einstellungen",
+    "openMenu": "Menü öffnen"
   },
   "header": {
     "appTitle": "BookSocial Studio",
@@ -293,6 +294,9 @@
       "auto": "Auto",
       "chapterScope": "Kap {{chapters}}",
       "timers": "· Bild {{img}} · Gesamt {{total}}",
+      "momentToGenerate": "Zu generierender Moment",
+      "momentAll": "Alle Momente",
+      "momentToGenerateHint": "Mit \"Alle Momente\" wählt jedes Bild zufällig zwischen Gegenwart, Traum und Rückblende (die Anzahl bleibt gleich). Oder erzwinge einen einzigen Typ.",
       "queuedList": "In der Warteschlange: {{list}}",
       "footerNote": "Wähle die Kapitel aus und lege fest, wie viele Bilder <1>pro Kapitel</1> erstellt werden sollen; ohne Auswahl gilt «Auto» (verschiedene Kapitel). Du kannst mehrere Anfragen <3>in die Warteschlange einreihen</3> (z. B. zuerst in 9:16, dann das Format auf 1:1 ändern und erneut hinzufügen): Die Warteschlange läuft nacheinander ab, ohne anzuhalten, bis du auf <5>Abbrechen</5> klickst. Die Generierung ist langsam (einige Minuten pro Bild) und läuft lokal: Der Server muss eingeschaltet bleiben.",
       "presenceRecomputed": "Charakterpräsenz neu berechnet.",
@@ -371,7 +375,9 @@
       "momentMemory": "Erinnerung",
       "momentFlashback": "Rückblende",
       "momentWhoseLabel": "Von wem (Traum/Erinnerung)",
-      "momentYoungerYearsLabel": "Jahre jünger"
+      "momentYoungerYearsLabel": "Jahre jünger",
+      "flashbackAgesLabel": "Alter der Figuren in der Rückblende",
+      "flashbackAgesHint": "Lege das Alter jeder Figur in dieser Vergangenheitsszene fest: überschreibt das kanonische Alter und „Jahre jünger\". Leer lassen, um Jahre-jünger zu verwenden."
     },
     "characters": {
       "title": "Charaktere",
@@ -1392,5 +1398,27 @@
     "usageFilterAria": "Bilder nach Nutzung filtern",
     "usedTimes": "{{n}}",
     "usageBreakdown": "Reels: {{reel}} · Storys: {{story}} · Posts: {{post}}"
+  },
+  "auth": {
+    "loginTitle": "Anmelden",
+    "username": "Benutzer",
+    "password": "Passwort",
+    "login": "Anmelden",
+    "loggingIn": "Anmeldung…",
+    "errLoginFailed": "Ungültige Anmeldedaten",
+    "logout": "Abmelden",
+    "mustChangeTitle": "Passwort ändern",
+    "mustChangeHint": "Erste Anmeldung: Lege ein neues Passwort fest, um fortzufahren.",
+    "currentPassword": "Aktuelles Passwort",
+    "newPassword": "Neues Passwort",
+    "newPasswordHint": "Mindestens 8 Zeichen",
+    "confirmPassword": "Passwort bestätigen",
+    "changePassword": "Passwort ändern",
+    "changePasswordDescription": "Aktualisiere das Passwort des Admin-Kontos.",
+    "saving": "Speichern…",
+    "changed": "Passwort aktualisiert",
+    "errTooShort": "Das Passwort muss mindestens 8 Zeichen haben",
+    "errMismatch": "Die Passwörter stimmen nicht überein",
+    "errChangeFailed": "Passwortänderung fehlgeschlagen"
   }
 }

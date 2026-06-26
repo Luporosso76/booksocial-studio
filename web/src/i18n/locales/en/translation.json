@@ -36,7 +36,8 @@
     "connection": "Connection",
     "pageManagement": "Page management",
     "books": "Books",
-    "settings": "Settings"
+    "settings": "Settings",
+    "openMenu": "Open menu"
   },
   "header": {
     "appTitle": "BookSocial Studio",
@@ -293,6 +294,9 @@
       "auto": "Auto",
       "chapterScope": "ch {{chapters}}",
       "timers": "· image {{img}} · total {{total}}",
+      "momentToGenerate": "Moment to generate",
+      "momentAll": "All moments",
+      "momentToGenerateHint": "With \"All moments\" each image picks at random between present, dream and flashback (the count stays as set). Or force a single type.",
       "queuedList": "Queued: {{list}}",
       "footerNote": "Select chapters and choose how many images to make <1>per chapter</1>; with no selection it's \"Auto\" (varied chapters). You can <3>queue</3> multiple requests (e.g. first in 9:16, then change format to 1:1 and add again): the queue runs in sequence without stopping until you press <5>Cancel</5>. Generation is slow (a few minutes per image) and runs locally: the server must stay on.",
       "presenceRecomputed": "Character presence recomputed.",
@@ -371,7 +375,9 @@
       "momentMemory": "Memory",
       "momentFlashback": "Flashback",
       "momentWhoseLabel": "Whose (dream/memory)",
-      "momentYoungerYearsLabel": "Years younger"
+      "momentYoungerYearsLabel": "Years younger",
+      "flashbackAgesLabel": "Character ages in the flashback",
+      "flashbackAgesHint": "Set each character's age in this past scene: overrides the canonical age and 'years younger'. Leave empty to use years-younger."
     },
     "characters": {
       "title": "Characters",
@@ -1392,5 +1398,27 @@
     "usageFilterAria": "Filter images by usage",
     "usedTimes": "{{n}}",
     "usageBreakdown": "Reels: {{reel}} · Stories: {{story}} · Posts: {{post}}"
+  },
+  "auth": {
+    "loginTitle": "Sign in",
+    "username": "Username",
+    "password": "Password",
+    "login": "Sign in",
+    "loggingIn": "Signing in…",
+    "errLoginFailed": "Invalid credentials",
+    "logout": "Log out",
+    "mustChangeTitle": "Change your password",
+    "mustChangeHint": "First login: set a new password to continue.",
+    "currentPassword": "Current password",
+    "newPassword": "New password",
+    "newPasswordHint": "At least 8 characters",
+    "confirmPassword": "Confirm password",
+    "changePassword": "Change password",
+    "changePasswordDescription": "Update the admin account password.",
+    "saving": "Saving…",
+    "changed": "Password updated",
+    "errTooShort": "Password must be at least 8 characters",
+    "errMismatch": "Passwords do not match",
+    "errChangeFailed": "Password change failed"
   }
 }

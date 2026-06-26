@@ -8,6 +8,11 @@ et ce projet respecte le [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 ## [0.4.0] - 2026-06-26
 
 ### Ajouté
+- **Authentification** : une connexion intégrée protège l'application. Au premier lancement, les identifiants sont `admin` / `12345678` et un changement de mot de passe est requis ; le mot de passe est stocké haché. Déconnexion depuis la barre latérale. (Remplace l'ancienne HTTP Basic Auth optionnelle.)
+- **HTTPS** : le serveur peut servir en HTTPS. Montez votre certificat dans Docker (`TLS_CERT_PATH`/`TLS_KEY_PATH`), ou un certificat auto-signé est généré ; sinon il bascule en HTTP. Voir le README.
+- **Mise en page mobile** : toute l'interface est désormais responsive — barre latérale repliable avec menu hamburger et écrans adaptés aux téléphones.
+- **Générer des images de rêve/flashback** : le générateur peut viser le rêve ou le flashback d'un chapitre, ou choisir au hasard entre présent/rêve/flashback, et non plus seulement la scène présente.
+- **Âge par personnage dans le flashback** : dans un flashback, vous pouvez définir l'âge exact de chaque personnage pour cette scène, afin que des personnages d'âges différents soient rendus correctement.
 
 - **Âge et origine ethnique des personnages** : désormais des champs dédiés et modifiables (plus dilués dans la description physique). Ils sont indiqués explicitement dans chaque prompt d'image, pour que l'âge apparent et l'origine restent cohérents sur toutes les illustrations.
 - **Pièce signature** : un vêtement ou accessoire qu'un personnage porte toujours (p. ex. un chapeau) se définit une fois et apparaît dans chaque scène, par-dessus la tenue de la scène.
@@ -22,6 +27,7 @@ et ce projet respecte le [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - **Cohérence des personnages renforcée dans les prompts** : âge, origine, carrure et cheveux toujours indiqués ; deux personnages ou plus restent distincts et ne sont jamais intervertis ; poses naturelles et droites ; un personnage demandé apparaît toujours.
 
 ### Corrigé
+- **Extraction de la fiche de chapitre** : un chapitre contenant à la fois une scène réelle et un rêve/flashback conserve désormais les DEUX (la scène éveillée comme principale, plus le rêve/flashback comme moment distinct) au lieu de réduire tout le chapitre au rêve ; les longs chapitres en plusieurs sections ne perdent plus un rêve/flashback contenu dans sa propre section.
 
 - **Plus de sujets hors de propos** : ce qui n'apparaît que dans un rêve, un souvenir ou une figure de style (et les homonymes comme la manœuvre « tortue » du surf) ne se glisse plus dans la scène réelle du chapitre.
 

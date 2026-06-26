@@ -436,7 +436,7 @@ export function ProgrammatiScreen() {
               title={t("programmati.pageField")}
               action={
                 <select
-                  className={selectClass + " max-w-xs"}
+                  className={selectClass + " w-full max-w-xs"}
                   value={activePage?.id ?? ""}
                   onChange={(e) => setActiveId(e.target.value)}
                 >

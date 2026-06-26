@@ -8,6 +8,11 @@ e questo progetto aderisce al [Semantic Versioning](https://semver.org/spec/v2.0
 ## [0.4.0] - 2026-06-26
 
 ### Aggiunto
+- **Autenticazione**: un login integrato protegge l'app. Al primo avvio le credenziali sono `admin` / `12345678` e viene richiesto il cambio password; la password è salvata con hash. Logout dalla barra laterale. (Sostituisce la vecchia HTTP Basic Auth opzionale.)
+- **HTTPS**: il server può servire in HTTPS. Monta il tuo certificato in Docker (`TLS_CERT_PATH`/`TLS_KEY_PATH`), oppure ne viene generato uno self-signed; in mancanza ripiega su HTTP. Vedi il README.
+- **Layout mobile**: l'intera interfaccia è ora responsive — barra laterale a scomparsa con menu hamburger e schermate adattate ai telefoni.
+- **Generazione immagini sogno/flashback**: il generatore può puntare al sogno o al flashback di un capitolo, o scegliere a caso tra presente/sogno/flashback, non solo la scena presente.
+- **Età per-personaggio nel flashback**: in un flashback puoi impostare l'età esatta di ogni personaggio per quella scena, così personaggi con età diverse vengono resi correttamente.
 
 - **Età ed etnia dei personaggi**: ora campi dedicati e modificabili (non più diluiti nella descrizione fisica). Vengono indicati esplicitamente in ogni prompt immagine, così l'età apparente e l'etnia restano coerenti in tutte le illustrazioni.
 - **Capo firma**: un capo o accessorio che un personaggio indossa sempre (es. un cappello particolare) si imposta una volta e viene reso in ogni scena, sopra l'abito della scena.
@@ -22,6 +27,7 @@ e questo progetto aderisce al [Semantic Versioning](https://semver.org/spec/v2.0
 - **Maggiore coerenza dei personaggi nei prompt immagine**: età, etnia, corporatura e capelli sono sempre indicati per ogni persona; quando due o più personaggi sono nell'inquadratura restano distinti e non vengono mai scambiati; le pose sono naturali e dritte; un personaggio richiesto esplicitamente compare sempre.
 
 ### Corretto
+- **Estrazione scheda capitolo**: un capitolo che contiene sia una scena reale sia un sogno/flashback ora li mantiene ENTRAMBI (la scena da sveglio come principale, più il sogno/flashback come momento a sé) invece di ridurre tutto il capitolo al sogno; i capitoli lunghi multi-sezione non perdono più un sogno/flashback contenuto in una sezione propria.
 
 - **Niente più soggetti fuori posto**: ciò che compare solo in un sogno, un ricordo o un modo di dire (e gli omonimi come la manovra "tartaruga" nel surf) non finisce più nella scena reale del capitolo.
 

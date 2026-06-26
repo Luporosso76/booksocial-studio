@@ -16,6 +16,7 @@ import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { LanguageSwitcher } from "@/components/layout/LanguageSwitcher";
+import { ChangePasswordForm } from "@/components/auth/ChangePasswordForm";
 import { Badge, ErrorBanner, Skeleton } from "@/components/ui/misc";
 import { Input, Textarea, Field, selectClass } from "@/components/ui/Input";
 import { useToast } from "@/components/ui/toast";
@@ -48,7 +49,7 @@ import type {
 } from "@/api/types";
 import { cn } from "@/lib/cn";
 
-type AiTab = "text" | "image" | "contentImages" | "quality" | "extra" | "language";
+type AiTab = "text" | "image" | "contentImages" | "quality" | "extra" | "language" | "password";
 
 export function ImpostazioniScreen() {
   const { t } = useTranslation();
@@ -61,6 +62,7 @@ export function ImpostazioniScreen() {
     { id: "quality", label: t("settings.ai.tabQuality") },
     { id: "extra", label: t("settings.ai.tabExtra") },
     { id: "language", label: t("language.label") },
+    { id: "password", label: t("auth.changePassword") },
   ];
 
   return (
@@ -104,6 +106,24 @@ export function ImpostazioniScreen() {
           />
           <CardBody>
             <LanguageSwitcher />
+          </CardBody>
+        </Card>
+      )}
+      {tab === "password" && (
+        <Card>
+          <CardHeader
+            title={t("auth.changePassword")}
+            description={t("auth.changePasswordDescription")}
+            action={
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent-soft text-accent">
+                <KeyRound className="h-4 w-4" />
+              </span>
+            }
+          />
+          <CardBody>
+            <div className="max-w-sm">
+              <ChangePasswordForm />
+            </div>
           </CardBody>
         </Card>
       )}

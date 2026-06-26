@@ -77,6 +77,7 @@ export interface SceneFlashback {
   youngerYears?: number | null; // di quanti anni più giovani rispetto all'età canonica
   setting?: string | null; // ambientazione/epoca del ricordo (testo libero, es. "spiaggia, gioventù")
   note?: string | null; // nota libera aggiuntiva
+  characterAges?: { name: string; age: number }[] | null;
 }
 
 export interface SceneDescriptionInput {
@@ -330,13 +331,27 @@ export interface SceneDescription {
 // ricordo. Va posto DOPO il cast nel prompt (override esplicito, scoped). Vuoto se nessun flashback.
 function flashbackBlock(fb: SceneFlashback | null | undefined): string {
   if (!fb) return "";
-  const years =
-    typeof fb.youngerYears === "number" && fb.youngerYears > 0
-      ? `about ${Math.round(fb.youngerYears)} years`
-      : "clearly";
   const setting = (fb.setting ?? "").trim();
   const note = (fb.note ?? "").trim();
-  return `FLASHBACK / MEMORY OVERRIDE (this image only — it OVERRIDES the AGE rule and the WARDROBE CONSISTENCY rule above): this scene is a MEMORY set in the PAST. Render EVERY named character from the CAST ${years} YOUNGER than the age stated in their description — a more youthful face, smoother skin and a younger build — while keeping their IDENTITY unmistakable: SAME hair colour, SAME eye colour, SAME face structure and proportions, clearly the same person at a younger age. Do NOT dress them in their canonical present-day outfit; instead dress them for the time and place of this memory${setting ? `: ${setting}` : ""}, in clothes that fit the activity and era.${note ? ` ${note}` : ""}`;
+  const ages = (fb.characterAges ?? []).filter(
+    (a) =>
+      a &&
+      typeof a.name === "string" &&
+      a.name.trim() !== "" &&
+      Number.isFinite(a.age) &&
+      a.age > 0,
+  );
+  const ageDirective =
+    ages.length > 0
+      ? `In THIS past scene each character has the EXACT age stated here, which OVERRIDES the age in their CAST description: ${ages
+          .map((a) => `${a.name.trim()} is ${Math.round(a.age)} years old`)
+          .join("; ")}. Render every other person younger than today too.`
+      : `Render EVERY named character from the CAST ${
+          typeof fb.youngerYears === "number" && fb.youngerYears > 0
+            ? `about ${Math.round(fb.youngerYears)} years`
+            : "clearly"
+        } YOUNGER than the age stated in their description.`;
+  return `FLASHBACK / MEMORY OVERRIDE (this image only — it OVERRIDES the AGE rule and the WARDROBE CONSISTENCY rule above): this scene is a MEMORY set in the PAST. ${ageDirective} Keep each character's IDENTITY unmistakable: SAME hair colour, SAME eye colour, SAME face structure and proportions, clearly the same person at that age. Do NOT dress them in their canonical present-day outfit; instead dress them for the time and place of this memory${setting ? `: ${setting}` : ""}, in clothes that fit the activity and era.${note ? ` ${note}` : ""}`;
 }
 
 // Blocco SOGNO: se la scena principale del capitolo è un sogno, l'intera immagine va resa come onirica

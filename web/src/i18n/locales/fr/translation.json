@@ -36,7 +36,8 @@
     "connection": "Connexion",
     "pageManagement": "Gestion de la page",
     "books": "Livres",
-    "settings": "Paramètres"
+    "settings": "Paramètres",
+    "openMenu": "Ouvrir le menu"
   },
   "header": {
     "appTitle": "BookSocial Studio",
@@ -293,6 +294,9 @@
       "auto": "Auto",
       "chapterScope": "chap {{chapters}}",
       "timers": "· image {{img}} · total {{total}}",
+      "momentToGenerate": "Moment à générer",
+      "momentAll": "Tous les moments",
+      "momentToGenerateHint": "Avec « Tous les moments », chaque image choisit au hasard entre présent, rêve et flashback (le nombre reste celui choisi). Ou forcez un seul type.",
       "queuedList": "En attente : {{list}}",
       "footerNote": "Sélectionnez les chapitres et choisissez combien d'images créer <1>pour chaque chapitre</1> ; sans sélection c'est « Auto » (chapitres divers). Vous pouvez <3>mettre en file d'attente</3> plusieurs demandes (ex. d'abord en 9:16, puis vous changez le format en 1:1 et ajoutez à nouveau) : la file d'attente s'exécute en séquence sans s'arrêter jusqu'à ce que vous cliquiez sur <5>Annuler</5>. La génération est lente (quelques minutes par image) et tourne en local : le serveur doit rester allumé.",
       "presenceRecomputed": "Présence des personnages recalculée.",
@@ -371,7 +375,9 @@
       "momentMemory": "Souvenir",
       "momentFlashback": "Flashback",
       "momentWhoseLabel": "De qui (rêve/souvenir)",
-      "momentYoungerYearsLabel": "Années de moins"
+      "momentYoungerYearsLabel": "Années de moins",
+      "flashbackAgesLabel": "Âge des personnages dans le flashback",
+      "flashbackAgesHint": "Définissez l'âge de chaque personnage dans cette scène du passé : remplace l'âge canonique et « années de moins ». Laissez vide pour utiliser les années de moins."
     },
     "characters": {
       "title": "Personnages",
@@ -1392,5 +1398,27 @@
     "usageFilterAria": "Filtrer les images par utilisation",
     "usedTimes": "{{n}}",
     "usageBreakdown": "Reels : {{reel}} · Stories : {{story}} · Posts : {{post}}"
+  },
+  "auth": {
+    "loginTitle": "Se connecter",
+    "username": "Utilisateur",
+    "password": "Mot de passe",
+    "login": "Se connecter",
+    "loggingIn": "Connexion…",
+    "errLoginFailed": "Identifiants invalides",
+    "logout": "Déconnexion",
+    "mustChangeTitle": "Changer le mot de passe",
+    "mustChangeHint": "Première connexion : définissez un nouveau mot de passe pour continuer.",
+    "currentPassword": "Mot de passe actuel",
+    "newPassword": "Nouveau mot de passe",
+    "newPasswordHint": "Au moins 8 caractères",
+    "confirmPassword": "Confirmer le mot de passe",
+    "changePassword": "Changer le mot de passe",
+    "changePasswordDescription": "Mettez à jour le mot de passe du compte admin.",
+    "saving": "Enregistrement…",
+    "changed": "Mot de passe mis à jour",
+    "errTooShort": "Le mot de passe doit comporter au moins 8 caractères",
+    "errMismatch": "Les mots de passe ne correspondent pas",
+    "errChangeFailed": "Échec du changement de mot de passe"
   }
 }

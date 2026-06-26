@@ -88,7 +88,7 @@ export function BooksScreen() {
       />
 
       {booksState.loading ? (
-        <div className="grid gap-4 grid-cols-[repeat(auto-fill,minmax(280px,1fr))]">
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
           <Skeleton className="h-56 w-full" />
           <Skeleton className="h-56 w-full" />
           <Skeleton className="h-56 w-full" />
@@ -119,7 +119,7 @@ export function BooksScreen() {
           }
         />
       ) : (
-        <div className="grid gap-4 grid-cols-[repeat(auto-fill,minmax(280px,1fr))] stagger">
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 stagger">
           {books.map((book) => (
             <Card
               key={book.id}

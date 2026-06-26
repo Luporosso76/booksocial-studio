@@ -154,6 +154,8 @@ export class SceneImageService {
       // Override FLASHBACK/ricordo (manuale): rende i personaggi più giovani e vestiti per l'epoca,
       // scavalcando età e outfit canonici SOLO per queste immagini.
       flashback?: SceneFlashback | null;
+      moment?: number | null;
+      randomMoment?: boolean;
       signal?: AbortSignal;
     },
   ): Promise<{ description: string; tags: string[]; chapterIndex: number | null } | null> {
@@ -171,10 +173,34 @@ export class SceneImageService {
       books.get(bookId),
     ]);
     // LIVELLO 2: scheda visiva del capitolo (cache o estrazione on-demand) come grounding del prompt.
-    const card =
+    const baseCard =
       excerpt != null
         ? await this.deps.chapterScenes.getOrBuild(bookId, excerpt.chapterIndex)
         : null;
+    let effMoment = opts?.moment ?? -1;
+    const altCount = baseCard?.altMoments?.length ?? 0;
+    if ((opts?.moment == null || opts.moment < 0) && opts?.randomMoment && altCount > 0) {
+      const pick = Math.floor(Math.random() * (altCount + 1));
+      effMoment = pick === altCount ? -1 : pick;
+    }
+    const chosenMoment = effMoment >= 0 ? baseCard?.altMoments?.[effMoment] ?? null : null;
+    const card: ChapterScene | null =
+      chosenMoment && baseCard
+        ? {
+            ...baseCard,
+            location: chosenMoment.location,
+            environment: chosenMoment.environment,
+            mainObjects: chosenMoment.mainObjects,
+            secondaryObjects: chosenMoment.secondaryObjects,
+            characters: chosenMoment.characters,
+            physicsRules: chosenMoment.physicsRules,
+            keyMoment: chosenMoment.keyMoment,
+            kind: chosenMoment.type,
+            youngerYears: chosenMoment.youngerYears,
+            characterAges: chosenMoment.characterAges,
+            altMoments: [],
+          }
+        : baseCard;
     if (opts?.signal?.aborted) return null;
     // LIVELLO 1: passa solo i personaggi presenti nel capitolo (+ protagonista), non l'intero cast.
     // Con featureCharacters, quei personaggi sono GARANTITI tra gli eleggibili anche se i filtri li scartano.
@@ -212,7 +238,11 @@ export class SceneImageService {
       flashback:
         opts?.flashback ??
         (card?.kind === "flashback"
-          ? { youngerYears: card.youngerYears ?? undefined, setting: card.location ?? undefined }
+          ? {
+              youngerYears: card.youngerYears ?? undefined,
+              setting: card.location ?? undefined,
+              characterAges: card.characterAges ?? undefined,
+            }
           : null),
       dream: card?.kind === "dream",
     });
@@ -311,6 +341,8 @@ export class SceneImageService {
       featureCharacters?: readonly string[] | null;
       // Override FLASHBACK/ricordo (manuale): personaggi più giovani + vestiti d'epoca, solo qui.
       flashback?: SceneFlashback | null;
+      moment?: number | null;
+      randomMoment?: boolean;
       signal?: AbortSignal;
     },
   ): Promise<SceneImageResult | null> {

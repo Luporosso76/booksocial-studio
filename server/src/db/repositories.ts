@@ -105,6 +105,18 @@ function parseChapterScene(raw: unknown): ChapterScene | null {
     const s = String(v).trim();
     return s === "" ? null : s;
   };
+  const parseAges = (v: unknown): { name: string; age: number }[] => {
+    if (!Array.isArray(v)) return [];
+    const out: { name: string; age: number }[] = [];
+    for (const x of v) {
+      if (x == null || typeof x !== "object") continue;
+      const a = x as Record<string, unknown>;
+      const name = String(a.name ?? "").trim();
+      const age = Number(a.age);
+      if (name !== "" && Number.isFinite(age) && age > 0) out.push({ name, age: Math.round(age) });
+    }
+    return out;
+  };
   const parseAltMoments = (v: unknown): ChapterMoment[] => {
     if (!Array.isArray(v)) return [];
     const out: ChapterMoment[] = [];
@@ -126,6 +138,7 @@ function parseChapterScene(raw: unknown): ChapterScene | null {
         keyMoment: km,
         whose: str(m.whose),
         youngerYears: Number.isFinite(yy) && yy > 0 ? yy : null,
+        characterAges: parseAges(m.characterAges),
       });
     }
     return out;
@@ -145,6 +158,7 @@ function parseChapterScene(raw: unknown): ChapterScene | null {
       Number.isFinite(Number(o.youngerYears)) && Number(o.youngerYears) > 0
         ? Number(o.youngerYears)
         : null,
+    characterAges: parseAges(o.characterAges),
     altMoments: parseAltMoments(o.altMoments),
     source: o.source === "USER" ? "USER" : "AI",
     model: str(o.model),

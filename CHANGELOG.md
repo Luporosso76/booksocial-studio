@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.4.0] - 2026-06-26
 
 ### Added
+- **Authentication**: a built-in login now protects the app. On first run the credentials are `admin` / `12345678` and a password change is required; the password is stored hashed. Log out from the sidebar. (Replaces the old optional HTTP Basic Auth.)
+- **HTTPS**: the server can serve over HTTPS. Mount your own certificate in Docker (`TLS_CERT_PATH`/`TLS_KEY_PATH`), or a self-signed one is generated automatically; otherwise it falls back to HTTP. See the README.
+- **Mobile layout**: the whole interface is now responsive — a collapsible sidebar with a hamburger menu and screens that adapt to phone widths.
+- **Generate dream/flashback images**: the image generator can target a chapter's dream or flashback moment, or pick at random across present/dream/flashback, instead of only the present scene.
+- **Per-character flashback age**: in a flashback you can set each character's exact age for that scene, so characters with different age anchors render correctly.
 
 - **Character age & ethnicity**: now dedicated, editable fields (no longer buried in the physical description). They are stated explicitly in every image prompt, so a character's apparent age and ethnicity stay consistent across all illustrations.
 - **Signature outfit item**: a garment or accessory a character always wears (e.g. a particular hat) can be set once and is rendered in every scene, on top of the scene's outfit.
@@ -22,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Stronger character consistency in image prompts**: age, ethnicity, build and hair are always stated for every person; when two or more characters share a frame they are kept visually distinct and never swapped; poses are natural and upright; a character explicitly requested for an image is always featured.
 
 ### Fixed
+- **Chapter scene extraction**: a chapter that contains both a real scene and a dream/flashback now keeps BOTH (the waking scene as the main one, plus the dream/flashback as a separate moment) instead of collapsing the whole chapter to the dream; long multi-section chapters no longer lose a dream/flashback that lives in its own section.
 
 - **No more out-of-place subjects**: things that appear only inside a dream, a memory or a figure of speech (and homonyms such as the surf "turtle roll" manoeuvre) no longer leak into a chapter's waking scene.
 

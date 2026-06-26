@@ -12,6 +12,11 @@ export class ApiError extends Error {
 
 const BASE = "/api";
 
+let unauthorizedHandler: (() => void) | null = null;
+export function setUnauthorizedHandler(fn: (() => void) | null): void {
+  unauthorizedHandler = fn;
+}
+
 async function parseError(res: Response): Promise<never> {
   let message = `Errore ${res.status}`;
   try {
@@ -27,6 +32,7 @@ async function parseError(res: Response): Promise<never> {
 
 async function handle<T>(res: Response): Promise<T> {
   if (!res.ok) {
+    if (res.status === 401) unauthorizedHandler?.();
     return parseError(res);
   }
   if (res.status === 204) {

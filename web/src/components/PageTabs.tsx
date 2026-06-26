@@ -30,7 +30,7 @@ export function PageTabs({ pages, activeId, onChange, className }: PageTabsProps
       role="tablist"
       aria-label="Seleziona pagina"
       className={cn(
-        "flex items-center gap-1 overflow-x-auto border-b border-border-subtle pb-px",
+        "flex min-w-0 items-center gap-1 overflow-x-auto border-b border-border-subtle pb-px",
         // Nasconde la scrollbar mantenendo lo scroll orizzontale.
         "[-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
         className,

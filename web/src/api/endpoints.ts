@@ -274,6 +274,7 @@ export const generateBookImages = (
     // Override FLASHBACK/ricordo (opzionale): scena del passato → personaggi più giovani e vestiti
     // per l'epoca, scavalcando età e outfit canonici per le immagini di questo batch.
     flashback?: { youngerYears?: number; setting?: string; note?: string };
+    moment?: number;
   },
 ) => apiPost<GenerateImagesResult>(`/books/${bookId}/generate-images`, body);
 
@@ -369,6 +370,7 @@ export const updateChapterScene = (
       | "keyMoment"
       | "kind"
       | "youngerYears"
+      | "characterAges"
       | "altMoments"
     >
   >,
@@ -688,3 +690,18 @@ export const hideIgComment = (pageId: string, commentId: string, hidden: boolean
 
 export const deleteIgComment = (pageId: string, commentId: string) =>
   apiDelete<MutationResult>(`/pages/${pageId}/ig/comments/${commentId}`);
+
+export interface AuthStatus {
+  authenticated: boolean;
+  mustChange: boolean;
+}
+
+export const authStatus = () => apiGet<AuthStatus>("/auth/status");
+
+export const authLogin = (username: string, password: string) =>
+  apiPost<{ ok: true; mustChange: boolean }>("/auth/login", { username, password });
+
+export const authLogout = () => apiPost<{ ok: true }>("/auth/logout");
+
+export const authChangePassword = (currentPassword: string, newPassword: string) =>
+  apiPost<{ ok: true }>("/auth/change-password", { currentPassword, newPassword });

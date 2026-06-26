@@ -1,5 +1,5 @@
 import type { ContentEngine } from "./engine.js";
-import type { ChapterMoment, ChapterSceneKind } from "../domain.js";
+import type { CharacterAge, ChapterMoment, ChapterSceneKind } from "../domain.js";
 import { ContentError } from "./engine.js";
 import { parseModelJson } from "./modelJson.js";
 
@@ -33,6 +33,7 @@ export interface ExtractedChapterScene {
   // Natura della scena principale: 'waking' reale, 'dream' onirica, 'flashback' del passato.
   kind: ChapterSceneKind;
   youngerYears: number | null; // solo kind='flashback': anni più giovani dei personaggi
+  characterAges: CharacterAge[];
   // Momenti sogno/flashback SECONDARI del capitolo (vuoto se non presenti). Vedi ChapterMoment.
   altMoments: ChapterMoment[];
 }
@@ -63,15 +64,15 @@ function splitIntoChunks(text: string): string[] {
 // prima); oggetti/personaggi = UNIONE deduplicata.
 function mergeScenes(parts: ExtractedChapterScene[]): ExtractedChapterScene {
   const joinDistinct = (
+    ps: ExtractedChapterScene[],
     sel: (p: ExtractedChapterScene) => string | null,
     max: number,
   ): string | null => {
     const seen = new Set<string>();
     const out: string[] = [];
-    for (const p of parts) {
+    for (const p of ps) {
       const v = sel(p);
       if (!v) continue;
-      // ogni blocco può già contenere più luoghi separati da virgola: splittali e dedup.
       for (const piece of v.split(/[,;]/)) {
         const t = piece.trim();
         const k = t.toLowerCase();
@@ -83,10 +84,14 @@ function mergeScenes(parts: ExtractedChapterScene[]): ExtractedChapterScene {
     }
     return out.length === 0 ? null : out.slice(0, max).join(", ");
   };
-  const union = (sel: (p: ExtractedChapterScene) => string[], max: number): string[] => {
+  const union = (
+    ps: ExtractedChapterScene[],
+    sel: (p: ExtractedChapterScene) => string[],
+    max: number,
+  ): string[] => {
     const seen = new Set<string>();
     const out: string[] = [];
-    for (const p of parts) {
+    for (const p of ps) {
       for (const x of sel(p)) {
         const k = x.toLowerCase().trim();
         if (k && !seen.has(k)) {
@@ -97,31 +102,46 @@ function mergeScenes(parts: ExtractedChapterScene[]): ExtractedChapterScene {
     }
     return out.slice(0, max);
   };
+  const hasKey = (p: ExtractedChapterScene) => p.keyMoment != null && p.keyMoment.trim() !== "";
+  const wakingParts = parts.filter((p) => p.kind === "waking" && hasKey(p));
+  const nonWakingParts = parts.filter((p) => p.kind !== "waking" && hasKey(p));
+  const hasWaking = wakingParts.length > 0;
+  const mainParts = hasWaking ? wakingParts : parts;
+  const mainRef = mainParts.find(hasKey) ?? parts.find(hasKey) ?? parts[0]!;
+  const convertedNonWaking: ChapterMoment[] = hasWaking
+    ? nonWakingParts.map((p) => ({
+        type: p.kind === "flashback" ? "flashback" : "dream",
+        location: p.location,
+        environment: p.environment,
+        mainObjects: p.mainObjects,
+        secondaryObjects: p.secondaryObjects,
+        characters: p.characters,
+        physicsRules: p.physicsRules,
+        keyMoment: p.keyMoment ?? "",
+        whose: null,
+        youngerYears: p.youngerYears,
+        characterAges: [],
+      }))
+    : [];
   return {
-    location: joinDistinct((p) => p.location, 4),
-    environment: joinDistinct((p) => p.environment, 3),
-    mainObjects: union((p) => p.mainObjects, 8),
-    secondaryObjects: union((p) => p.secondaryObjects, 8),
-    characters: union((p) => p.characters, 40),
-    // UNIONE dedup delle regole di fisica/realismo tra i blocchi (cap multi-scena).
-    physicsRules: union((p) => p.physicsRules, 10),
-    // Momento chiave: il primo non vuoto tra i blocchi (di norma la scena d'apertura è la più iconica).
-    keyMoment: parts.map((p) => p.keyMoment).find((m) => m != null && m.trim() !== "") ?? null,
-    // Natura + anni: dal primo blocco con un keyMoment valido (la scena principale scelta sopra).
-    kind: (parts.find((p) => p.keyMoment != null && p.keyMoment.trim() !== "") ?? parts[0]!).kind,
-    youngerYears:
-      (parts.find((p) => p.keyMoment != null && p.keyMoment.trim() !== "") ?? parts[0]!).youngerYears,
-    // Momenti sogno/flashback: unione dedup per keyMoment tra i blocchi (cap a 6).
+    location: joinDistinct(mainParts, (p) => p.location, 4),
+    environment: joinDistinct(mainParts, (p) => p.environment, 3),
+    mainObjects: union(mainParts, (p) => p.mainObjects, 8),
+    secondaryObjects: union(mainParts, (p) => p.secondaryObjects, 8),
+    characters: union(mainParts, (p) => p.characters, 40),
+    physicsRules: union(mainParts, (p) => p.physicsRules, 10),
+    keyMoment: mainParts.map((p) => p.keyMoment).find((m) => m != null && m.trim() !== "") ?? null,
+    kind: hasWaking ? "waking" : mainRef.kind,
+    youngerYears: hasWaking ? 0 : mainRef.youngerYears,
+    characterAges: hasWaking ? [] : mainRef.characterAges,
     altMoments: (() => {
       const seen = new Set<string>();
       const out: ChapterMoment[] = [];
-      for (const p of parts) {
-        for (const m of p.altMoments) {
-          const k = `${m.type}|${(m.keyMoment ?? "").toLowerCase()}`;
-          if (seen.has(k)) continue;
-          seen.add(k);
-          out.push(m);
-        }
+      for (const m of [...parts.flatMap((p) => p.altMoments), ...convertedNonWaking]) {
+        const k = `${m.type}|${(m.keyMoment ?? "").toLowerCase()}`;
+        if (seen.has(k) || (m.keyMoment ?? "").trim() === "") continue;
+        seen.add(k);
+        out.push(m);
       }
       return out.slice(0, 6);
     })(),
@@ -183,36 +203,15 @@ function ensurePresentFilled(scene: ExtractedChapterScene): ExtractedChapterScen
     };
   }
 
-  // 2) Presente compilato che DUPLICA un altMoment sogno/flashback → il presente È quel momento (il
-  //    modello l'ha classificato 'waking' per errore): adotta la sua NATURA sul presente (così è reso
-  //    come sogno/flashback) e scarta il duplicato. Gli altri momenti restano.
   if (km !== "" && scene.altMoments.length > 0) {
     const kmWords = new Set(norm(km));
     if (kmWords.size > 0) {
-      // Parole troppo comuni per essere un "soggetto distintivo" (ricorrono in molte scene).
-      const generic = new Set([
-        "marco","roberto","sara","mare","acqua","riva","spiaggia","reef","onde","onda","uomo","donna",
-        "casa","letto","porta","strada","luce","notte","giorno","scena","corpo","mani","occhi",
-      ]);
-      const kmDistinct = [...kmWords].filter((w) => w.length > 4 && !generic.has(w));
-      let kind = scene.kind;
-      let youngerYears = scene.youngerYears;
-      const kept: ChapterMoment[] = [];
-      for (const m of scene.altMoments) {
+      const kept = scene.altMoments.filter((m) => {
         const mw = norm(m.keyMoment ?? "");
         const overlap = mw.length === 0 ? 0 : mw.filter((w) => kmWords.has(w)).length / mw.length;
-        // Soggetto distintivo del momento (es. "tartaruga") che compare ANCHE nel presente → stessa scena.
-        const subjWords = new Set([...mw, ...norm(m.mainObjects.join(" "))]);
-        const sharedSubj = kmDistinct.some((w) => subjWords.has(w));
-        if ((overlap > 0.55 || sharedSubj) && kind === "waking") {
-          kind = m.type; // il presente assume la natura del momento duplicato (sogno/flashback)
-          youngerYears = m.youngerYears;
-          continue; // scarta il duplicato
-        }
-        if (overlap > 0.7) continue; // duplicato puro → scarta
-        kept.push(m);
-      }
-      return { ...scene, kind, youngerYears, altMoments: kept };
+        return overlap <= 0.7;
+      });
+      return { ...scene, altMoments: kept };
     }
   }
   return scene;
@@ -240,8 +239,8 @@ Reply with ONLY a valid JSON object, no text before or after, in this shape:
   "secondary_objects": ["small background objects PHYSICALLY PRESENT in the scene"],
   "characters": ["ONLY the characters PHYSICALLY PRESENT in this chapter's scenes (see rule below)"],
   "physics_rules": ["3-8 CONCRETE physics/realism constraints to illustrate scenes of THIS chapter"],
-  "key_moment": "the chapter's MAIN drawable scene — the single dominant moment the chapter narrates, the one you would pick as the chapter's image (one short, non-spoiler sentence: who does what, where). ALWAYS fill this: every chapter has a main scene. It stays the main scene EVEN IF, in story terms, the whole chapter takes place in the past (a flashback) or inside a dream — that dominant scene is still the 'present' here, never empty. A dream/memory/flashback goes in alt_moments ONLY when it is SECONDARY: briefly recounted or glimpsed WHILE a DIFFERENT main scene is happening. Example A: Marco sits at a table telling friends about a dream → key_moment = Marco at the table talking (the dream goes in alt_moments). Example B: the chapter takes place entirely in Marco's childhood (a flashback) → key_moment = that childhood scene itself, and alt_moments stays []",
-  "kind": "waking | dream | flashback — the NATURE of the MAIN scene in key_moment: 'waking' if it really happens in the story's present; 'dream' if the WHOLE main scene is a dream; 'flashback' if the WHOLE main scene is a past memory/flashback (characters younger). Detect from the text (e.g. 'ho sognato', 'I dreamt' → dream; 'years before', 'as a child', 'remembered' → flashback). Default 'waking'.",
+  "key_moment": "the chapter's MAIN drawable scene — the single dominant moment of the chapter's WAKING REALITY (one short, non-spoiler sentence: who does what, where). ALWAYS fill this; never empty. The MAIN scene is the chapter's real/present action WHENEVER the chapter contains ANY real waking events. A dream/memory/flashback is the MAIN scene ONLY when the ENTIRE chapter happens inside it, with NO waking scene at all (the character never lives a real moment in this chapter). If the character BOTH lives real events AND dreams/remembers/flashes back (VERY COMMON: lives the day then falls asleep and dreams; or is somewhere and recalls the past), the WAKING part is the main scene here and the dream/memory/flashback goes in alt_moments — output BOTH. NEVER decide this from the chapter TITLE (a chapter titled 'The Dream' is usually still mostly real life around the dream) — judge ONLY from the narrated body. When unsure, treat the waking reality as the main scene. Example A: Marco surfs, has dinner, then falls asleep and has a nightmare → key_moment = a waking scene (e.g. Marco windsurfing / at the dinner), kind='waking', and the nightmare goes in alt_moments. Example B: the chapter is ENTIRELY Marco's childhood with no present frame → key_moment = that childhood scene, kind='flashback', alt_moments stays []",
+  "kind": "waking | dream | flashback — the NATURE of the MAIN scene in key_moment. 'waking' = it really happens in the story's present (THIS IS THE DEFAULT and the answer for almost every chapter). 'dream' or 'flashback' ONLY when the WHOLE chapter is a single dream/flashback with NO waking scene at all. If the chapter has ANY real waking action, kind is ALWAYS 'waking' and any dream/memory/flashback inside it goes in alt_moments instead — do NOT set kind='dream'/'flashback' merely because a dream or memory appears in the chapter, nor because of the chapter's title. Cues like 'ho sognato'/'I dreamt' or 'years before'/'as a child' mark the SEGMENT that becomes an alt_moment; they flip the top-level kind only if they cover the entire chapter.",
   "younger_years": 0,
   "alt_moments": [{ "type": "dream | flashback", "location": "place/era of this moment (for flashback: the PAST)", "environment": "indoor/outdoor, light, atmosphere of this moment", "main_objects": ["iconic subjects/objects of THIS moment"], "secondary_objects": ["minor objects of this moment"], "characters": ["characters appearing INSIDE this moment"], "physics_rules": ["concrete physics/realism constraints for this moment"], "key_moment": "the VISUAL action of this dream/flashback (one short sentence)", "whose": "name of the character who dreams/relives it (or '')", "younger_years": 0 }]
 }
@@ -291,16 +290,19 @@ RULES:
   design of a recurring object, a signature vehicle, a specific setting), and that element is PHYSICALLY
   PRESENT in this chapter's scene, name it PRECISELY in the matching field (main_objects/secondary_objects/
   location/environment) using the direction's wording. It does NOT add things that are not in the scene.
-- "alt_moments" (dreams / memories / flashbacks): add an entry ONLY for a dream/memory/flashback that is
-  SECONDARY — embedded inside the chapter while its MAIN scene (key_moment) is something else (a character,
-  during the main scene, briefly dreams of / recalls / flashes back to another time). If the chapter has no
-  such secondary vision, return [] — never invent one. CRUCIAL: if the chapter's MAIN scene IS itself the
-  dream/flashback (the whole chapter takes place in it), that belongs in "key_moment" and you set the top-level
-  "kind" accordingly ('dream' or 'flashback') — do NOT move the only scene into alt_moments and never leave
-  key_moment empty. Each entry is built like a real scene (its own location/environment/main_objects/
-  characters/physics_rules/key_moment). "type": "dream" | "flashback" — there are only TWO: a 'flashback' is a
-  real PAST scene (a memory/flashback are the SAME thing), a 'dream' is an oniric/unreal scene. "whose" = the
-  character who dreams/relives it (the narrator / POV when first-person).
+- "alt_moments" (dreams / memories / flashbacks): add an entry for EVERY dream/memory/flashback that is
+  SECONDARY — i.e. it occurs while the chapter ALSO has a real waking scene (the character, around the main
+  waking action, dreams / recalls / flashes back to another time). THE KEY RULE: a chapter that depicts a real
+  waking scene AND a dream/memory/flashback (VERY COMMON — e.g. the character lives events then falls asleep
+  and dreams, or is somewhere and remembers the past) MUST output BOTH: the waking scene as "key_moment" with
+  kind='waking', AND the dream/memory/flashback as an alt_moments entry. Do NOT collapse such a chapter to only
+  the dream/flashback, and do NOT leave alt_moments empty in that case. Return [] ONLY when the chapter has no
+  dream/memory/flashback at all. The OPPOSITE rare case: if the chapter's MAIN scene IS itself the dream/
+  flashback (the WHOLE chapter takes place inside it, no waking frame), that belongs in "key_moment" with the
+  top-level "kind" set accordingly — then alt_moments stays []. Each entry is built like a real scene (its own
+  location/environment/main_objects/characters/physics_rules/key_moment). "type": "dream" | "flashback" —
+  there are only TWO: a 'flashback' is a real PAST scene (a memory/flashback are the SAME thing), a 'dream' is
+  an oniric/unreal scene. "whose" = the character who dreams/relives it (the narrator / POV when first-person).
 - YOUNGER YEARS (rejuvenation): for EVERY 'flashback' — both the top-level "younger_years" when kind='flashback'
   AND each flashback in alt_moments — estimate how many years YOUNGER the characters are in that past scene and
   put that NUMBER in younger_years (e.g. a childhood scene of an adult ≈ 30; "ten years ago" ≈ 10). Never leave
@@ -365,6 +367,7 @@ ${text}`;
           keyMoment: km,
           whose: str(m.whose),
           youngerYears: Number.isFinite(yy) && yy > 0 ? yy : null,
+          characterAges: [],
         });
       }
       return out.slice(0, 6);
@@ -382,6 +385,7 @@ ${text}`;
         const y = Number(j.younger_years);
         return Number.isFinite(y) && y > 0 ? y : null;
       })(),
+      characterAges: [],
       altMoments: altArr(j.alt_moments),
     };
   } catch (e) {

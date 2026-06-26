@@ -338,6 +338,24 @@ const MIGRATIONS: Migration[] = [
       `ALTER TABLE book_character ADD COLUMN ethnicity TEXT NULL`,
     ],
   },
+  {
+    version: 8,
+    statements: [
+      `CREATE TABLE IF NOT EXISTS app_auth (
+         id            INTEGER PRIMARY KEY,
+         username      TEXT    NOT NULL DEFAULT 'admin',
+         password_hash TEXT    NOT NULL,
+         must_change   INTEGER NOT NULL DEFAULT 1,
+         updated_at    INTEGER NOT NULL
+       )`,
+      `CREATE TABLE IF NOT EXISTS app_session (
+         token      TEXT    NOT NULL PRIMARY KEY,
+         created_at INTEGER NOT NULL,
+         expires_at INTEGER NOT NULL
+       )`,
+      `CREATE INDEX IF NOT EXISTS ix_session_expires ON app_session(expires_at)`,
+    ],
+  },
 ];
 
 async function currentVersion(): Promise<number> {

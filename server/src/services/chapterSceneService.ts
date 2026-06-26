@@ -55,6 +55,8 @@ export class ChapterSceneService {
       kind: patch.kind !== undefined ? patch.kind : (prev?.kind ?? "waking"),
       youngerYears:
         patch.youngerYears !== undefined ? patch.youngerYears : (prev?.youngerYears ?? null),
+      characterAges:
+        patch.characterAges !== undefined ? patch.characterAges : (prev?.characterAges ?? []),
       altMoments: patch.altMoments !== undefined ? patch.altMoments : (prev?.altMoments ?? []),
       source: "USER",
       model: prev?.model ?? null,

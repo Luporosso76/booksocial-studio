@@ -69,9 +69,9 @@ export interface AppConfig {
   schedulerPollSeconds: number;
   maxPublishAttempts: number;
   apiVersion: string;
-  // HTTP Basic Auth opzionale (self-host): se ENTRAMBI valorizzati, l'app la richiede su tutto.
-  authUser: string | null;
-  authPass: string | null;
+  tlsCertPath: string | null;
+  tlsKeyPath: string | null;
+  tlsCn: string;
 }
 
 export const appConfig: AppConfig = {
@@ -122,6 +122,7 @@ export const appConfig: AppConfig = {
   schedulerPollSeconds: Number(env("SCHEDULER_POLL_SECONDS", "30")),
   maxPublishAttempts: Number(env("MAX_PUBLISH_ATTEMPTS", "4")),
   apiVersion: env("FB_API_VERSION", "v21.0"),
-  authUser: process.env.AUTH_USER || null,
-  authPass: process.env.AUTH_PASS || null,
+  tlsCertPath: process.env.TLS_CERT_PATH || null,
+  tlsKeyPath: process.env.TLS_KEY_PATH || null,
+  tlsCn: env("TLS_CN", "localhost"),
 };

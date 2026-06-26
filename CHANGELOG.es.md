@@ -8,6 +8,11 @@ y este proyecto se adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.
 ## [0.4.0] - 2026-06-26
 
 ### Añadido
+- **Autenticación**: un inicio de sesión integrado protege la app. En el primer arranque las credenciales son `admin` / `12345678` y se exige cambiar la contraseña; la contraseña se guarda con hash. Cierra sesión desde la barra lateral. (Sustituye la antigua HTTP Basic Auth opcional.)
+- **HTTPS**: el servidor puede servir por HTTPS. Monta tu certificado en Docker (`TLS_CERT_PATH`/`TLS_KEY_PATH`), o se genera uno autofirmado; si no, recurre a HTTP. Consulta el README.
+- **Diseño móvil**: toda la interfaz es ahora adaptable — barra lateral plegable con menú de hamburguesa y pantallas adaptadas a móviles.
+- **Generar imágenes de sueño/flashback**: el generador puede apuntar al sueño o al flashback de un capítulo, o elegir al azar entre presente/sueño/flashback, no solo la escena presente.
+- **Edad por personaje en el flashback**: en un flashback puedes fijar la edad exacta de cada personaje para esa escena, para que personajes con edades distintas se rendericen correctamente.
 
 - **Edad y etnia de los personajes**: ahora campos dedicados y editables (ya no diluidos en la descripción física). Se indican explícitamente en cada prompt de imagen, para que la edad aparente y la etnia se mantengan coherentes en todas las ilustraciones.
 - **Prenda distintiva**: una prenda o accesorio que un personaje lleva siempre (p. ej. un sombrero) se define una vez y se representa en cada escena, sobre el atuendo de la escena.
@@ -22,6 +27,7 @@ y este proyecto se adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.
 - **Mayor coherencia de los personajes en los prompts de imagen**: edad, etnia, complexión y cabello se indican siempre; cuando dos o más personajes comparten encuadre se mantienen distintos y nunca se intercambian; las poses son naturales y erguidas; un personaje solicitado aparece siempre.
 
 ### Corregido
+- **Extracción de la ficha del capítulo**: un capítulo que contiene tanto una escena real como un sueño/flashback ahora conserva AMBOS (la escena de vigilia como principal, más el sueño/flashback como momento aparte) en vez de reducir todo el capítulo al sueño; los capítulos largos de varias secciones ya no pierden un sueño/flashback contenido en su propia sección.
 
 - **Sin sujetos fuera de lugar**: lo que aparece solo en un sueño, un recuerdo o una expresión (y homónimos como la maniobra "tortuga" del surf) ya no se cuela en la escena real del capítulo.
 

@@ -128,9 +128,41 @@ cd ../server && npm ci && npm start     # serves API + ../web/dist on :8770
 
 BookSocial Studio is designed as a **local-first, single-user** app and binds to `127.0.0.1` by
 default. The bundled Docker Compose sets `HOST=0.0.0.0` and maps a port for convenience — if you run
-it on a VPS or expose it outside localhost, **enable `AUTH_USER` and `AUTH_PASS`** and put it behind a
-reverse proxy with HTTPS. Do not expose the app publicly without authentication: it can access local
-project data, AI provider keys, and social publishing tokens.
+it on a VPS or expose it outside localhost, rely on the **built-in login** and serve it over **HTTPS**
+(see below). Do not expose the app publicly without authentication: it can access local project data,
+AI provider keys, and social publishing tokens.
+
+### Authentication & HTTPS
+
+**Login.** The app ships with a built-in login. On first start the credentials are `admin` /
+`12345678`, and you are required to change the password before you can use the app. There is nothing
+to configure.
+
+**HTTPS.** If a certificate and key are provided, the server runs over HTTPS. Generate a self-signed
+certificate for *your* FQDN:
+
+```bash
+openssl req -x509 -newkey rsa:2048 -nodes -keyout key.pem -out cert.pem -days 3650 \
+  -subj "/CN=your.fqdn" -addext "subjectAltName=DNS:your.fqdn"
+```
+
+Mount the certificate and key into the container and point the server at them via `TLS_CERT_PATH` and
+`TLS_KEY_PATH`:
+
+```yaml
+services:
+  app:
+    volumes:
+      - ./data:/data
+      - ./certs:/certs:ro
+    environment:
+      - TLS_CERT_PATH=/certs/cert.pem
+      - TLS_KEY_PATH=/certs/key.pem
+```
+
+Because the certificate is self-signed, browsers will show a warning the first time — accept it to
+continue. If no certificate is provided, the server self-generates one on startup (this requires
+`openssl`; the Common Name comes from `TLS_CN`); if it cannot, it falls back to plain HTTP.
 
 ## Configuration
 
@@ -142,6 +174,9 @@ All config is via environment variables — see [`server/.env.example`](server/.
 | `BOOKSOCIAL_DATA_DIR` | data folder (DB + media + music + books) | `./data` (inside the project) |
 | `CONTENT_PROVIDER` | AI text engine (or `none`, then configure in Settings) | `none` |
 | `FB_API_VERSION` | Meta Graph API version | `v21.0` |
+| `TLS_CERT_PATH` | path to the TLS certificate (enables HTTPS) | _(unset → self-generate / HTTP)_ |
+| `TLS_KEY_PATH` | path to the TLS private key (enables HTTPS) | _(unset → self-generate / HTTP)_ |
+| `TLS_CN` | Common Name for the self-generated certificate | `localhost` |
 
 > **Where is the data folder?** By default it lives in `./data` inside the project folder (it is
 > git-ignored, so it is never committed) — one place for the DB, media, music and books. Set
@@ -172,8 +207,8 @@ keys) are stored **encrypted** here in `secrets.enc`; subscription‑CLI logins 
   Imagen, Stability, Black Forest Labs/FLUX, Replicate, fal.ai) are available, and without any the app
   degrades to **upload‑only**. Local generation is slow without a discrete GPU — see
   [`docs/TESTED-ON.md`](docs/TESTED-ON.md).
-- **Single‑user, local‑first** (no multi‑tenancy). Optional HTTP Basic Auth via `AUTH_USER`/`AUTH_PASS`;
-  binds to `127.0.0.1` by default.
+- **Single‑user, local‑first** (no multi‑tenancy). Built‑in login (default `admin` / `12345678` with a
+  forced password change) and optional HTTPS; binds to `127.0.0.1` by default.
 - AI provider keys & Meta connection are configured in **Settings** (kept encrypted in `secrets.enc`) or via `.env`.
 - No music is bundled — bring your own royalty‑free audio for reels and stories.
 

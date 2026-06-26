@@ -36,7 +36,8 @@
     "connection": "Connessione",
     "pageManagement": "Gestione pagina",
     "books": "Libri",
-    "settings": "Impostazioni"
+    "settings": "Impostazioni",
+    "openMenu": "Apri menu"
   },
   "header": {
     "appTitle": "BookSocial Studio",
@@ -293,6 +294,9 @@
       "auto": "Auto",
       "chapterScope": "cap {{chapters}}",
       "timers": "· immagine {{img}} · totale {{total}}",
+      "momentToGenerate": "Momento da generare",
+      "momentAll": "Tutti i momenti",
+      "momentToGenerateHint": "Con \"Tutti i momenti\" ogni immagine sceglie a caso tra presente, sogno e flashback (il conteggio resta quello scelto). Oppure forza un solo tipo.",
       "queuedList": "In coda: {{list}}",
       "footerNote": "Seleziona i capitoli e scegli quante immagini fare <1>per ciascun capitolo</1>; senza selezione è «Auto» (capitoli vari). Puoi <3>accodare</3> più richieste (es. prima in 9:16, poi cambi formato in 1:1 e aggiungi di nuovo): la coda gira in sequenza senza fermarsi finché non premi <5>Annulla</5>. La generazione è lenta (qualche minuto per immagine) e gira in locale: il server deve restare acceso.",
       "presenceRecomputed": "Presenza personaggi ricalcolata.",
@@ -371,7 +375,9 @@
       "momentMemory": "Ricordo",
       "momentFlashback": "Flashback",
       "momentWhoseLabel": "Di chi è (sogno/ricordo)",
-      "momentYoungerYearsLabel": "Anni più giovane"
+      "momentYoungerYearsLabel": "Anni più giovane",
+      "flashbackAgesLabel": "Età dei personaggi nel flashback",
+      "flashbackAgesHint": "Imposta l'età di ciascun personaggio in questa scena del passato: scavalca l'età canonica e gli \"anni più giovane\". Lascia vuoto per usare gli anni più giovane."
     },
     "characters": {
       "title": "Personaggi",
@@ -1392,5 +1398,27 @@
     "usageFilterAria": "Filtra le immagini per utilizzo",
     "usedTimes": "{{n}}",
     "usageBreakdown": "Reel: {{reel}} · Storie: {{story}} · Post: {{post}}"
+  },
+  "auth": {
+    "loginTitle": "Accedi",
+    "username": "Utente",
+    "password": "Password",
+    "login": "Accedi",
+    "loggingIn": "Accesso…",
+    "errLoginFailed": "Credenziali non valide",
+    "logout": "Esci",
+    "mustChangeTitle": "Cambia la password",
+    "mustChangeHint": "Primo accesso: imposta una nuova password per continuare.",
+    "currentPassword": "Password attuale",
+    "newPassword": "Nuova password",
+    "newPasswordHint": "Almeno 8 caratteri",
+    "confirmPassword": "Conferma password",
+    "changePassword": "Cambia password",
+    "changePasswordDescription": "Aggiorna la password dell'account admin.",
+    "saving": "Salvataggio…",
+    "changed": "Password aggiornata",
+    "errTooShort": "La password deve avere almeno 8 caratteri",
+    "errMismatch": "Le password non coincidono",
+    "errChangeFailed": "Cambio password fallito"
   }
 }

@@ -8,6 +8,11 @@ und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/spec/v
 ## [0.4.0] - 2026-06-26
 
 ### Hinzugefügt
+- **Authentifizierung**: Ein integriertes Login schützt die App. Beim ersten Start lauten die Zugangsdaten `admin` / `12345678` und ein Passwortwechsel ist erforderlich; das Passwort wird gehasht gespeichert. Abmelden über die Seitenleiste. (Ersetzt die alte optionale HTTP Basic Auth.)
+- **HTTPS**: Der Server kann über HTTPS ausliefern. Binde dein eigenes Zertifikat in Docker ein (`TLS_CERT_PATH`/`TLS_KEY_PATH`), oder es wird ein selbstsigniertes erzeugt; andernfalls fällt er auf HTTP zurück. Siehe README.
+- **Mobiles Layout**: Die gesamte Oberfläche ist jetzt responsiv — einklappbare Seitenleiste mit Hamburger-Menü und an Telefone angepasste Bildschirme.
+- **Traum-/Rückblenden-Bilder erzeugen**: Der Bildgenerator kann den Traum oder die Rückblende eines Kapitels ansteuern oder zufällig zwischen Gegenwart/Traum/Rückblende wählen, nicht nur die Gegenwartsszene.
+- **Alter pro Figur in der Rückblende**: In einer Rückblende kannst du das genaue Alter jeder Figur für diese Szene festlegen, damit Figuren mit unterschiedlichem Alter korrekt dargestellt werden.
 
 - **Alter & Ethnizität der Figuren**: jetzt eigene, editierbare Felder (nicht mehr in der physischen Beschreibung versteckt). Sie werden in jedem Bild-Prompt ausdrücklich genannt, damit Alter und Ethnizität über alle Illustrationen hinweg konsistent bleiben.
 - **Markenzeichen-Kleidung**: ein Kleidungsstück oder Accessoire, das eine Figur immer trägt (z. B. ein bestimmter Hut), wird einmal festgelegt und in jeder Szene über der Szenenkleidung dargestellt.
@@ -22,6 +27,7 @@ und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/spec/v
 - **Stärkere Figurenkonsistenz in den Bild-Prompts**: Alter, Ethnizität, Statur und Haare werden immer genannt; bei zwei oder mehr Figuren im Bild bleiben sie unterscheidbar und werden nie vertauscht; Posen sind natürlich und aufrecht; eine angeforderte Figur erscheint immer.
 
 ### Behoben
+- **Kapitel-Szenenextraktion**: Ein Kapitel mit sowohl einer realen Szene als auch einem Traum/einer Rückblende behält jetzt BEIDE (die Wachszene als Hauptszene plus Traum/Rückblende als eigenen Moment), statt das ganze Kapitel auf den Traum zu reduzieren; lange mehrteilige Kapitel verlieren keinen Traum/keine Rückblende mehr, der/die in einem eigenen Abschnitt steht.
 
 - **Keine fehlplatzierten Motive mehr**: was nur in einem Traum, einer Erinnerung oder einer Redewendung vorkommt (und Homonyme wie das Surf-Manöver „Turtle Roll") landet nicht mehr in der realen Szene des Kapitels.
 

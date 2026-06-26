@@ -179,7 +179,7 @@ export function ConnectionScreen() {
 
           {discovered && (
             <div className="flex flex-col gap-3 rounded-lg border border-border-subtle bg-bg-inset p-4 animate-slide-up-in">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-y-1">
                 <span className="text-[0.8125rem] font-medium text-content-secondary">
                   {t("connection.availablePages")}
                 </span>

@@ -1103,7 +1103,7 @@ function SubTabs({ active, onChange }: { active: SubTab; onChange: (tab: SubTab)
     <div
       role="tablist"
       aria-label={t("pageMgmt.sectionsAria")}
-      className="flex items-center gap-1.5"
+      className="flex items-center gap-1.5 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
     >
       {items.map((item) => {
         const isActive = item.id === active;
@@ -1115,7 +1115,7 @@ function SubTabs({ active, onChange }: { active: SubTab; onChange: (tab: SubTab)
             aria-selected={isActive}
             onClick={() => onChange(item.id)}
             className={cn(
-              "inline-flex items-center rounded-lg px-3 py-1.5 text-[0.8125rem] font-medium",
+              "inline-flex shrink-0 items-center rounded-lg px-3 py-1.5 text-[0.8125rem] font-medium",
               "transition-[background-color,color] duration-150 ease-out-strong",
               "focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-ring",
               isActive

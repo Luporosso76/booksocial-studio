@@ -36,7 +36,8 @@
     "connection": "Conexión",
     "pageManagement": "Gestión de página",
     "books": "Libros",
-    "settings": "Configuración"
+    "settings": "Configuración",
+    "openMenu": "Abrir menú"
   },
   "header": {
     "appTitle": "BookSocial Studio",
@@ -293,6 +294,9 @@
       "auto": "Auto",
       "chapterScope": "cap {{chapters}}",
       "timers": "· imagen {{img}} · total {{total}}",
+      "momentToGenerate": "Momento a generar",
+      "momentAll": "Todos los momentos",
+      "momentToGenerateHint": "Con \"Todos los momentos\" cada imagen elige al azar entre presente, sueño y flashback (el número se mantiene). O fuerza un solo tipo.",
       "queuedList": "En cola: {{list}}",
       "footerNote": "Selecciona los capítulos y elige cuántas imágenes crear <1>por cada capítulo</1>; sin selección es «Auto» (varios capítulos). Puedes <3>poner en cola</3> más peticiones (ej. primero en 9:16, luego cambias el formato a 1:1 y añades de nuevo): la cola avanza en secuencia sin detenerse hasta que pulses <5>Cancelar</5>. La generación es lenta (algunos minutos por imagen) y se ejecuta en local: el servidor debe permanecer encendido.",
       "presenceRecomputed": "Presencia de personajes recalculada.",
@@ -371,7 +375,9 @@
       "momentMemory": "Recuerdo",
       "momentFlashback": "Flashback",
       "momentWhoseLabel": "De quién (sueño/recuerdo)",
-      "momentYoungerYearsLabel": "Años más joven"
+      "momentYoungerYearsLabel": "Años más joven",
+      "flashbackAgesLabel": "Edad de los personajes en el flashback",
+      "flashbackAgesHint": "Define la edad de cada personaje en esta escena del pasado: anula la edad canónica y los \"años más joven\". Déjalo vacío para usar los años más joven."
     },
     "characters": {
       "title": "Personajes",
@@ -1392,5 +1398,27 @@
     "usageFilterAria": "Filtrar imágenes por uso",
     "usedTimes": "{{n}}",
     "usageBreakdown": "Reels: {{reel}} · Historias: {{story}} · Posts: {{post}}"
+  },
+  "auth": {
+    "loginTitle": "Iniciar sesión",
+    "username": "Usuario",
+    "password": "Contraseña",
+    "login": "Iniciar sesión",
+    "loggingIn": "Iniciando sesión…",
+    "errLoginFailed": "Credenciales no válidas",
+    "logout": "Cerrar sesión",
+    "mustChangeTitle": "Cambiar contraseña",
+    "mustChangeHint": "Primer acceso: establece una nueva contraseña para continuar.",
+    "currentPassword": "Contraseña actual",
+    "newPassword": "Nueva contraseña",
+    "newPasswordHint": "Al menos 8 caracteres",
+    "confirmPassword": "Confirmar contraseña",
+    "changePassword": "Cambiar contraseña",
+    "changePasswordDescription": "Actualiza la contraseña de la cuenta admin.",
+    "saving": "Guardando…",
+    "changed": "Contraseña actualizada",
+    "errTooShort": "La contraseña debe tener al menos 8 caracteres",
+    "errMismatch": "Las contraseñas no coinciden",
+    "errChangeFailed": "Error al cambiar la contraseña"
   }
 }

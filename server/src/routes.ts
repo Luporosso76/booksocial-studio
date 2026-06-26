@@ -1,4 +1,6 @@
 import { Hono } from "hono";
+import { getCookie, setCookie, deleteCookie } from "hono/cookie";
+import * as auth from "./services/authService.js";
 import { writeFile, mkdir } from "node:fs/promises";
 import { join, basename, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -288,6 +290,56 @@ function sanitizeFileName(name: string): string {
 
 export function buildApi(deps: AppDeps): Hono {
   const api = new Hono();
+
+  const cookieOpts = {
+    httpOnly: true,
+    secure: true,
+    sameSite: "Lax" as const,
+    path: "/",
+    maxAge: auth.SESSION_MAX_AGE_S,
+  };
+  const PUBLIC_PATHS = new Set([
+    "/api/health",
+    "/api/auth/login",
+    "/api/auth/status",
+    "/api/auth/logout",
+  ]);
+  api.use("*", async (c, next) => {
+    if (c.req.method === "OPTIONS" || PUBLIC_PATHS.has(c.req.path)) return next();
+    const token = getCookie(c, auth.SESSION_COOKIE);
+    if (!(await auth.isValidSession(token))) return c.json({ error: "unauthorized" }, 401);
+    return next();
+  });
+
+  api.get("/auth/status", async (c) => {
+    return c.json(await auth.status(getCookie(c, auth.SESSION_COOKIE)));
+  });
+
+  api.post("/auth/login", async (c) => {
+    const body = await c.req.json().catch(() => ({}) as Record<string, unknown>);
+    const username = typeof body.username === "string" ? body.username : "";
+    const password = typeof body.password === "string" ? body.password : "";
+    const res = await auth.login(username, password);
+    if (!res) return c.json({ error: "invalid-credentials" }, 401);
+    setCookie(c, auth.SESSION_COOKIE, res.token, cookieOpts);
+    return c.json({ ok: true, mustChange: res.mustChange });
+  });
+
+  api.post("/auth/logout", async (c) => {
+    await auth.logout(getCookie(c, auth.SESSION_COOKIE));
+    deleteCookie(c, auth.SESSION_COOKIE, { path: "/" });
+    return c.json({ ok: true });
+  });
+
+  api.post("/auth/change-password", async (c) => {
+    const body = await c.req.json().catch(() => ({}) as Record<string, unknown>);
+    const current = typeof body.currentPassword === "string" ? body.currentPassword : "";
+    const next = typeof body.newPassword === "string" ? body.newPassword : "";
+    const res = await auth.changePassword(current, next);
+    if (!res.ok) return c.json({ error: res.error }, 400);
+    setCookie(c, auth.SESSION_COOKIE, res.token, cookieOpts);
+    return c.json({ ok: true });
+  });
 
   // WORKER seriale per-processo della CODA di rigenerazione singola (mediaRegenJobs). Svuota la coda
   // GLOBALE un job alla volta: per ciascuno, se `changes` rivede il prompt con l'IA, poi genera e
@@ -1256,6 +1308,18 @@ export function buildApi(deps: AppDeps): Hono {
     };
     const arr = (v: unknown): string[] | undefined =>
       Array.isArray(v) ? v.map((x) => String(x).trim()).filter((x) => x.length > 0) : undefined;
+    const agesFrom = (v: unknown): { name: string; age: number }[] => {
+      if (!Array.isArray(v)) return [];
+      const out: { name: string; age: number }[] = [];
+      for (const x of v) {
+        if (x == null || typeof x !== "object") continue;
+        const a = x as Record<string, unknown>;
+        const name = String(a.name ?? "").trim();
+        const age = Number(a.age);
+        if (name !== "" && Number.isFinite(age) && age > 0) out.push({ name, age: Math.round(age) });
+      }
+      return out;
+    };
     const scene = await deps.chapterScenes.save(id, idx, {
       ...(body.location !== undefined ? { location: str(body.location) } : {}),
       ...(body.environment !== undefined ? { environment: str(body.environment) } : {}),
@@ -1277,6 +1341,7 @@ export function buildApi(deps: AppDeps): Hono {
                 : null,
           }
         : {}),
+      ...(Array.isArray(body.characterAges) ? { characterAges: agesFrom(body.characterAges) } : {}),
       ...(Array.isArray(body.altMoments)
         ? {
             altMoments: (body.altMoments as unknown[])
@@ -1303,6 +1368,7 @@ export function buildApi(deps: AppDeps): Hono {
                   keyMoment: km,
                   whose: str(m.whose),
                   youngerYears: Number.isFinite(yy) && yy > 0 ? yy : null,
+                  characterAges: agesFrom(m.characterAges),
                 };
               })
               .filter((m): m is ChapterMoment => m !== null),
@@ -1569,6 +1635,12 @@ export function buildApi(deps: AppDeps): Hono {
         };
       }
     }
+    let moment: number | undefined;
+    if (body.moment != null && body.moment !== "") {
+      const mRaw = Math.floor(Number(body.moment));
+      if (mRaw === -1) moment = -1;
+      else if (Number.isInteger(mRaw) && mRaw >= 0 && chapters.length === 1) moment = mRaw;
+    }
     const batch: SceneBatch = {
       id: randomUUID(),
       count,
@@ -1576,6 +1648,7 @@ export function buildApi(deps: AppDeps): Hono {
       chapters,
       ...(charNames ? { characters: charNames } : {}),
       ...(flashback ? { flashback } : {}),
+      ...(moment != null ? { moment } : {}),
     };
 
     // Accoda. started=true → non era in corso: avvio il worker. started=false → già in corso: il
@@ -1632,6 +1705,7 @@ export function buildApi(deps: AppDeps): Hono {
                   ? { featureCharacters: b.characters }
                   : {}),
                 ...(b.flashback ? { flashback: b.flashback } : {}),
+                ...(b.moment != null ? { moment: b.moment } : { randomMoment: true }),
                 signal: ac.signal,
               });
               if (res) bumpSceneCreated(id);
@@ -1648,6 +1722,7 @@ export function buildApi(deps: AppDeps): Hono {
                     ? { featureCharacters: b.characters }
                     : {}),
                   ...(b.flashback ? { flashback: b.flashback } : {}),
+                  ...(b.moment != null ? { moment: b.moment } : { randomMoment: true }),
                   signal: ac.signal,
                 });
                 if (res) bumpSceneCreated(id);

@@ -92,6 +92,7 @@ import type {
   ChapterSceneKind,
   ChapterMoment,
   ChapterMomentType,
+  CharacterAge,
   CharacterInput,
   CharacterOutfit,
   DrivingSide,
@@ -2994,6 +2995,7 @@ function SceneGenSection({
   const [flashbackOn, setFlashbackOn] = useState(false);
   const [flashbackYears, setFlashbackYears] = useState(20);
   const [flashbackSetting, setFlashbackSetting] = useState("");
+  const [selectedMoment, setSelectedMoment] = useState(-2);
   const [recomputing, setRecomputing] = useState(false);
   const [starting, setStarting] = useState(false);
   const [cancelling, setCancelling] = useState(false);
@@ -3014,6 +3016,15 @@ function SceneGenSection({
   const imgStartedAtRef = useRef(0); // epoch ms, inizio immagine in corso
   const mmss = (s: number) =>
     `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+
+  const singleChapter =
+    selectedChapters.length === 1
+      ? chapters.find((ch) => ch.index === selectedChapters[0]) ?? null
+      : null;
+  const availMoments = singleChapter?.scene?.altMoments ?? [];
+  useEffect(() => {
+    if (selectedMoment >= availMoments.length) setSelectedMoment(-2);
+  }, [availMoments.length, selectedMoment]);
 
   function recompute() {
     const now = Date.now();
@@ -3191,6 +3202,7 @@ function SceneGenSection({
         count,
         aspect,
         chapters: selectedChapters,
+        ...(selectedMoment !== -2 ? { moment: selectedMoment } : {}),
         ...(selectedCharacters.length ? { characters: selectedCharacters } : {}),
         ...(flashbackOn
           ? {
@@ -3371,6 +3383,46 @@ function SceneGenSection({
               })}
           </div>
         </Collapsible>
+
+        {availMoments.length > 0 && (
+          <div className="flex flex-col gap-1.5 rounded-lg border border-border-subtle bg-bg-card px-3 py-2.5">
+            <label className="text-xs font-medium text-content-secondary">
+              {t("book.sceneGen.momentToGenerate")}
+            </label>
+            <select
+              className={selectClass}
+              value={selectedMoment}
+              disabled={starting}
+              onChange={(e) => setSelectedMoment(Number(e.target.value))}
+            >
+              <option value={-2}>{t("book.sceneGen.momentAll")}</option>
+              <option value={-1}>{t("book.scene.momentPresent")}</option>
+              {(() => {
+                const totals = availMoments.reduce<Record<string, number>>((acc, m) => {
+                  acc[m.type] = (acc[m.type] ?? 0) + 1;
+                  return acc;
+                }, {});
+                const seen: Record<string, number> = {};
+                return availMoments.map((m, i) => {
+                  seen[m.type] = (seen[m.type] ?? 0) + 1;
+                  const base =
+                    m.type === "dream"
+                      ? t("book.scene.momentDream")
+                      : t("book.scene.momentFlashback");
+                  const label = totals[m.type] > 1 ? `${base} ${seen[m.type]}` : base;
+                  return (
+                    <option key={i} value={i}>
+                      {label}
+                    </option>
+                  );
+                });
+              })()}
+            </select>
+            <p className="text-2xs leading-relaxed text-content-tertiary">
+              {t("book.sceneGen.momentToGenerateHint")}
+            </p>
+          </div>
+        )}
 
         {cast.length > 0 && (
           <Collapsible
@@ -3813,6 +3865,7 @@ type MomentForm = {
   keyMoment: string;
   whose: string;
   youngerYears: string;
+  characterAges: CharacterAge[];
 };
 
 const momentToForm = (m: ChapterMoment): MomentForm => ({
@@ -3826,7 +3879,53 @@ const momentToForm = (m: ChapterMoment): MomentForm => ({
   keyMoment: m.keyMoment ?? "",
   whose: m.whose ?? "",
   youngerYears: m.youngerYears != null ? String(m.youngerYears) : "",
+  characterAges: m.characterAges ?? [],
 });
+
+function FlashbackAges({
+  names,
+  value,
+  onChange,
+}: {
+  names: string[];
+  value: CharacterAge[];
+  onChange: (next: CharacterAge[]) => void;
+}) {
+  const { t } = useTranslation();
+  if (names.length === 0) return null;
+  const ageOf = (name: string): string => {
+    const hit = value.find((a) => a.name === name);
+    return hit ? String(hit.age) : "";
+  };
+  const setAge = (name: string, raw: string) => {
+    const rest = value.filter((a) => a.name !== name);
+    const n = Number(raw.trim());
+    onChange(
+      raw.trim() && Number.isFinite(n) && n > 0 ? [...rest, { name, age: Math.round(n) }] : rest,
+    );
+  };
+  return (
+    <Field label={t("book.scene.flashbackAgesLabel")}>
+      <div className="flex flex-col gap-2">
+        {names.map((name) => (
+          <div key={name} className="flex items-center gap-2">
+            <span className="min-w-0 flex-1 truncate text-sm text-content-secondary">{name}</span>
+            <Input
+              type="number"
+              min={0}
+              className="w-24"
+              value={ageOf(name)}
+              onChange={(e) => setAge(name, e.target.value)}
+            />
+          </div>
+        ))}
+      </div>
+      <p className="mt-1.5 text-2xs leading-relaxed text-content-tertiary">
+        {t("book.scene.flashbackAgesHint")}
+      </p>
+    </Field>
+  );
+}
 
 function ChapterSceneEditor({
   bookId,
@@ -3864,6 +3963,7 @@ function ChapterSceneEditor({
   const [youngerYears, setYoungerYears] = useState(
     initial?.youngerYears != null ? String(initial.youngerYears) : "",
   );
+  const [presentAges, setPresentAges] = useState<CharacterAge[]>(initial?.characterAges ?? []);
   const [altForms, setAltForms] = useState<MomentForm[]>(
     (initial?.altMoments ?? []).map(momentToForm),
   );
@@ -3880,6 +3980,7 @@ function ChapterSceneEditor({
     setKeyMoment(s.keyMoment ?? "");
     setKind(s.kind ?? "waking");
     setYoungerYears(s.youngerYears != null ? String(s.youngerYears) : "");
+    setPresentAges(s.characterAges ?? []);
     setAltForms((s.altMoments ?? []).map(momentToForm));
     setDirty(false); // appena salvato/rigenerato: niente modifiche pendenti
   };
@@ -3919,6 +4020,7 @@ function ChapterSceneEditor({
     keyMoment: f.keyMoment.trim() || null,
     whose: f.whose.trim() || null,
     youngerYears: f.youngerYears.trim() ? Number(f.youngerYears.trim()) : null,
+    characterAges: f.type === "flashback" ? f.characterAges : [],
   });
 
   const generate = async () => {
@@ -3955,6 +4057,7 @@ function ChapterSceneEditor({
                 kind === "flashback" && youngerYears.trim()
                   ? Number(youngerYears.trim())
                   : null,
+              characterAges: kind === "flashback" ? presentAges : [],
             }
           : { altMoments: altForms.map(formToMoment) };
       const { scene: s } = await updateChapterScene(bookId, chapterIndex, patch);
@@ -4132,6 +4235,16 @@ function ChapterSceneEditor({
                 />
               </Field>
             )}
+            {isPresent && kind === "flashback" && (
+              <FlashbackAges
+                names={parseCsv(characters)}
+                value={presentAges}
+                onChange={(next) => {
+                  setPresentAges(next);
+                  setDirty(true);
+                }}
+              />
+            )}
             {!isPresent && cur && cur.type === "dream" && (
               <Field label={t("book.scene.momentWhoseLabel")}>
                 <Input
@@ -4149,6 +4262,18 @@ function ChapterSceneEditor({
                   onChange={(e) => editAlt(activeIdx, "youngerYears")(e.target.value)}
                 />
               </Field>
+            )}
+            {!isPresent && cur && cur.type === "flashback" && (
+              <FlashbackAges
+                names={parseCsv(cur.characters)}
+                value={cur.characterAges}
+                onChange={(next) => {
+                  setAltForms((prev) =>
+                    prev.map((f, i) => (i === activeIdx ? { ...f, characterAges: next } : f)),
+                  );
+                  setDirty(true);
+                }}
+              />
             )}
             <Field label={t("book.scene.place")}>
               <Input
