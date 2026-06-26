@@ -331,6 +331,13 @@ const MIGRATIONS: Migration[] = [
     version: 6,
     statements: [`ALTER TABLE content_usage ADD COLUMN angle_key TEXT NULL`],
   },
+  {
+    version: 7,
+    statements: [
+      `ALTER TABLE book_character ADD COLUMN age       TEXT NULL`,
+      `ALTER TABLE book_character ADD COLUMN ethnicity TEXT NULL`,
+    ],
+  },
 ];
 
 async function currentVersion(): Promise<number> {

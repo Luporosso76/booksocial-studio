@@ -64,6 +64,7 @@ export interface CharacterOutfit {
 export interface CharacterOutfits {
   default: string | null;
   contexts: CharacterOutfit[];
+  signature?: string | null;
 }
 export interface VisualProp {
   name: string;
@@ -352,9 +353,28 @@ export interface ChapterScene {
   // vincoli che l'immagine deve rispettare (es. «la vela è sul lato opposto al vento»).
   physicsRules: string[];
   keyMoment: string | null;
+  kind: ChapterSceneKind;
+  youngerYears: number | null;
+  altMoments?: ChapterMoment[];
   source: "AI" | "USER";
   model: string | null;
   updatedAt: number;
+}
+
+export type ChapterSceneKind = "waking" | "dream" | "flashback";
+
+export type ChapterMomentType = "dream" | "flashback";
+export interface ChapterMoment {
+  type: ChapterMomentType;
+  location: string | null;
+  environment: string | null;
+  mainObjects: string[];
+  secondaryObjects: string[];
+  characters: string[];
+  physicsRules: string[];
+  keyMoment: string | null;
+  whose: string | null;
+  youngerYears: number | null;
 }
 
 export interface BookChapter {
@@ -392,6 +412,8 @@ export interface BookCharacter {
   occupation?: string | null;
   personality?: string | null;
   physical?: string | null;
+  age?: string | null;
+  ethnicity?: string | null;
   notes?: string | null;
   outfits?: CharacterOutfits;
   source: CharacterSource;
@@ -407,6 +429,8 @@ export interface CharacterInput {
   occupation?: string;
   personality?: string;
   physical?: string;
+  age?: string;
+  ethnicity?: string;
   notes?: string;
 }
 
@@ -436,6 +460,13 @@ export interface SceneQa {
   issues: string[];
 }
 
+export interface MediaUsage {
+  total: number;
+  reel: number;
+  story: number;
+  post: number;
+}
+
 export interface MediaAsset {
   id: string;
   bookId?: string;
@@ -452,6 +483,7 @@ export interface MediaAsset {
   genPrompt: string | null;
   // Esito del controllo qualità: null = check non eseguito; ok=false = problemi trovati.
   qa?: SceneQa | null;
+  usage?: MediaUsage;
 }
 
 export interface BookDetail {
@@ -856,6 +888,7 @@ export interface Music {
   mood: string | null;
   addedAt: number;
   url: string; // già prefissato /api/...
+  usage?: { total: number; reel: number; story: number };
 }
 
 // --- Pubblicazione come Storia (effimera 24h) ---

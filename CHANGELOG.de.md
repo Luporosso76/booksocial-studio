@@ -5,6 +5,26 @@ Alle wesentlichen Änderungen an diesem Projekt werden in dieser Datei dokumenti
 Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-06-26
+
+### Hinzugefügt
+
+- **Alter & Ethnizität der Figuren**: jetzt eigene, editierbare Felder (nicht mehr in der physischen Beschreibung versteckt). Sie werden in jedem Bild-Prompt ausdrücklich genannt, damit Alter und Ethnizität über alle Illustrationen hinweg konsistent bleiben.
+- **Markenzeichen-Kleidung**: ein Kleidungsstück oder Accessoire, das eine Figur immer trägt (z. B. ein bestimmter Hut), wird einmal festgelegt und in jeder Szene über der Szenenkleidung dargestellt.
+- **Szenenmomente (Traum / Rückblende)**: jede Kapitelkarte erfasst die Art der Hauptszene (normal, Traum oder Rückblende) sowie sekundäre Träume/Rückblenden, alle in eigenen Tabs editierbar. Traumszenen werden traumhaft dargestellt; Rückblenden lassen die Figuren jünger erscheinen.
+- **Bildnutzung**: jedes Bild zeigt, wie oft und worin es verwendet wurde (Reels, Storys, Posts), mit Filter verwendet / unbenutzt.
+- **Musiknutzung**: Titel zeigen dasselbe Nutzungs-Badge (Reels / Storys) mit Filter.
+- **Bild-Untertabs nach Format und Kapitel**: die Bildbibliothek lässt sich nach Format und innerhalb eines Formats nach Kapitel filtern, mit Zählern — und du kannst Bilder nur für dieses Kapitel erzeugen.
+- **Automatische Bereinigung veröffentlichter Medien**: gerenderte Reel-/Story-/Post-Videos werden 24 Stunden nach der Veröffentlichung auf Facebook und Instagram gelöscht, um Speicher freizugeben. Gerenderte Dateien liegen nun im Unterordner `media/renders/`.
+
+### Geändert
+
+- **Stärkere Figurenkonsistenz in den Bild-Prompts**: Alter, Ethnizität, Statur und Haare werden immer genannt; bei zwei oder mehr Figuren im Bild bleiben sie unterscheidbar und werden nie vertauscht; Posen sind natürlich und aufrecht; eine angeforderte Figur erscheint immer.
+
+### Behoben
+
+- **Keine fehlplatzierten Motive mehr**: was nur in einem Traum, einer Erinnerung oder einer Redewendung vorkommt (und Homonyme wie das Surf-Manöver „Turtle Roll") landet nicht mehr in der realen Szene des Kapitels.
+
 ## [0.3.1] - 2026-06-24
 
 ### Hinzugefügt

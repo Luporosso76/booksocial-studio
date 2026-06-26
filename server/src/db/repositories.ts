@@ -6,6 +6,7 @@ import {
   type Book,
   type BookChapter,
   type ChapterScene,
+  type ChapterMoment,
   type BookCharacter,
   type BookQuote,
   type QuoteKind,
@@ -26,7 +27,9 @@ import {
   type GenerationRecord,
   type MediaAsset,
   type MediaType,
+  type MediaUsage,
   type MusicTrack,
+  type MusicUsage,
   type RenderJob,
   type RenderStatus,
   type SceneQa,
@@ -102,6 +105,31 @@ function parseChapterScene(raw: unknown): ChapterScene | null {
     const s = String(v).trim();
     return s === "" ? null : s;
   };
+  const parseAltMoments = (v: unknown): ChapterMoment[] => {
+    if (!Array.isArray(v)) return [];
+    const out: ChapterMoment[] = [];
+    for (const x of v) {
+      if (x == null || typeof x !== "object") continue;
+      const m = x as Record<string, unknown>;
+      const type = m.type === "dream" || m.type === "flashback" ? m.type : m.type === "memory" ? "flashback" : null;
+      const km = str(m.keyMoment);
+      if (!type || !km) continue;
+      const yy = Number(m.youngerYears);
+      out.push({
+        type,
+        location: str(m.location),
+        environment: str(m.environment),
+        mainObjects: strArr(m.mainObjects),
+        secondaryObjects: strArr(m.secondaryObjects),
+        characters: strArr(m.characters),
+        physicsRules: strArr(m.physicsRules),
+        keyMoment: km,
+        whose: str(m.whose),
+        youngerYears: Number.isFinite(yy) && yy > 0 ? yy : null,
+      });
+    }
+    return out;
+  };
   return {
     location: str(o.location),
     environment: str(o.environment),
@@ -112,6 +140,12 @@ function parseChapterScene(raw: unknown): ChapterScene | null {
     physicsRules: strArr(o.physicsRules),
     // Schede vecchie senza keyMoment → null.
     keyMoment: str(o.keyMoment),
+    kind: o.kind === "dream" || o.kind === "flashback" ? o.kind : "waking",
+    youngerYears:
+      Number.isFinite(Number(o.youngerYears)) && Number(o.youngerYears) > 0
+        ? Number(o.youngerYears)
+        : null,
+    altMoments: parseAltMoments(o.altMoments),
     source: o.source === "USER" ? "USER" : "AI",
     model: str(o.model),
     updatedAt: Number.isFinite(Number(o.updatedAt)) ? Number(o.updatedAt) : 0,
@@ -230,6 +264,8 @@ function mapCharacter(r: Row): BookCharacter {
     occupation: (r.occupation as string | null) ?? null,
     personality: (r.personality as string | null) ?? null,
     physical: (r.physical as string | null) ?? null,
+    age: (r.age as string | null) ?? null,
+    ethnicity: (r.ethnicity as string | null) ?? null,
     notes: (r.notes as string | null) ?? null,
     source: (r.source as CharacterSource) ?? "AI",
     sortOrder: Number(r.sort_order),
@@ -251,17 +287,19 @@ function mapCharacter(r: Row): BookCharacter {
 function serializeOutfits(o: CharacterOutfits | null | undefined): string | null {
   if (!o) return null;
   const def = (o.default ?? "").trim();
+  const sig = (o.signature ?? "").trim();
   const contexts = (o.contexts ?? []).filter((x) => x.when.trim() !== "" && x.outfit.trim() !== "");
-  if (def === "" && contexts.length === 0) return null;
-  return JSON.stringify({ default: def === "" ? null : def, contexts });
+  if (def === "" && sig === "" && contexts.length === 0) return null;
+  return JSON.stringify({ default: def === "" ? null : def, contexts, signature: sig === "" ? null : sig });
 }
 
 // Parsa book_character.outfits_json in CharacterOutfits, tollerante (default vuoto se assente/rotto).
 function parseOutfits(raw: string | null): CharacterOutfits {
-  if (!raw || raw.trim() === "") return { default: null, contexts: [] };
+  if (!raw || raw.trim() === "") return { default: null, contexts: [], signature: null };
   try {
     const o = JSON.parse(raw) as Partial<CharacterOutfits>;
     const def = typeof o.default === "string" && o.default.trim() !== "" ? o.default : null;
+    const sig = typeof o.signature === "string" && o.signature.trim() !== "" ? o.signature.trim() : null;
     const contexts = Array.isArray(o.contexts)
       ? o.contexts
           .filter(
@@ -271,9 +309,9 @@ function parseOutfits(raw: string | null): CharacterOutfits {
           .map((x) => ({ when: x.when.trim(), outfit: x.outfit.trim() }))
           .filter((x) => x.when !== "" && x.outfit !== "")
       : [];
-    return { default: def, contexts };
+    return { default: def, contexts, signature: sig };
   } catch {
-    return { default: null, contexts: [] };
+    return { default: null, contexts: [], signature: null };
   }
 }
 
@@ -697,8 +735,8 @@ export const characters = {
   async insert(c: Omit<BookCharacter, "id">): Promise<BookCharacter> {
     const r = await execute(
       `INSERT INTO book_character(book_id, name, role, occupation, personality, physical,
-              notes, source, sort_order, outfits_json, created_at, updated_at)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
+              age, ethnicity, notes, source, sort_order, outfits_json, created_at, updated_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       [
         c.bookId,
         c.name,
@@ -706,6 +744,8 @@ export const characters = {
         c.occupation,
         c.personality,
         c.physical,
+        c.age,
+        c.ethnicity,
         c.notes,
         c.source,
         c.sortOrder,
@@ -722,13 +762,15 @@ export const characters = {
   async update(c: BookCharacter): Promise<void> {
     await execute(
       `UPDATE book_character SET name=?, role=?, occupation=?, personality=?, physical=?,
-              notes=?, source=?, sort_order=?, outfits_json=?, updated_at=? WHERE id=?`,
+              age=?, ethnicity=?, notes=?, source=?, sort_order=?, outfits_json=?, updated_at=? WHERE id=?`,
       [
         c.name,
         c.role,
         c.occupation,
         c.personality,
         c.physical,
+        c.age,
+        c.ethnicity,
         c.notes,
         c.source,
         c.sortOrder,
@@ -754,6 +796,8 @@ export const characters = {
       occupation: string | null;
       personality: string | null;
       physical: string | null;
+      age: string | null;
+      ethnicity: string | null;
       notes: string | null;
     }[],
   ): Promise<void> {
@@ -763,8 +807,8 @@ export const characters = {
     for (const c of list) {
       await execute(
         `INSERT INTO book_character(book_id, name, role, occupation, personality, physical,
-                notes, source, sort_order, created_at, updated_at)
-         VALUES (?,?,?,?,?,?,?,'AI',?,?,?)`,
+                age, ethnicity, notes, source, sort_order, created_at, updated_at)
+         VALUES (?,?,?,?,?,?,?,?,?,'AI',?,?,?)`,
         [
           bookId,
           c.name,
@@ -772,6 +816,8 @@ export const characters = {
           c.occupation,
           c.personality,
           c.physical,
+          c.age,
+          c.ethnicity,
           c.notes,
           order++,
           now,
@@ -1041,6 +1087,32 @@ export const media = {
       qa ? JSON.stringify(qa) : null,
       id,
     ]);
+  },
+
+  async usageByBook(bookId: number): Promise<Map<number, MediaUsage>> {
+    const rows = await query<{ media_id: number; visual_kind: string; n: number }>(
+      `SELECT je.value AS media_id, cu.visual_kind AS visual_kind, COUNT(*) AS n
+         FROM content_usage cu, json_each(cu.image_ids) je
+        WHERE cu.book_id = ? AND cu.image_ids IS NOT NULL AND cu.image_ids NOT IN ('', '[]')
+        GROUP BY je.value, cu.visual_kind`,
+      [bookId],
+    );
+    const map = new Map<number, MediaUsage>();
+    for (const r of rows) {
+      const id = Number(r.media_id);
+      if (!Number.isFinite(id)) continue;
+      let u = map.get(id);
+      if (!u) {
+        u = { total: 0, reel: 0, story: 0, post: 0 };
+        map.set(id, u);
+      }
+      const n = Number(r.n) || 0;
+      u.total += n;
+      if (r.visual_kind === "reel") u.reel += n;
+      else if (r.visual_kind === "story") u.story += n;
+      else if (r.visual_kind === "card") u.post += n;
+    }
+    return map;
   },
 };
 
@@ -1448,6 +1520,31 @@ export const music = {
 
   async delete(id: number): Promise<void> {
     await execute("DELETE FROM music_track WHERE id=?", [id]);
+  },
+
+  async usageAll(): Promise<Map<number, MusicUsage>> {
+    const rows = await query<{ music_id: number; visual_kind: string; n: number }>(
+      `SELECT music_id, visual_kind, COUNT(*) AS n
+         FROM content_usage
+        WHERE music_id IS NOT NULL
+        GROUP BY music_id, visual_kind`,
+      [],
+    );
+    const map = new Map<number, MusicUsage>();
+    for (const r of rows) {
+      const id = Number(r.music_id);
+      if (!Number.isFinite(id)) continue;
+      let u = map.get(id);
+      if (!u) {
+        u = { total: 0, reel: 0, story: 0 };
+        map.set(id, u);
+      }
+      const n = Number(r.n) || 0;
+      u.total += n;
+      if (r.visual_kind === "reel") u.reel += n;
+      else if (r.visual_kind === "story") u.story += n;
+    }
+    return map;
   },
 };
 

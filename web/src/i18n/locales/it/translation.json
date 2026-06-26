@@ -361,7 +361,17 @@
       "cardGenerated": "Scheda generata.",
       "generateFailed": "Generazione scheda non riuscita.",
       "cardSaved": "Scheda salvata.",
-      "saveFailed": "Salvataggio scheda non riuscito."
+      "saveFailed": "Salvataggio scheda non riuscito.",
+      "momentPresent": "Presente",
+      "momentDream": "Sogno",
+      "kindLabel": "Natura della scena",
+      "kindWaking": "Normale",
+      "kindDream": "Sogno",
+      "kindFlashback": "Flashback",
+      "momentMemory": "Ricordo",
+      "momentFlashback": "Flashback",
+      "momentWhoseLabel": "Di chi è (sogno/ricordo)",
+      "momentYoungerYearsLabel": "Anni più giovane"
     },
     "characters": {
       "title": "Personaggi",
@@ -404,7 +414,14 @@
       "sourceAiTooltip": "Estratto automaticamente dall'AI durante l'analisi del libro.",
       "sourceEditedTooltip": "Creato o modificato a mano.",
       "moreActionsAria": "Altre azioni per {{name}}",
-      "delete": "Elimina"
+      "delete": "Elimina",
+      "ageLabel": "Età (canonica)",
+      "agePlaceholder": "es. circa 35, adolescente ~16",
+      "ethnicityLabel": "Etnia / carnagione (canonica)",
+      "ethnicityPlaceholder": "es. dominicana, pelle ambrata",
+      "signatureOutfitLabel": "Capo firma (sempre indossato)",
+      "signatureOutfitPlaceholder": "es. cappello di paglia, occhiali tondi",
+      "signatureOutfitHint": "Accessorio/capo che il personaggio porta in OGNI scena, sopra qualsiasi abito. Lascia vuoto se non ne ha."
     },
     "visualBible": {
       "title": "Analisi / Bibbia visiva",
@@ -1368,6 +1385,12 @@
     "flashbackSummaryOff": "Disattivo",
     "queueWaiting": "In coda",
     "cancelThis": "Annulla questo",
-    "cancelThisFailed": "Annullamento non riuscito."
+    "cancelThisFailed": "Annullamento non riuscito.",
+    "usageAll": "Tutte",
+    "usageUsed": "Usate",
+    "usageUnused": "Mai usate",
+    "usageFilterAria": "Filtra le immagini per utilizzo",
+    "usedTimes": "{{n}}",
+    "usageBreakdown": "Reel: {{reel}} · Storie: {{story}} · Post: {{post}}"
   }
 }

@@ -5,6 +5,26 @@ Toutes les modifications notables apportées à ce projet sont documentées dans
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 et ce projet respecte le [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-06-26
+
+### Ajouté
+
+- **Âge et origine ethnique des personnages** : désormais des champs dédiés et modifiables (plus dilués dans la description physique). Ils sont indiqués explicitement dans chaque prompt d'image, pour que l'âge apparent et l'origine restent cohérents sur toutes les illustrations.
+- **Pièce signature** : un vêtement ou accessoire qu'un personnage porte toujours (p. ex. un chapeau) se définit une fois et apparaît dans chaque scène, par-dessus la tenue de la scène.
+- **Moments de scène (rêve / flashback)** : chaque fiche de chapitre enregistre la nature de la scène principale (normale, rêve ou flashback) ainsi que les rêves ou flashbacks secondaires, modifiables dans des onglets dédiés. Les scènes de rêve ont un rendu onirique ; les flashbacks rajeunissent les personnages.
+- **Utilisation des images** : chaque image indique combien de fois elle a été utilisée et dans quoi (reels, stories, posts), avec un filtre utilisées / inutilisées.
+- **Utilisation de la musique** : les pistes affichent le même badge d'utilisation (reels / stories) avec filtre.
+- **Sous-onglets d'images par format et par chapitre** : la bibliothèque se filtre par format et, dans un format, par chapitre, avec des compteurs — et vous pouvez générer des images pour ce seul chapitre.
+- **Nettoyage automatique des médias publiés** : les vidéos de reels/stories/posts sont supprimées 24 heures après publication sur Facebook et Instagram, pour libérer de l'espace. Les fichiers rendus sont désormais dans un sous-dossier `media/renders/`.
+
+### Modifié
+
+- **Cohérence des personnages renforcée dans les prompts** : âge, origine, carrure et cheveux toujours indiqués ; deux personnages ou plus restent distincts et ne sont jamais intervertis ; poses naturelles et droites ; un personnage demandé apparaît toujours.
+
+### Corrigé
+
+- **Plus de sujets hors de propos** : ce qui n'apparaît que dans un rêve, un souvenir ou une figure de style (et les homonymes comme la manœuvre « tortue » du surf) ne se glisse plus dans la scène réelle du chapitre.
+
 ## [0.3.1] - 2026-06-24
 
 ### Ajouté

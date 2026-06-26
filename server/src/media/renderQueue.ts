@@ -1,6 +1,6 @@
 import { mkdir, unlink } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
-import { mediaDir } from "../paths.js";
+import { renderDir } from "../paths.js";
 import { books, media, posts, renderJobs } from "../db/repositories.js";
 import type { RenderJob } from "../domain.js";
 import { validateSpec, type VisualKind, type VisualSpec } from "./spec.js";
@@ -65,7 +65,7 @@ async function processOne(job: RenderJob): Promise<void> {
   try {
     const spec = validateSpec(specKindToVisualKind(job.kind), safeParse(job.specJson));
 
-    const outDir = mediaDir();
+    const outDir = renderDir();
     await mkdir(outDir, { recursive: true });
     const baseName = `render-${job.id}-${randomUUID()}`;
 

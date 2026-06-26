@@ -5,6 +5,26 @@ Tutte le modifiche rilevanti a questo progetto sono documentate in questo file.
 Il formato è basato su [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 e questo progetto aderisce al [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-06-26
+
+### Aggiunto
+
+- **Età ed etnia dei personaggi**: ora campi dedicati e modificabili (non più diluiti nella descrizione fisica). Vengono indicati esplicitamente in ogni prompt immagine, così l'età apparente e l'etnia restano coerenti in tutte le illustrazioni.
+- **Capo firma**: un capo o accessorio che un personaggio indossa sempre (es. un cappello particolare) si imposta una volta e viene reso in ogni scena, sopra l'abito della scena.
+- **Momenti di scena (sogno / flashback)**: ogni scheda capitolo registra ora la natura della scena principale (normale, sogno o flashback) più eventuali sogni o flashback secondari, tutti modificabili in tab dedicati. Le scene di sogno hanno un aspetto onirico; i flashback rendono i personaggi più giovani.
+- **Utilizzo immagini**: ogni immagine mostra quante volte è stata usata e in cosa (reel, storie, post), con un filtro per vedere solo le usate o le mai usate.
+- **Utilizzo musiche**: le tracce mostrano lo stesso badge di utilizzo (reel / storie) con filtro usate / mai usate.
+- **Sotto-tab immagini per formato e capitolo**: la libreria immagini si filtra per formato e, dentro un formato, per capitolo, con i conteggi — e puoi generare immagini solo per quel capitolo.
+- **Pulizia automatica dei media pubblicati**: i video di reel/storie/post renderizzati vengono cancellati 24 ore dopo la pubblicazione su Facebook e Instagram, per liberare spazio. I file renderizzati sono ora in una sottocartella dedicata `media/renders/`.
+
+### Modificato
+
+- **Maggiore coerenza dei personaggi nei prompt immagine**: età, etnia, corporatura e capelli sono sempre indicati per ogni persona; quando due o più personaggi sono nell'inquadratura restano distinti e non vengono mai scambiati; le pose sono naturali e dritte; un personaggio richiesto esplicitamente compare sempre.
+
+### Corretto
+
+- **Niente più soggetti fuori posto**: ciò che compare solo in un sogno, un ricordo o un modo di dire (e gli omonimi come la manovra "tartaruga" nel surf) non finisce più nella scena reale del capitolo.
+
 ## [0.3.1] - 2026-06-24
 
 ### Aggiunto

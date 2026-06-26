@@ -18,6 +18,7 @@ import { ChapterSceneService } from "./services/chapterSceneService.js";
 import { kick as kickRenderQueue } from "./media/renderQueue.js";
 import { renderJobs } from "./db/repositories.js";
 import { PublishScheduler } from "./scheduler/publishScheduler.js";
+import { RenderCleanup } from "./scheduler/renderCleanup.js";
 import * as keyring from "./secrets/keyring.js";
 import { buildApi, type AppDeps } from "./routes.js";
 import { basicAuthMiddleware } from "./auth/basicAuth.js";
@@ -105,6 +106,9 @@ async function main(): Promise<void> {
   const scheduler = new PublishScheduler();
   await scheduler.start();
 
+  const renderCleanup = new RenderCleanup();
+  renderCleanup.start();
+
   // 6) Listen on 127.0.0.1:PORT.
   serve({ fetch: app.fetch, hostname: appConfig.host, port: appConfig.port }, (info) => {
     console.log(`[server] in ascolto su http://${appConfig.host}:${info.port}`);
@@ -112,6 +116,7 @@ async function main(): Promise<void> {
 
   const shutdown = async () => {
     scheduler.stop();
+    renderCleanup.stop();
     await pool.end().catch(() => {});
     process.exit(0);
   };

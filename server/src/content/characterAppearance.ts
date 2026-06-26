@@ -1,10 +1,6 @@
 import type { ContentEngine } from "./engine.js";
 import { ContentError } from "./engine.js";
-
-// Genera l'ASPETTO FISICO CANONICO di un personaggio: una descrizione precisa, completa e STABILE,
-// da usare IDENTICA in tutte le immagini (coerenza). Arricchisce/colma le descrizioni deboli o
-// incomplete partendo dalle info esistenti, senza contraddirle. SOLO aspetto fisico: niente abiti
-// (gestiti a parte), niente personalità/ruolo. Best-effort: ritorna null se il motore fallisce.
+import { parseModelJson } from "./modelJson.js";
 
 export interface AppearanceInput {
   name: string;
@@ -12,46 +8,60 @@ export interface AppearanceInput {
   occupation?: string | null;
   personality?: string | null;
   physical?: string | null;
+  age?: string | null;
+  ethnicity?: string | null;
   notes?: string | null;
   bookTitle?: string | null;
-  language: string; // lingua del libro: la descrizione è scritta in questa lingua
-  // GROUNDING: passaggi reali del libro che nominano il personaggio (per estrarre i tratti DESCRITTI
-  // invece di inventarli). Opzionale: assente → comportamento storico (solo dai campi noti).
+  language: string;
   sourceText?: string | null;
-  // Ambientazione: paese principale del libro → ancora etnia/carnagione plausibili quando il testo
-  // non le specifica (es. Rep. Dominicana). Opzionale.
   country?: string | null;
 }
 
+export interface AppearanceResult {
+  physical: string;
+  age: string | null;
+  ethnicity: string | null;
+}
+
 const MAX_LEN = 320;
+const MAX_SHORT = 80;
+
+function clamp(s: string, max: number): string {
+  const t = s.trim().replace(/^["'`]+|["'`]+$/g, "").trim();
+  return t.length > max ? `${t.slice(0, max).trimEnd()}…` : t;
+}
 
 export async function generateAppearance(
   engine: ContentEngine,
   input: AppearanceInput,
-): Promise<string | null> {
+): Promise<AppearanceResult | null> {
   const prompt = `You are a visual director defining the CANONICAL PHYSICAL APPEARANCE of a character, to be
 used IDENTICALLY across ALL the book's illustrations (to keep images consistent). Given the character and the
-available information, write ONE PRECISE, COMPLETE and STABLE physical description.
+available information, fix PRECISE, COMPLETE and STABLE values.
 
-RULES:
-- PHYSICAL APPEARANCE ONLY: apparent age, build (and rough weight), height, hair (COLOR + cut/length), eyes
-  (color), face and features, skin tone/ethnicity, and any permanent distinctive traits (beard/moustache,
-  glasses, moles, scars, tattoos). Pick SPECIFIC, definite values, never vague ones.
-- FAITHFUL TO THE BOOK: if the "BOOK PASSAGES" below describe a trait (hair/eye color, height, scars, age,
-  ethnicity…), USE IT exactly; never contradict it. Only FILL IN details the book does NOT give, plausibly,
-  fixing them once and for all.
-- ETHNICITY/SKIN TONE: if the text does not specify it, anchor it plausibly to the book's setting
-  (country: ${input.country?.trim() || "not stated"}), unless the text hints otherwise.
-- Also RESPECT the "EXISTING PHYSICAL INFO" (do not contradict it).
-- NO clothing or outfit (handled separately). NO personality, role, biography, emotions or actions. Only how
-  the character physically LOOKS.
-- Concise: one sentence or a few, at most ~280 characters. Write in ${input.language}. No preamble, no quotes:
-  ONLY the description.
+Reply EXCLUSIVELY with a valid JSON object, no text before or after, in this exact form:
+{"physical": "...", "age": "...", "ethnicity": "..."}
+
+FIELD RULES:
+- "age": apparent age or tight age range, SPECIFIC not vague (e.g. "about 35", "teenager ~16", "elderly ~70").
+- "ethnicity": ethnicity + skin tone (e.g. "Dominican, light-brown skin", "East-Asian, fair skin"). If the
+  text does not state it, anchor it plausibly to the book's setting (country: ${input.country?.trim() || "not stated"}),
+  unless the text hints otherwise. Never leave it vague.
+- "physical": everything ELSE about how they LOOK — build (and rough weight), height, hair (COLOR + cut/length),
+  eyes (color), face and features, and permanent distinctive traits (beard/moustache, glasses, moles, scars,
+  tattoos). Do NOT repeat age or ethnicity here. At most ~260 characters.
+- FAITHFUL TO THE BOOK: if the "BOOK PASSAGES" describe a trait (hair/eye color, height, scars, age, ethnicity…),
+  USE IT exactly; never contradict it. Only FILL IN what the book does not give, plausibly, once and for all.
+- RESPECT the existing info below (do not contradict it). NO clothing/outfit (handled separately), NO personality,
+  role, biography, emotions or actions.
+- Write the VALUES in ${input.language}. JSON keys stay in English as shown.
 
 CHARACTER: ${input.name}
 ROLE: ${input.role?.trim() || "(unspecified)"}
 OCCUPATION: ${input.occupation?.trim() || "(unspecified)"}
 EXISTING PHYSICAL INFO: ${input.physical?.trim() || "(none)"}
+EXISTING AGE: ${input.age?.trim() || "(none)"}
+EXISTING ETHNICITY: ${input.ethnicity?.trim() || "(none)"}
 NOTES: ${input.notes?.trim() || "(none)"}
 BOOK: ${input.bookTitle?.trim() || "(untitled)"} — setting/country: ${input.country?.trim() || "(not stated)"}
 === BOOK PASSAGES MENTIONING ${input.name.toUpperCase()} (extract the real traits from here) ===
@@ -59,17 +69,22 @@ ${input.sourceText?.trim() || "(no passage available: complete plausibly and con
 
   try {
     const raw = await engine.run(prompt);
-    const cleaned = (raw ?? "")
-      .trim()
-      .replace(/^```[a-z]*\n?|\n?```$/gi, "")
-      .split("\n")
-      .map((l) => l.trim())
-      .filter(Boolean)
-      .join(" ")
-      .replace(/^["'`]+|["'`]+$/g, "")
-      .trim();
-    if (cleaned.length < 12) return null;
-    return cleaned.length > MAX_LEN ? `${cleaned.slice(0, MAX_LEN).trimEnd()}…` : cleaned;
+    let parsed: Record<string, unknown>;
+    try {
+      parsed = parseModelJson(raw ?? "") as Record<string, unknown>;
+    } catch {
+      return null;
+    }
+    const field = (v: unknown): string => (typeof v === "string" ? v.trim() : "");
+    const physical = clamp(field(parsed.physical), MAX_LEN);
+    if (physical.length < 12) return null;
+    const ageRaw = clamp(field(parsed.age), MAX_SHORT);
+    const ethRaw = clamp(field(parsed.ethnicity), MAX_SHORT);
+    return {
+      physical,
+      age: ageRaw.length > 0 ? ageRaw : null,
+      ethnicity: ethRaw.length > 0 ? ethRaw : null,
+    };
   } catch (e) {
     if (e instanceof ContentError) return null;
     throw e;

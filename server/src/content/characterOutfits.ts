@@ -48,10 +48,16 @@ Reply with ONLY a valid JSON object, no text before or after:
   "default": "the character's typical everyday outfit (concrete garments + colors)",
   "contexts": [
     { "when": "2-5 CONTEXT keywords (places/activities) separated by commas, written in ${input.language}", "outfit": "concrete, coherent clothing for that context" }
-  ]
+  ],
+  "signature": "a SINGLE item the book says this character ALWAYS wears (a straw hat, particular glasses, a signature cap, a specific necklace), or \\"\\" if the book gives none"
 }
 
 RULES:
+- "signature" (SIGNATURE ITEM): ONLY fill it when the BOOK PASSAGES make clear the character wears something
+  PERMANENTLY / ALWAYS / as a recognisable trademark (e.g. "always wore a straw hat", "never took off his
+  round glasses"). It is a permanent identity marker added to EVERY outfit in every scene, so it must be a
+  single concrete accessory/garment, NOT a full outfit. If the book does not clearly mark such an always-worn
+  item, leave it "". Do NOT invent one. Do NOT duplicate it inside "default"/"contexts".
 - BOOK ART DIRECTION IS AUTHORITATIVE: if the "BOOK ART DIRECTION" below states how a character dresses for
   a specific activity or scene type (e.g. spiritual practice / yoga / meditation / reiki, ceremony, sport,
   work), you MUST add a DEDICATED context for it: its "when" keywords name that activity (prefer words from
@@ -98,6 +104,10 @@ ${input.sourceText?.trim() || "(no passage available)"}`;
       typeof j.default === "string" && j.default.trim() !== ""
         ? j.default.trim().slice(0, 200)
         : null;
+    const signature =
+      typeof j.signature === "string" && j.signature.trim() !== ""
+        ? j.signature.trim().slice(0, 120)
+        : null;
     const contexts = Array.isArray(j.contexts)
       ? j.contexts
           .map((x) => {
@@ -109,8 +119,8 @@ ${input.sourceText?.trim() || "(no passage available)"}`;
           .filter((x) => x.when !== "" && x.outfit !== "")
           .slice(0, MAX_CTX)
       : [];
-    if (!def && contexts.length === 0) return null;
-    return { default: def, contexts };
+    if (!def && contexts.length === 0 && !signature) return null;
+    return { default: def, contexts, signature };
   } catch (e) {
     if (e instanceof ContentError) return null;
     throw e;

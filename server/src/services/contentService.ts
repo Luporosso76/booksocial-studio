@@ -269,6 +269,8 @@ export class ContentService {
           occupation: str(o.occupation),
           personality: str(o.traits),
           physical: str(o.physical_description),
+          age: str(o.age),
+          ethnicity: str(o.ethnicity),
           notes: null as string | null,
         };
       })

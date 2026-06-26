@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Music2, Trash2, Upload } from "lucide-react";
+import { Music2, Send, Trash2, Upload } from "lucide-react";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Field, Input } from "@/components/ui/Input";
@@ -47,6 +47,17 @@ function TrackRow({ track, onDeleted }: { track: Music; onDeleted: () => void })
           <div className="flex flex-wrap items-center gap-2">
             <span className="truncate text-sm font-medium text-content-primary">{track.title}</span>
             {track.mood && <Badge tone="accent">{track.mood}</Badge>}
+            {(track.usage?.total ?? 0) > 0 && (
+              <span
+                title={`Reel: ${track.usage!.reel} · Storie: ${track.usage!.story}`}
+                className="inline-flex"
+              >
+                <Badge tone="neutral">
+                  <Send className="h-3 w-3" />
+                  {track.usage!.total}
+                </Badge>
+              </span>
+            )}
             <Badge tone="neutral">{formatDuration(track.durationSec)}</Badge>
           </div>
           <audio controls preload="none" src={track.url} className="mt-2 h-9 w-full" />
@@ -110,6 +121,16 @@ export function MusicLibrary({ bookId }: { bookId: string }) {
   const [uploadError, setUploadError] = useState<string | null>(null);
 
   const tracks = state.data ?? [];
+  const [usageFilter, setUsageFilter] = useState<"all" | "used" | "unused">("all");
+  const usageCounts = {
+    used: tracks.filter((m) => (m.usage?.total ?? 0) > 0).length,
+    unused: tracks.filter((m) => (m.usage?.total ?? 0) === 0).length,
+  };
+  const filteredTracks = tracks.filter((m) => {
+    if (usageFilter === "used") return (m.usage?.total ?? 0) > 0;
+    if (usageFilter === "unused") return (m.usage?.total ?? 0) === 0;
+    return true;
+  });
 
   function resetForm() {
     setFile(null);
@@ -163,7 +184,40 @@ export function MusicLibrary({ bookId }: { bookId: string }) {
           />
         ) : (
           <div className="flex flex-col gap-2 stagger">
-            {tracks.map((t) => (
+            <div
+              role="tablist"
+              aria-label="Filtra le tracce per utilizzo"
+              className="inline-flex self-start rounded-lg border border-border-subtle p-0.5"
+            >
+              {(
+                [
+                  { id: "all" as const, label: "Tutte", n: tracks.length },
+                  { id: "used" as const, label: "Usate", n: usageCounts.used },
+                  { id: "unused" as const, label: "Mai usate", n: usageCounts.unused },
+                ]
+              ).map((tab) => {
+                const active = usageFilter === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={active}
+                    onClick={() => setUsageFilter(tab.id)}
+                    className={
+                      "inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium transition-colors duration-150 ease-out-strong focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-ring " +
+                      (active
+                        ? "bg-accent-soft text-content-primary"
+                        : "text-content-tertiary hover:text-content-primary")
+                    }
+                  >
+                    {tab.label}
+                    <span className="rounded-full bg-bg-inset px-1.5 tabular-nums">{tab.n}</span>
+                  </button>
+                );
+              })}
+            </div>
+            {filteredTracks.map((t) => (
               <TrackRow key={t.id} track={t} onDeleted={state.reload} />
             ))}
           </div>

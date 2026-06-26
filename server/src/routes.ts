@@ -107,7 +107,13 @@ import {
 import { formatToVisualKind } from "./content/varietyEngine.js";
 import { booksDir, mediaDir, musicDir, resolveDataPath } from "./paths.js";
 import { translateDirectivesToEnglish } from "./content/translate.js";
-import type { CharacterOutfits, BookVisualProps, DrivingSide, BookVisualExtras } from "./domain.js";
+import type {
+  CharacterOutfits,
+  ChapterMoment,
+  BookVisualProps,
+  DrivingSide,
+  BookVisualExtras,
+} from "./domain.js";
 import {
   buildVisualBible,
   stepAppearance,
@@ -170,6 +176,8 @@ function parseVisualExtrasInput(v: unknown): BookVisualExtras {
 function parseOutfitsInput(v: unknown): CharacterOutfits {
   const o = (v ?? {}) as Record<string, unknown>;
   const def = typeof o.default === "string" && o.default.trim() !== "" ? o.default.trim() : null;
+  const sig =
+    typeof o.signature === "string" && o.signature.trim() !== "" ? o.signature.trim() : null;
   const contexts = Array.isArray(o.contexts)
     ? o.contexts
         .map((x) => {
@@ -181,7 +189,7 @@ function parseOutfitsInput(v: unknown): CharacterOutfits {
         })
         .filter((x) => x.when !== "" && x.outfit !== "")
     : [];
-  return { default: def, contexts };
+  return { default: def, contexts, signature: sig };
 }
 import { reviseScenePrompt, type SceneFlashback } from "./content/imagePrompt.js";
 import { verifySceneImage } from "./content/visionCheck.js";
@@ -484,7 +492,8 @@ export function buildApi(deps: AppDeps): Hono {
       links.byBook(id),
       media.uploadsByBook(id),
     ]);
-    const mediaDtos = bookMedia.map(mediaDto);
+    const usageMap = await media.usageByBook(id);
+    const mediaDtos = bookMedia.map((m) => mediaDto(m, usageMap.get(m.id)));
     const cover = mediaDtos.find((m) => m.scope === "GENERAL")?.url ?? null;
     return c.json({
       book: bookDto(book, cover),
@@ -1015,12 +1024,14 @@ export function buildApi(deps: AppDeps): Hono {
       occupation: str(body.occupation),
       personality: str(body.personality),
       physical: str(body.physical),
+      age: str(body.age),
+      ethnicity: str(body.ethnicity),
       notes: str(body.notes),
       source: "USER",
       sortOrder: await characters.nextSortOrder(id),
       mentions: null,
       chapters: [],
-      outfits: { default: null, contexts: [] },
+      outfits: { default: null, contexts: [], signature: null },
       createdAt: now,
       updatedAt: now,
     });
@@ -1043,6 +1054,8 @@ export function buildApi(deps: AppDeps): Hono {
       occupation: "occupation" in body ? str(body.occupation) : existing.occupation,
       personality: "personality" in body ? str(body.personality) : existing.personality,
       physical: "physical" in body ? str(body.physical) : existing.physical,
+      age: "age" in body ? str(body.age) : existing.age,
+      ethnicity: "ethnicity" in body ? str(body.ethnicity) : existing.ethnicity,
       notes: "notes" in body ? str(body.notes) : existing.notes,
       source: "USER" as const,
       sortOrder: typeof body.sortOrder === "number" ? body.sortOrder : existing.sortOrder,
@@ -1253,6 +1266,48 @@ export function buildApi(deps: AppDeps): Hono {
       ...(arr(body.characters) !== undefined ? { characters: arr(body.characters) } : {}),
       ...(arr(body.physicsRules) !== undefined ? { physicsRules: arr(body.physicsRules) } : {}),
       ...(body.keyMoment !== undefined ? { keyMoment: str(body.keyMoment) } : {}),
+      ...(body.kind === "waking" || body.kind === "dream" || body.kind === "flashback"
+        ? { kind: body.kind }
+        : {}),
+      ...("youngerYears" in body
+        ? {
+            youngerYears:
+              Number.isFinite(Number(body.youngerYears)) && Number(body.youngerYears) > 0
+                ? Number(body.youngerYears)
+                : null,
+          }
+        : {}),
+      ...(Array.isArray(body.altMoments)
+        ? {
+            altMoments: (body.altMoments as unknown[])
+              .map((x): ChapterMoment | null => {
+                if (x == null || typeof x !== "object") return null;
+                const m = x as Record<string, unknown>;
+                const type =
+                  m.type === "dream" || m.type === "flashback"
+                    ? m.type
+                    : m.type === "memory"
+                      ? "flashback"
+                      : null;
+                const km = str(m.keyMoment);
+                if (!type || !km) return null;
+                const yy = Number(m.youngerYears);
+                return {
+                  type,
+                  location: str(m.location),
+                  environment: str(m.environment),
+                  mainObjects: arr(m.mainObjects) ?? [],
+                  secondaryObjects: arr(m.secondaryObjects) ?? [],
+                  characters: arr(m.characters) ?? [],
+                  physicsRules: arr(m.physicsRules) ?? [],
+                  keyMoment: km,
+                  whose: str(m.whose),
+                  youngerYears: Number.isFinite(yy) && yy > 0 ? yy : null,
+                };
+              })
+              .filter((m): m is ChapterMoment => m !== null),
+          }
+        : {}),
     });
     if (!scene) return c.json(err("Capitolo non trovato"), 404);
     return c.json({ scene });
@@ -1374,7 +1429,8 @@ export function buildApi(deps: AppDeps): Hono {
   api.get("/books/:id/media", async (c) => {
     const id = Number(c.req.param("id"));
     // Solo le immagini caricate: i visual generati per i post non vanno nella libreria.
-    return c.json((await media.uploadsByBook(id)).map(mediaDto));
+    const usageMap = await media.usageByBook(id);
+    return c.json((await media.uploadsByBook(id)).map((m) => mediaDto(m, usageMap.get(m.id))));
   });
 
   // Upload an image (multipart). scope GENERAL|CHAPTER, chapterId?, caption?
@@ -2949,12 +3005,16 @@ export function buildApi(deps: AppDeps): Hono {
 
   // GET /music — tutte le tracce (libreria globale).
   api.get("/music", async (c) => {
-    return c.json((await music.all()).map(musicDto));
+    const usageMap = await music.usageAll();
+    return c.json((await music.all()).map((m) => musicDto(m, usageMap.get(m.id))));
   });
 
   // GET /books/:id/music — tracce del libro (+ eventuali globali).
   api.get("/books/:id/music", async (c) => {
-    return c.json((await music.byBook(Number(c.req.param("id")))).map(musicDto));
+    const usageMap = await music.usageAll();
+    return c.json(
+      (await music.byBook(Number(c.req.param("id")))).map((m) => musicDto(m, usageMap.get(m.id))),
+    );
   });
 
   // POST /music — upload di una traccia (multipart: file, title?, mood?, bookId?).

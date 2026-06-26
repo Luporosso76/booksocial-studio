@@ -9,7 +9,9 @@ import type {
   FacebookPage,
   BookLink,
   MediaAsset,
+  MediaUsage,
   MusicTrack,
+  MusicUsage,
   PostingSlot,
   ScheduledPost,
   MediaType,
@@ -121,6 +123,8 @@ export function characterDto(c: BookCharacter) {
     occupation: c.occupation,
     personality: c.personality,
     physical: c.physical,
+    age: c.age,
+    ethnicity: c.ethnicity,
     notes: c.notes,
     source: c.source,
     // Capitoli in cui il personaggio compare (metriche NLP): il FE ci deriva il CONTEGGIO
@@ -158,7 +162,7 @@ export function linkDto(l: BookLink) {
   };
 }
 
-export function mediaDto(m: MediaAsset) {
+export function mediaDto(m: MediaAsset, usage?: MediaUsage) {
   const filename = m.path.split("/").pop() ?? null;
   return {
     id: String(m.id),
@@ -176,6 +180,7 @@ export function mediaDto(m: MediaAsset) {
     genPrompt: m.genPrompt,
     // Verdetto del QUALITY CHECK visivo: { ok, issues[] } o null se non eseguito.
     qa: m.qa,
+    usage: usage ?? { total: 0, reel: 0, story: 0, post: 0 },
   };
 }
 
@@ -215,7 +220,7 @@ function parseContentFormat(raw: string | null): {
   }
 }
 
-export function musicDto(m: MusicTrack) {
+export function musicDto(m: MusicTrack, usage?: MusicUsage) {
   return {
     id: String(m.id),
     title: m.title,
@@ -223,6 +228,7 @@ export function musicDto(m: MusicTrack) {
     mood: m.mood,
     addedAt: m.addedAt,
     url: `/api/music/${m.id}/file`,
+    usage: usage ?? { total: 0, reel: 0, story: 0 },
   };
 }
 

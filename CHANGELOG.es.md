@@ -5,6 +5,26 @@ Todos los cambios notables de este proyecto están documentados en este archivo.
 El formato se basa en [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 y este proyecto se adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-06-26
+
+### Añadido
+
+- **Edad y etnia de los personajes**: ahora campos dedicados y editables (ya no diluidos en la descripción física). Se indican explícitamente en cada prompt de imagen, para que la edad aparente y la etnia se mantengan coherentes en todas las ilustraciones.
+- **Prenda distintiva**: una prenda o accesorio que un personaje lleva siempre (p. ej. un sombrero) se define una vez y se representa en cada escena, sobre el atuendo de la escena.
+- **Momentos de escena (sueño / flashback)**: cada ficha de capítulo registra la naturaleza de la escena principal (normal, sueño o flashback) más los sueños o flashbacks secundarios, editables en pestañas dedicadas. Las escenas de sueño tienen un aspecto onírico; los flashbacks rejuvenecen a los personajes.
+- **Uso de imágenes**: cada imagen muestra cuántas veces se ha usado y en qué (reels, historias, posts), con un filtro de usadas / sin usar.
+- **Uso de música**: las pistas muestran la misma insignia de uso (reels / historias) con filtro usadas / sin usar.
+- **Subpestañas de imágenes por formato y capítulo**: la biblioteca se filtra por formato y, dentro de un formato, por capítulo, con recuentos — y puedes generar imágenes solo para ese capítulo.
+- **Limpieza automática de medios publicados**: los vídeos de reels/historias/posts se eliminan 24 horas después de publicarse en Facebook e Instagram, para liberar espacio. Los archivos renderizados están ahora en una subcarpeta `media/renders/`.
+
+### Cambiado
+
+- **Mayor coherencia de los personajes en los prompts de imagen**: edad, etnia, complexión y cabello se indican siempre; cuando dos o más personajes comparten encuadre se mantienen distintos y nunca se intercambian; las poses son naturales y erguidas; un personaje solicitado aparece siempre.
+
+### Corregido
+
+- **Sin sujetos fuera de lugar**: lo que aparece solo en un sueño, un recuerdo o una expresión (y homónimos como la maniobra "tortuga" del surf) ya no se cuela en la escena real del capítulo.
+
 ## [0.3.1] - 2026-06-24
 
 ### Añadido

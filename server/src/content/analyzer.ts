@@ -90,7 +90,7 @@ Reply EXCLUSIVELY with a valid JSON object, no text before or after, in this for
   "main_topics": ["topic covered 1", "topic 2"],
   "conflicts": [{"type": "inner/interpersonal/social/...", "description": "the conflict WITHOUT revealing its outcome"}],
   "central_question": "the central dramatic question (no answer/spoiler)",
-  "characters": [{"name": "...", "role": "protagonist/antagonist/...", "occupation": "job or social role (even if inferred)", "physical_description": "physical appearance, even if INFERRED from the text: approximate age, build, hair, distinctive features", "traits": "personality and behaviour", "starting_situation": "initial situation without spoilers"}],
+  "characters": [{"name": "...", "role": "protagonist/antagonist/...", "occupation": "job or social role (even if inferred)", "age": "approximate age or age range, even if INFERRED (e.g. 'about 35', 'teenager ~16', 'elderly ~70'); '' if truly impossible to tell", "ethnicity": "ethnicity / skin tone / visible heritage, even if INFERRED from the text or its setting (e.g. 'Dominican, brown skin', 'East-Asian', 'white European'); '' only if impossible to infer", "physical_description": "physical appearance EXCLUDING age and ethnicity (those go in their own fields): build, height, hair COLOR + cut, eye color, distinctive features", "traits": "personality and behaviour", "starting_situation": "initial situation without spoilers"}],
   "setting": "setting and time period",
   "key_quotes": [{"quote": "...", "context": "why it is noteworthy", "is_spoiler": false}],
   "marketing_hooks": ["sales hook NO spoiler 1", "hook 2"],

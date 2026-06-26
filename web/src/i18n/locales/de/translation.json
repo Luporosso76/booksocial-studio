@@ -361,7 +361,17 @@
       "cardGenerated": "Karte generiert.",
       "generateFailed": "Karten-Generierung fehlgeschlagen.",
       "cardSaved": "Karte gespeichert.",
-      "saveFailed": "Speichern der Karte fehlgeschlagen."
+      "saveFailed": "Speichern der Karte fehlgeschlagen.",
+      "momentPresent": "Gegenwart",
+      "momentDream": "Traum",
+      "kindLabel": "Art der Szene",
+      "kindWaking": "Normal",
+      "kindDream": "Traum",
+      "kindFlashback": "Rückblende",
+      "momentMemory": "Erinnerung",
+      "momentFlashback": "Rückblende",
+      "momentWhoseLabel": "Von wem (Traum/Erinnerung)",
+      "momentYoungerYearsLabel": "Jahre jünger"
     },
     "characters": {
       "title": "Charaktere",
@@ -404,7 +414,14 @@
       "sourceAiTooltip": "Wurde automatisch von der AI während der Buchanalyse extrahiert.",
       "sourceEditedTooltip": "Manuell erstellt oder bearbeitet.",
       "moreActionsAria": "Weitere Aktionen für {{name}}",
-      "delete": "Löschen"
+      "delete": "Löschen",
+      "ageLabel": "Alter (kanonisch)",
+      "agePlaceholder": "z. B. etwa 35, Teenager ~16",
+      "ethnicityLabel": "Ethnizität / Hautton (kanonisch)",
+      "ethnicityPlaceholder": "z. B. dominikanisch, hellbraune Haut",
+      "signatureOutfitLabel": "Markenzeichen (immer getragen)",
+      "signatureOutfitPlaceholder": "z. B. Strohhut, runde Brille",
+      "signatureOutfitHint": "Accessoire/Kleidungsstück, das die Figur in JEDER Szene über jeder Kleidung trägt. Leer lassen, wenn keins."
     },
     "visualBible": {
       "title": "Analyse / Visuelle Bibel",
@@ -1368,6 +1385,12 @@
     "flashbackSummaryOff": "Aus",
     "queueWaiting": "In Warteschlange",
     "cancelThis": "Diesen abbrechen",
-    "cancelThisFailed": "Abbrechen fehlgeschlagen."
+    "cancelThisFailed": "Abbrechen fehlgeschlagen.",
+    "usageAll": "Alle",
+    "usageUsed": "Verwendet",
+    "usageUnused": "Unbenutzt",
+    "usageFilterAria": "Bilder nach Nutzung filtern",
+    "usedTimes": "{{n}}",
+    "usageBreakdown": "Reels: {{reel}} · Storys: {{story}} · Posts: {{post}}"
   }
 }

@@ -17,6 +17,7 @@ import {
   Palette,
   Pencil,
   Plus,
+  Send,
   Sparkles,
   ShieldCheck,
   Trash2,
@@ -88,6 +89,9 @@ import type {
   BookVisualExtras,
   BookVisualProps,
   ChapterScene,
+  ChapterSceneKind,
+  ChapterMoment,
+  ChapterMomentType,
   CharacterInput,
   CharacterOutfit,
   DrivingSide,
@@ -1653,6 +1657,14 @@ function MediaCard({
     if (!stillThere) setChapterTab("all");
   }, [chapterTab, chapterTabs]);
 
+  const [usageFilter, setUsageFilter] = useState<"all" | "used" | "unused">("all");
+  const usedOf = (m: BookDetail["media"][number]) => (m.usage?.total ?? 0) > 0;
+  const usageCounts = useMemo(() => {
+    let used = 0;
+    for (const m of media) if ((m.usage?.total ?? 0) > 0) used += 1;
+    return { used, unused: media.length - used };
+  }, [media]);
+
   const [genPrefill, setGenPrefill] = useState<SceneGenPrefill | null>(null);
   function generateCurrentSelection() {
     const aspect: SceneAspect | null =
@@ -1926,6 +1938,42 @@ function MediaCard({
                 );
               })}
             </div>
+            <div
+              role="tablist"
+              aria-label={t("bookDetail.usageFilterAria")}
+              className="inline-flex rounded-lg border border-border-subtle p-0.5"
+            >
+              {[
+                { id: "all" as const, label: t("bookDetail.usageAll"), n: media.length },
+                { id: "used" as const, label: t("bookDetail.usageUsed"), n: usageCounts.used },
+                {
+                  id: "unused" as const,
+                  label: t("bookDetail.usageUnused"),
+                  n: usageCounts.unused,
+                },
+              ].map((tab) => {
+                const active = usageFilter === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={active}
+                    onClick={() => setUsageFilter(tab.id)}
+                    className={cn(
+                      "inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium",
+                      "transition-colors duration-150 ease-out-strong focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-ring",
+                      active
+                        ? "bg-accent-soft text-content-primary"
+                        : "text-content-tertiary hover:text-content-primary",
+                    )}
+                  >
+                    {tab.label}
+                    <span className="rounded-full bg-bg-inset px-1.5 tabular-nums">{tab.n}</span>
+                  </button>
+                );
+              })}
+            </div>
             <div className="flex flex-wrap items-center gap-2">
               <div
                 role="tablist"
@@ -2007,7 +2055,9 @@ function MediaCard({
                         (chapterTab !== "all" &&
                           (chapterTab === "none"
                             ? m.chapterIdx != null
-                            : m.chapterIdx !== chapterTab))) &&
+                            : m.chapterIdx !== chapterTab)) ||
+                        (usageFilter === "used" && !usedOf(m)) ||
+                        (usageFilter === "unused" && usedOf(m))) &&
                         "hidden",
                     )}
                   >
@@ -2050,6 +2100,19 @@ function MediaCard({
                     {!selectMode && m.chapterIdx != null && (
                       <span className="absolute left-1.5 top-1.5 rounded-md bg-black/60 px-1.5 py-0.5 text-2xs font-medium text-white backdrop-blur">
                         {t("book.media.chapterBadge", { index: m.chapterIdx })}
+                      </span>
+                    )}
+                    {!selectMode && !isCurrent && !isQueued && usedOf(m) && (
+                      <span
+                        title={t("bookDetail.usageBreakdown", {
+                          reel: m.usage?.reel ?? 0,
+                          story: m.usage?.story ?? 0,
+                          post: m.usage?.post ?? 0,
+                        })}
+                        className="absolute bottom-1.5 left-1.5 inline-flex items-center gap-1 rounded-md bg-emerald-600/85 px-1.5 py-0.5 text-2xs font-medium text-white backdrop-blur"
+                      >
+                        <Send className="h-3 w-3" />
+                        {t("bookDetail.usedTimes", { n: m.usage?.total ?? 0 })}
                       </span>
                     )}
                     {(isCurrent || isQueued) && (
@@ -3730,6 +3793,41 @@ function ChapterRow({
 
 type SceneSubTab = "ambiente" | "oggetti" | "personaggi" | "fisica";
 
+type SceneFieldKey =
+  | "location"
+  | "environment"
+  | "mainObjects"
+  | "secondaryObjects"
+  | "characters"
+  | "physicsRules"
+  | "keyMoment";
+
+type MomentForm = {
+  type: ChapterMomentType;
+  location: string;
+  environment: string;
+  mainObjects: string;
+  secondaryObjects: string;
+  characters: string;
+  physicsRules: string;
+  keyMoment: string;
+  whose: string;
+  youngerYears: string;
+};
+
+const momentToForm = (m: ChapterMoment): MomentForm => ({
+  type: m.type,
+  location: m.location ?? "",
+  environment: m.environment ?? "",
+  mainObjects: (m.mainObjects ?? []).join(", "),
+  secondaryObjects: (m.secondaryObjects ?? []).join(", "),
+  characters: (m.characters ?? []).join(", "),
+  physicsRules: (m.physicsRules ?? []).join("\n"),
+  keyMoment: m.keyMoment ?? "",
+  whose: m.whose ?? "",
+  youngerYears: m.youngerYears != null ? String(m.youngerYears) : "",
+});
+
 function ChapterSceneEditor({
   bookId,
   chapterIndex,
@@ -3761,6 +3859,15 @@ function ChapterSceneEditor({
   const [physicsRules, setPhysicsRules] = useState((initial?.physicsRules ?? []).join("\n"));
   // Momento/azione centrale del capitolo: fonda il soggetto dell'immagine.
   const [keyMoment, setKeyMoment] = useState(initial?.keyMoment ?? "");
+  // Natura della scena presente: normale, sogno o flashback (personaggi più giovani).
+  const [kind, setKind] = useState<ChapterSceneKind>(initial?.kind ?? "waking");
+  const [youngerYears, setYoungerYears] = useState(
+    initial?.youngerYears != null ? String(initial.youngerYears) : "",
+  );
+  const [altForms, setAltForms] = useState<MomentForm[]>(
+    (initial?.altMoments ?? []).map(momentToForm),
+  );
+  const [momentTab, setMomentTab] = useState(-1);
 
   const applyScene = (s: ChapterScene) => {
     setScene(s);
@@ -3771,6 +3878,9 @@ function ChapterSceneEditor({
     setCharacters(s.characters.join(", "));
     setPhysicsRules((s.physicsRules ?? []).join("\n"));
     setKeyMoment(s.keyMoment ?? "");
+    setKind(s.kind ?? "waking");
+    setYoungerYears(s.youngerYears != null ? String(s.youngerYears) : "");
+    setAltForms((s.altMoments ?? []).map(momentToForm));
     setDirty(false); // appena salvato/rigenerato: niente modifiche pendenti
   };
 
@@ -3793,6 +3903,24 @@ function ChapterSceneEditor({
       .map((x) => x.trim())
       .filter((x) => x.length > 0);
 
+  const editAlt = (idx: number, field: keyof MomentForm) => (v: string) => {
+    setAltForms((prev) => prev.map((f, i) => (i === idx ? { ...f, [field]: v } : f)));
+    setDirty(true);
+  };
+
+  const formToMoment = (f: MomentForm): ChapterMoment => ({
+    type: f.type,
+    location: f.location.trim() || null,
+    environment: f.environment.trim() || null,
+    mainObjects: parseCsv(f.mainObjects),
+    secondaryObjects: parseCsv(f.secondaryObjects),
+    characters: parseCsv(f.characters),
+    physicsRules: parseLines(f.physicsRules),
+    keyMoment: f.keyMoment.trim() || null,
+    whose: f.whose.trim() || null,
+    youngerYears: f.youngerYears.trim() ? Number(f.youngerYears.trim()) : null,
+  });
+
   const generate = async () => {
     if (!bookId || busy) return;
     setBusy(true);
@@ -3809,17 +3937,27 @@ function ChapterSceneEditor({
 
   const save = async () => {
     if (!bookId || busy) return;
+    const idx = momentTab >= 0 && momentTab < altForms.length ? momentTab : -1;
     setBusy(true);
     try {
-      const { scene: s } = await updateChapterScene(bookId, chapterIndex, {
-        location: location.trim() || null,
-        environment: environment.trim() || null,
-        mainObjects: parseCsv(mainObjects),
-        secondaryObjects: parseCsv(secondaryObjects),
-        characters: parseCsv(characters),
-        physicsRules: parseLines(physicsRules),
-        keyMoment: keyMoment.trim() || null,
-      });
+      const patch =
+        idx < 0
+          ? {
+              location: location.trim() || null,
+              environment: environment.trim() || null,
+              mainObjects: parseCsv(mainObjects),
+              secondaryObjects: parseCsv(secondaryObjects),
+              characters: parseCsv(characters),
+              physicsRules: parseLines(physicsRules),
+              keyMoment: keyMoment.trim() || null,
+              kind,
+              youngerYears:
+                kind === "flashback" && youngerYears.trim()
+                  ? Number(youngerYears.trim())
+                  : null,
+            }
+          : { altMoments: altForms.map(formToMoment) };
+      const { scene: s } = await updateChapterScene(bookId, chapterIndex, patch);
       applyScene(s);
       toast.success(t("book.scene.cardSaved"));
     } catch (e) {
@@ -3853,8 +3991,85 @@ function ChapterSceneEditor({
     { id: "fisica", label: t("book.scene.subPhysics") },
   ];
 
+  const activeIdx = momentTab >= 0 && momentTab < altForms.length ? momentTab : -1;
+  const isPresent = activeIdx < 0;
+  const cur = isPresent ? null : altForms[activeIdx];
+
+  const typeLabel: Record<ChapterMomentType, string> = {
+    dream: t("book.scene.momentDream"),
+    flashback: t("book.scene.momentFlashback"),
+  };
+  const typeTotals = altForms.reduce<Record<string, number>>((acc, f) => {
+    acc[f.type] = (acc[f.type] ?? 0) + 1;
+    return acc;
+  }, {});
+  const typeSeen: Record<string, number> = {};
+  const momentTabs = [
+    { idx: -1, label: t("book.scene.momentPresent") },
+    ...altForms.map((f, i) => {
+      typeSeen[f.type] = (typeSeen[f.type] ?? 0) + 1;
+      const label =
+        typeTotals[f.type] > 1 ? `${typeLabel[f.type]} ${typeSeen[f.type]}` : typeLabel[f.type];
+      return { idx: i, label };
+    }),
+  ];
+
+  const fieldValue = (k: SceneFieldKey): string => {
+    if (!isPresent && cur) return cur[k];
+    const presentVals: Record<SceneFieldKey, string> = {
+      location,
+      environment,
+      mainObjects,
+      secondaryObjects,
+      characters,
+      physicsRules,
+      keyMoment,
+    };
+    return presentVals[k];
+  };
+  const fieldChange = (k: SceneFieldKey) => (v: string) => {
+    if (!isPresent) {
+      editAlt(activeIdx, k)(v);
+      return;
+    }
+    const presentSetters: Record<SceneFieldKey, (value: string) => void> = {
+      location: setLocation,
+      environment: setEnvironment,
+      mainObjects: setMainObjects,
+      secondaryObjects: setSecondaryObjects,
+      characters: setCharacters,
+      physicsRules: setPhysicsRules,
+      keyMoment: setKeyMoment,
+    };
+    editField(presentSetters[k])(v);
+  };
+
   return (
     <div className="rounded-lg border border-border-subtle bg-bg-card">
+      {altForms.length > 0 && (
+        <div
+          className="flex items-center gap-1 border-b border-border-subtle px-3 py-2"
+          role="tablist"
+        >
+          {momentTabs.map((m) => (
+            <button
+              key={m.idx}
+              type="button"
+              role="tab"
+              aria-selected={activeIdx === m.idx}
+              onClick={() => setMomentTab(m.idx)}
+              className={cn(
+                "rounded-md px-2.5 py-1 text-xs font-semibold transition-colors duration-150",
+                activeIdx === m.idx
+                  ? "bg-accent-soft text-accent"
+                  : "text-content-tertiary hover:text-content-secondary hover:bg-bg-hover",
+              )}
+            >
+              {m.label}
+            </button>
+          ))}
+        </div>
+      )}
       <div className="flex items-center justify-between gap-2 border-b border-border-subtle px-3 py-2">
         <div className="flex items-center gap-1" role="tablist">
           {subs.map((s) => (
@@ -3885,23 +4100,67 @@ function ChapterSceneEditor({
           <>
             <Field label={t("bookDetail.keyMomentLabel")}>
               <Textarea
-                value={keyMoment}
-                onChange={(e) => editField(setKeyMoment)(e.target.value)}
+                value={fieldValue("keyMoment")}
+                onChange={(e) => fieldChange("keyMoment")(e.target.value)}
                 rows={2}
                 placeholder={t("bookDetail.keyMomentPlaceholder")}
               />
             </Field>
+            {isPresent && (
+              <Field label={t("book.scene.kindLabel")}>
+                <select
+                  className={selectClass}
+                  value={kind}
+                  onChange={(e) => {
+                    setKind(e.target.value as ChapterSceneKind);
+                    setDirty(true);
+                  }}
+                >
+                  <option value="waking">{t("book.scene.kindWaking")}</option>
+                  <option value="dream">{t("book.scene.kindDream")}</option>
+                  <option value="flashback">{t("book.scene.kindFlashback")}</option>
+                </select>
+              </Field>
+            )}
+            {isPresent && kind === "flashback" && (
+              <Field label={t("book.scene.momentYoungerYearsLabel")}>
+                <Input
+                  type="number"
+                  min={0}
+                  value={youngerYears}
+                  onChange={(e) => editField(setYoungerYears)(e.target.value)}
+                />
+              </Field>
+            )}
+            {!isPresent && cur && cur.type === "dream" && (
+              <Field label={t("book.scene.momentWhoseLabel")}>
+                <Input
+                  value={cur.whose}
+                  onChange={(e) => editAlt(activeIdx, "whose")(e.target.value)}
+                />
+              </Field>
+            )}
+            {!isPresent && cur && cur.type === "flashback" && (
+              <Field label={t("book.scene.momentYoungerYearsLabel")}>
+                <Input
+                  type="number"
+                  min={0}
+                  value={cur.youngerYears}
+                  onChange={(e) => editAlt(activeIdx, "youngerYears")(e.target.value)}
+                />
+              </Field>
+            )}
             <Field label={t("book.scene.place")}>
               <Input
-                value={location}
-                onChange={(e) => editField(setLocation)(e.target.value)}
+                value={fieldValue("location")}
+                onChange={(e) => fieldChange("location")(e.target.value)}
                 placeholder={t("book.scene.placePlaceholder")}
               />
             </Field>
             <Field label={t("book.scene.environment")}>
               <Input
-                value={environment}
-                onChange={(e) => editField(setEnvironment)(e.target.value)}
+                value={fieldValue("environment")}
+                onChange={(e) => fieldChange("environment")(e.target.value)}
                 placeholder={t("book.scene.environmentPlaceholder")}
               />
             </Field>
@@ -3911,15 +4170,15 @@ function ChapterSceneEditor({
           <>
             <Field label={t("book.scene.mainObjects")}>
               <Input
-                value={mainObjects}
-                onChange={(e) => editField(setMainObjects)(e.target.value)}
+                value={fieldValue("mainObjects")}
+                onChange={(e) => fieldChange("mainObjects")(e.target.value)}
                 placeholder={t("book.scene.mainObjectsPlaceholder")}
               />
             </Field>
             <Field label={t("book.scene.secondaryObjects")}>
               <Input
-                value={secondaryObjects}
-                onChange={(e) => editField(setSecondaryObjects)(e.target.value)}
+                value={fieldValue("secondaryObjects")}
+                onChange={(e) => fieldChange("secondaryObjects")(e.target.value)}
                 placeholder={t("book.scene.secondaryObjectsPlaceholder")}
               />
             </Field>
@@ -3928,8 +4187,8 @@ function ChapterSceneEditor({
         {sub === "personaggi" && (
           <Field label={t("book.scene.presentCharacters")}>
             <Input
-              value={characters}
-              onChange={(e) => editField(setCharacters)(e.target.value)}
+              value={fieldValue("characters")}
+              onChange={(e) => fieldChange("characters")(e.target.value)}
               placeholder={t("book.scene.presentCharactersPlaceholder")}
             />
           </Field>
@@ -3937,8 +4196,8 @@ function ChapterSceneEditor({
         {sub === "fisica" && (
           <Field label={t("book.scene.physicsRules")}>
             <Textarea
-              value={physicsRules}
-              onChange={(e) => editField(setPhysicsRules)(e.target.value)}
+              value={fieldValue("physicsRules")}
+              onChange={(e) => fieldChange("physicsRules")(e.target.value)}
               rows={6}
               placeholder={t("book.scene.physicsRulesPlaceholder")}
             />
@@ -4100,6 +4359,8 @@ function CharactersTab({
 
 const CHARACTER_FIELDS: { key: keyof BookCharacter; labelKey: string }[] = [
   { key: "occupation", labelKey: "book.characters.fieldOccupation" },
+  { key: "age", labelKey: "book.characters.fieldAge" },
+  { key: "ethnicity", labelKey: "book.characters.fieldEthnicity" },
   { key: "personality", labelKey: "book.characters.fieldPersonality" },
   { key: "physical", labelKey: "book.characters.fieldPhysical" },
   { key: "notes", labelKey: "book.characters.fieldNotes" },
@@ -4271,8 +4532,11 @@ function CharacterEditorModal({
   const [occupation, setOccupation] = useState(character?.occupation ?? "");
   const [personality, setPersonality] = useState(character?.personality ?? "");
   const [physical, setPhysical] = useState(character?.physical ?? "");
+  const [age, setAge] = useState(character?.age ?? "");
+  const [ethnicity, setEthnicity] = useState(character?.ethnicity ?? "");
   const [notes, setNotes] = useState(character?.notes ?? "");
   const [outfitDefault, setOutfitDefault] = useState(character?.outfits?.default ?? "");
+  const [outfitSignature, setOutfitSignature] = useState(character?.outfits?.signature ?? "");
   const [outfitContexts, setOutfitContexts] = useState<CharacterOutfit[]>(
     character?.outfits?.contexts ?? [],
   );
@@ -4323,6 +4587,8 @@ function CharacterEditorModal({
       occupation: occupation.trim(),
       personality: personality.trim(),
       physical: trimmedPhysical,
+      age: age.trim(),
+      ethnicity: ethnicity.trim(),
       notes: notes.trim(),
     };
     try {
@@ -4334,6 +4600,7 @@ function CharacterEditorModal({
           outfits: {
             default: outfitDefault.trim() === "" ? null : outfitDefault.trim(),
             contexts: cleanContexts,
+            signature: outfitSignature.trim() === "" ? null : outfitSignature.trim(),
           },
           chapters: [...chapterSet].sort((a, b) => a - b),
         });
@@ -4391,6 +4658,22 @@ function CharacterEditorModal({
         <Field label={t("book.characters.personalityLabel")}>
           <Textarea value={personality} onChange={(e) => setPersonality(e.target.value)} rows={3} />
         </Field>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <Field label={t("book.characters.ageLabel")}>
+            <Input
+              value={age}
+              onChange={(e) => setAge(e.target.value)}
+              placeholder={t("book.characters.agePlaceholder")}
+            />
+          </Field>
+          <Field label={t("book.characters.ethnicityLabel")}>
+            <Input
+              value={ethnicity}
+              onChange={(e) => setEthnicity(e.target.value)}
+              placeholder={t("book.characters.ethnicityPlaceholder")}
+            />
+          </Field>
+        </div>
         <Field label={t("book.characters.physicalLabel")}>
           <Textarea value={physical} onChange={(e) => setPhysical(e.target.value)} rows={3} />
         </Field>
@@ -4434,6 +4717,16 @@ function CharacterEditorModal({
                 onChange={(e) => setOutfitDefault(e.target.value)}
                 placeholder={t("book.characters.outfitDefaultPlaceholder")}
               />
+            </Field>
+            <Field label={t("book.characters.signatureOutfitLabel")}>
+              <Input
+                value={outfitSignature}
+                onChange={(e) => setOutfitSignature(e.target.value)}
+                placeholder={t("book.characters.signatureOutfitPlaceholder")}
+              />
+              <p className="mt-1 text-xs text-content-tertiary">
+                {t("book.characters.signatureOutfitHint")}
+              </p>
             </Field>
             {outfitContexts.length > 0 && (
               <div className="flex flex-col gap-2">

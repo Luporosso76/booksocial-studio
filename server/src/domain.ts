@@ -101,9 +101,29 @@ export interface ChapterScene {
   // Momento/azione centrale visivo (non-spoiler) del capitolo: fonda il soggetto dell'immagine
   // quando è più forte di un semplice oggetto iconico. null = non estratto.
   keyMoment: string | null;
+  kind: ChapterSceneKind;
+  youngerYears: number | null;
+  altMoments: ChapterMoment[];
   source: CharacterSource; // 'AI' = estratta dal modello, 'USER' = editata a mano
   model: string | null; // motore che l'ha estratta
   updatedAt: number;
+}
+
+export type ChapterSceneKind = "waking" | "dream" | "flashback";
+
+export type ChapterMomentType = "dream" | "flashback";
+
+export interface ChapterMoment {
+  type: ChapterMomentType;
+  location: string | null;
+  environment: string | null;
+  mainObjects: string[];
+  secondaryObjects: string[];
+  characters: string[];
+  physicsRules: string[];
+  keyMoment: string | null;
+  whose: string | null;
+  youngerYears: number | null;
 }
 
 export type CharacterSource = "AI" | "USER";
@@ -118,6 +138,7 @@ export interface CharacterOutfit {
 export interface CharacterOutfits {
   default: string | null; // abito di default (quando nessun contesto combacia)
   contexts: CharacterOutfit[]; // abiti per contesto/scena ricorrente
+  signature: string | null;
 }
 
 export interface BookCharacter {
@@ -128,6 +149,8 @@ export interface BookCharacter {
   occupation: string | null;
   personality: string | null;
   physical: string | null;
+  age: string | null;
+  ethnicity: string | null;
   notes: string | null;
   source: CharacterSource;
   sortOrder: number;
@@ -223,6 +246,19 @@ export interface BookLink {
 export interface SceneQa {
   ok: boolean;
   issues: string[]; // problemi rilevati, frasi brevi in italiano (vuoto = nessun problema)
+}
+
+export interface MediaUsage {
+  total: number;
+  reel: number;
+  story: number;
+  post: number;
+}
+
+export interface MusicUsage {
+  total: number;
+  reel: number;
+  story: number;
 }
 
 export interface MediaAsset {

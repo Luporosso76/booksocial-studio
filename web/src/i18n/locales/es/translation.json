@@ -361,7 +361,17 @@
       "cardGenerated": "Ficha generada.",
       "generateFailed": "Error al generar la ficha.",
       "cardSaved": "Ficha guardada.",
-      "saveFailed": "Error al guardar la ficha."
+      "saveFailed": "Error al guardar la ficha.",
+      "momentPresent": "Presente",
+      "momentDream": "Sueño",
+      "kindLabel": "Naturaleza de la escena",
+      "kindWaking": "Normal",
+      "kindDream": "Sueño",
+      "kindFlashback": "Flashback",
+      "momentMemory": "Recuerdo",
+      "momentFlashback": "Flashback",
+      "momentWhoseLabel": "De quién (sueño/recuerdo)",
+      "momentYoungerYearsLabel": "Años más joven"
     },
     "characters": {
       "title": "Personajes",
@@ -404,7 +414,14 @@
       "sourceAiTooltip": "Extraído automáticamente por la AI durante el análisis del libro.",
       "sourceEditedTooltip": "Creado o modificado manualmente.",
       "moreActionsAria": "Otras acciones para {{name}}",
-      "delete": "Eliminar"
+      "delete": "Eliminar",
+      "ageLabel": "Edad (canónica)",
+      "agePlaceholder": "p. ej. unos 35, adolescente ~16",
+      "ethnicityLabel": "Etnia / tono de piel (canónica)",
+      "ethnicityPlaceholder": "p. ej. dominicana, piel morena clara",
+      "signatureOutfitLabel": "Prenda distintiva (siempre puesta)",
+      "signatureOutfitPlaceholder": "p. ej. sombrero de paja, gafas redondas",
+      "signatureOutfitHint": "Accesorio/prenda que el personaje lleva en CADA escena, sobre cualquier atuendo. Déjalo vacío si no tiene."
     },
     "visualBible": {
       "title": "Análisis / Biblia visual",
@@ -1368,6 +1385,12 @@
     "flashbackSummaryOff": "Desactivado",
     "queueWaiting": "En cola",
     "cancelThis": "Cancelar este",
-    "cancelThisFailed": "Error al cancelar."
+    "cancelThisFailed": "Error al cancelar.",
+    "usageAll": "Todas",
+    "usageUsed": "Usadas",
+    "usageUnused": "Sin usar",
+    "usageFilterAria": "Filtrar imágenes por uso",
+    "usedTimes": "{{n}}",
+    "usageBreakdown": "Reels: {{reel}} · Historias: {{story}} · Posts: {{post}}"
   }
 }

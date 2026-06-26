@@ -192,6 +192,8 @@ export class SceneImageService {
       characters: eligible.map((c) => ({
         name: c.name,
         physical: c.physical,
+        age: c.age,
+        ethnicity: c.ethnicity,
         role: c.role,
         outfits: c.outfits,
       })),
@@ -207,7 +209,12 @@ export class SceneImageService {
         .map((s) => (s ?? "").trim())
         .filter((s) => s !== "")
         .join("\n\n"),
-      flashback: opts?.flashback ?? null,
+      flashback:
+        opts?.flashback ??
+        (card?.kind === "flashback"
+          ? { youngerYears: card.youngerYears ?? undefined, setting: card.location ?? undefined }
+          : null),
+      dream: card?.kind === "dream",
     });
     if (!scene) return null;
     return {
@@ -226,31 +233,39 @@ export class SceneImageService {
     if (wanted.length === 0) return angle;
     const MAX = 3;
     const featured = wanted.slice(0, MAX);
+    const lookOf = (c: BookCharacter): string => {
+      const eth = (c.ethnicity ?? "").trim();
+      const age = (c.age ?? "").trim();
+      const phys = (c.physical ?? "").trim();
+      const short = phys.length > 280 ? `${phys.slice(0, 280).trimEnd()}…` : phys;
+      return [eth ? `ethnicity ${eth}` : "", age ? `age ${age}` : "", short].filter(Boolean).join("; ");
+    };
     const describe = (c: BookCharacter): string => {
-      const look = (c.physical ?? "").trim();
-      const short = look.length > 280 ? `${look.slice(0, 280).trimEnd()}…` : look;
-      return short.length > 0
-        ? `one rendered by appearance as: ${short}`
-        : "one specific character";
+      const look = lookOf(c);
+      return look.length > 0 ? `one rendered by appearance as: ${look}` : "one specific character";
     };
     let directive: string;
     if (featured.length === 1) {
-      const look = (featured[0]!.physical ?? "").trim();
-      const desc =
-        look.length > 0
-          ? ` (render by appearance: ${look.length > 280 ? `${look.slice(0, 280).trimEnd()}…` : look})`
-          : "";
+      const look = lookOf(featured[0]!);
+      const desc = look.length > 0 ? ` (render by appearance: ${look})` : "";
       directive =
-        `Composition: FEATURE this specific character prominently in the frame${desc}, INTERACTING with ` +
-        `the scene (using, touching, reaching toward or moving with the iconic subject) in a candid, alive ` +
-        `pose — NOT a posed portrait, gaze on the action/subject and NEVER toward the camera. Render the ` +
+        `Composition: this image MUST visibly contain this specific PERSON — they are REQUIRED in the frame; ` +
+        `never render a scene without them, and even if this chapter has a strong iconic animal, object or ` +
+        `landscape, that element may appear WITH them but must NOT replace them. FEATURE this character ` +
+        `prominently${desc}, INTERACTING with ` +
+        `the scene (using, touching, reaching toward or moving with the iconic subject) in a candid but ` +
+        `RELAXED, NATURAL pose with upright balanced posture — NOT a posed portrait, NOT contorted or ` +
+        `tilted, gaze on the action/subject and NEVER toward the camera. Render the ` +
         `person ONLY by physical appearance, never by name. They are the clear focal subject of the image.`;
     } else {
       const list = featured.map(describe).join("; ");
       directive =
-        `Composition: FEATURE these ${featured.length} specific characters TOGETHER in the frame ` +
-        `(${list}), in a candid natural INTERACTION with each other or the scene (talking, walking, ` +
-        `working or moving with the iconic subject) — NOT posed portraits, faces turned toward each ` +
+        `Composition: this image MUST visibly contain these ${featured.length} specific PEOPLE — they are ` +
+        `REQUIRED in the frame and must NOT be replaced by an iconic animal/object/landscape (which may ` +
+        `appear WITH them). FEATURE these ${featured.length} characters TOGETHER in the frame ` +
+        `(${list}), in a candid but RELAXED, NATURAL INTERACTION with each other or the scene (talking, ` +
+        `walking, working or moving with the iconic subject), each with upright balanced posture, not ` +
+        `contorted or tilted — NOT posed portraits, faces turned toward each ` +
         `other or the action and NEVER toward the camera. Include ONLY characters actually present in ` +
         `THIS passage; render each person ONLY by physical appearance, never by name. They are the clear ` +
         `focal subjects of the image.`;

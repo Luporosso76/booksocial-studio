@@ -5,6 +5,26 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-06-26
+
+### Added
+
+- **Character age & ethnicity**: now dedicated, editable fields (no longer buried in the physical description). They are stated explicitly in every image prompt, so a character's apparent age and ethnicity stay consistent across all illustrations.
+- **Signature outfit item**: a garment or accessory a character always wears (e.g. a particular hat) can be set once and is rendered in every scene, on top of the scene's outfit.
+- **Scene moments (dream / flashback)**: each chapter card now records the nature of its main scene (normal, dream or flashback) plus any secondary dreams or flashbacks, all editable in dedicated tabs. Dream scenes are rendered with a dreamlike look; flashbacks render the characters younger.
+- **Image usage**: each image shows how many times it has been used and in what (reels, stories, posts), with a filter for used / never-used images.
+- **Music usage**: music tracks show the same usage badge (reels / stories) with a used / unused filter.
+- **Per-format and per-chapter image sub-tabs**: the image library can be filtered by format and, within a format, by chapter, with counts — and you can generate images for just that chapter.
+- **Automatic cleanup of published media**: rendered reel/story/post videos are deleted 24 hours after they are published on both Facebook and Instagram, to free disk space. Rendered files are now kept in a dedicated `media/renders/` subfolder.
+
+### Changed
+
+- **Stronger character consistency in image prompts**: age, ethnicity, build and hair are always stated for every person; when two or more characters share a frame they are kept visually distinct and never swapped; poses are natural and upright; a character explicitly requested for an image is always featured.
+
+### Fixed
+
+- **No more out-of-place subjects**: things that appear only inside a dream, a memory or a figure of speech (and homonyms such as the surf "turtle roll" manoeuvre) no longer leak into a chapter's waking scene.
+
 ## [0.3.1] - 2026-06-24
 
 ### Added

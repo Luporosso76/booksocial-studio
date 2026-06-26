@@ -367,6 +367,9 @@ export const updateChapterScene = (
       | "characters"
       | "physicsRules"
       | "keyMoment"
+      | "kind"
+      | "youngerYears"
+      | "altMoments"
     >
   >,
 ) => apiPut<{ scene: ChapterScene }>(`/books/${bookId}/chapters/${idx}/scene`, patch);

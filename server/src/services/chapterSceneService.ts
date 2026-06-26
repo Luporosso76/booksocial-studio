@@ -52,6 +52,10 @@ export class ChapterSceneService {
       physicsRules:
         patch.physicsRules !== undefined ? patch.physicsRules : (prev?.physicsRules ?? []),
       keyMoment: patch.keyMoment !== undefined ? patch.keyMoment : (prev?.keyMoment ?? null),
+      kind: patch.kind !== undefined ? patch.kind : (prev?.kind ?? "waking"),
+      youngerYears:
+        patch.youngerYears !== undefined ? patch.youngerYears : (prev?.youngerYears ?? null),
+      altMoments: patch.altMoments !== undefined ? patch.altMoments : (prev?.altMoments ?? []),
       source: "USER",
       model: prev?.model ?? null,
       updatedAt: Date.now(),

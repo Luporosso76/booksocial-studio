@@ -33,6 +33,10 @@ export function mediaDir(): string {
   return ensureDir(join(dataDir(), "media"));
 }
 
+export function renderDir(): string {
+  return ensureDir(join(mediaDir(), "renders"));
+}
+
 // Immagini del GENERATORE LIBERO (non legate a un libro), separate dai media dei libri.
 export function generatedDir(): string {
   return ensureDir(join(dataDir(), "generated"));

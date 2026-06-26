@@ -361,7 +361,17 @@
       "cardGenerated": "Sheet generated.",
       "generateFailed": "Failed to generate sheet.",
       "cardSaved": "Sheet saved.",
-      "saveFailed": "Failed to save sheet."
+      "saveFailed": "Failed to save sheet.",
+      "momentPresent": "Present",
+      "momentDream": "Dream",
+      "kindLabel": "Scene nature",
+      "kindWaking": "Normal",
+      "kindDream": "Dream",
+      "kindFlashback": "Flashback",
+      "momentMemory": "Memory",
+      "momentFlashback": "Flashback",
+      "momentWhoseLabel": "Whose (dream/memory)",
+      "momentYoungerYearsLabel": "Years younger"
     },
     "characters": {
       "title": "Characters",
@@ -404,7 +414,14 @@
       "sourceAiTooltip": "Extracted automatically by the AI during book analysis.",
       "sourceEditedTooltip": "Created or edited by hand.",
       "moreActionsAria": "More actions for {{name}}",
-      "delete": "Delete"
+      "delete": "Delete",
+      "ageLabel": "Age (canonical)",
+      "agePlaceholder": "e.g. about 35, teenager ~16",
+      "ethnicityLabel": "Ethnicity / skin tone (canonical)",
+      "ethnicityPlaceholder": "e.g. Dominican, light-brown skin",
+      "signatureOutfitLabel": "Signature item (always worn)",
+      "signatureOutfitPlaceholder": "e.g. straw hat, round glasses",
+      "signatureOutfitHint": "An accessory/garment the character wears in EVERY scene, on top of any outfit. Leave empty if none."
     },
     "visualBible": {
       "title": "Analysis / Visual bible",
@@ -1368,6 +1385,12 @@
     "flashbackSummaryOff": "Off",
     "queueWaiting": "Queued",
     "cancelThis": "Cancel this",
-    "cancelThisFailed": "Cancellation failed."
+    "cancelThisFailed": "Cancellation failed.",
+    "usageAll": "All",
+    "usageUsed": "Used",
+    "usageUnused": "Unused",
+    "usageFilterAria": "Filter images by usage",
+    "usedTimes": "{{n}}",
+    "usageBreakdown": "Reels: {{reel}} · Stories: {{story}} · Posts: {{post}}"
   }
 }

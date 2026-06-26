@@ -361,7 +361,17 @@
       "cardGenerated": "Fiche générée.",
       "generateFailed": "Échec de la génération de la fiche.",
       "cardSaved": "Fiche enregistrée.",
-      "saveFailed": "Échec de l'enregistrement de la fiche."
+      "saveFailed": "Échec de l'enregistrement de la fiche.",
+      "momentPresent": "Présent",
+      "momentDream": "Rêve",
+      "kindLabel": "Nature de la scène",
+      "kindWaking": "Normal",
+      "kindDream": "Rêve",
+      "kindFlashback": "Flashback",
+      "momentMemory": "Souvenir",
+      "momentFlashback": "Flashback",
+      "momentWhoseLabel": "De qui (rêve/souvenir)",
+      "momentYoungerYearsLabel": "Années de moins"
     },
     "characters": {
       "title": "Personnages",
@@ -404,7 +414,14 @@
       "sourceAiTooltip": "Extrait automatiquement par l'AI pendant l'analyse du livre.",
       "sourceEditedTooltip": "Créé ou modifié à la main.",
       "moreActionsAria": "Autres actions pour {{name}}",
-      "delete": "Supprimer"
+      "delete": "Supprimer",
+      "ageLabel": "Âge (canonique)",
+      "agePlaceholder": "p. ex. environ 35, adolescent ~16",
+      "ethnicityLabel": "Origine ethnique / teint (canonique)",
+      "ethnicityPlaceholder": "p. ex. dominicaine, peau brun clair",
+      "signatureOutfitLabel": "Pièce signature (toujours portée)",
+      "signatureOutfitPlaceholder": "p. ex. chapeau de paille, lunettes rondes",
+      "signatureOutfitHint": "Accessoire/vêtement que le personnage porte dans CHAQUE scène, par-dessus toute tenue. Laissez vide s'il n'y en a pas."
     },
     "visualBible": {
       "title": "Analyse / Bible visuelle",
@@ -1368,6 +1385,12 @@
     "flashbackSummaryOff": "Désactivé",
     "queueWaiting": "En file",
     "cancelThis": "Annuler celui-ci",
-    "cancelThisFailed": "Échec de l'annulation."
+    "cancelThisFailed": "Échec de l'annulation.",
+    "usageAll": "Toutes",
+    "usageUsed": "Utilisées",
+    "usageUnused": "Inutilisées",
+    "usageFilterAria": "Filtrer les images par utilisation",
+    "usedTimes": "{{n}}",
+    "usageBreakdown": "Reels : {{reel}} · Stories : {{story}} · Posts : {{post}}"
   }
 }

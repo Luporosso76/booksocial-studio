@@ -63,6 +63,8 @@ REVISED PROMPT (English only):`;
 export interface SceneCharacter {
   name: string;
   physical?: string | null;
+  age?: string | null;
+  ethnicity?: string | null;
   role?: string | null; // serve a distinguere il protagonista dai personaggi secondari
   outfits?: CharacterOutfits; // abbigliamento canonico (default + per contesto)
 }
@@ -99,6 +101,9 @@ export interface SceneDescriptionInput {
   // Override manuale per scene di FLASHBACK/ricordo: rende i personaggi più giovani e li veste per
   // l'epoca del ricordo, scavalcando età e outfit canonici SOLO per questa immagine. Assente = normale.
   flashback?: SceneFlashback | null;
+  // La scena principale del capitolo è (tutta) un SOGNO → resa onirica (vedi dreamBlock). Assente/false
+  // = scena reale. Indipendente da flashback (un sogno non ringiovanisce di per sé).
+  dream?: boolean;
 }
 
 // PHYSICS & REALISM (A1): regole HARD-CODED universali, valide per OGNI immagine di OGNI libro
@@ -289,13 +294,18 @@ function castBlock(chars: SceneCharacter[], haystack: string, suppressOutfits = 
   if (chars.length === 0) return "(no named characters)";
   const fmt = (c: SceneCharacter) => {
     const p = (c.physical ?? "").trim();
+    const age = (c.age ?? "").trim();
+    const eth = (c.ethnicity ?? "").trim();
     const outfit = suppressOutfits ? null : resolveOutfit(c.outfits, haystack);
-    const outfitPart = outfit ? `; wears: ${outfit}` : "";
-    if (!p) return outfit ? `${c.name} (wears: ${outfit})` : c.name;
-    // Aspetto CANONICO completo (cap alto a 300): la coerenza richiede la descrizione intera, non un
-    // estratto. Il cap evita solo casi patologici di descrizioni enormi.
+    const sig = (c.outfits?.signature ?? "").trim();
+    const worn = [outfit ?? "", sig ? `ALWAYS ${sig}` : ""].filter(Boolean).join(", ");
+    const outfitPart = worn ? `; wears: ${worn}` : "";
     const short = p.length > 300 ? `${p.slice(0, 300).trimEnd()}…` : p;
-    return `${c.name} (${short}${outfitPart})`;
+    const traits = [eth ? `ethnicity ${eth}` : "", age ? `age ${age}` : "", short]
+      .filter(Boolean)
+      .join("; ");
+    if (!traits) return worn ? `${c.name} (wears: ${worn})` : c.name;
+    return `${c.name} (${traits}${outfitPart})`;
   };
   // Protagonista = primo con ruolo esplicito (protagonista/principale/main), altrimenti il primo per sort_order.
   const protagIdx = chars.findIndex((c) => /protagon|principale|\bmain\b/i.test(c.role ?? ""));
@@ -329,6 +339,13 @@ function flashbackBlock(fb: SceneFlashback | null | undefined): string {
   return `FLASHBACK / MEMORY OVERRIDE (this image only — it OVERRIDES the AGE rule and the WARDROBE CONSISTENCY rule above): this scene is a MEMORY set in the PAST. Render EVERY named character from the CAST ${years} YOUNGER than the age stated in their description — a more youthful face, smoother skin and a younger build — while keeping their IDENTITY unmistakable: SAME hair colour, SAME eye colour, SAME face structure and proportions, clearly the same person at a younger age. Do NOT dress them in their canonical present-day outfit; instead dress them for the time and place of this memory${setting ? `: ${setting}` : ""}, in clothes that fit the activity and era.${note ? ` ${note}` : ""}`;
 }
 
+// Blocco SOGNO: se la scena principale del capitolo è un sogno, l'intera immagine va resa come onirica
+// (atmosfera soffusa/surreale), mantenendo identità ed ETÀ canoniche del cast. Vuoto se non è un sogno.
+function dreamBlock(isDream: boolean | undefined): string {
+  if (!isDream) return "";
+  return `DREAM SCENE (this whole image is a DREAM): render it as a dream — a soft, surreal, slightly unreal atmosphere (hazy light, dreamlike mood, gentle dissolve at the edges), NOT a sharp everyday photo-real scene. Keep each character's CANONICAL identity and AGE exactly as the CAST states (a dream does NOT make them younger). The dreamed subjects may appear, but the overall image must clearly read as a dream, not as waking reality.`;
+}
+
 // Fallback deterministico se il modello non è disponibile: immagine ATMOSFERICA (no persona),
 // utilizzabile come sfondo per una citazione.
 function fallbackScene(input: SceneDescriptionInput): SceneDescription | null {
@@ -350,6 +367,7 @@ export async function buildSceneDescription(
   // Haystack della scena (scheda o testo) = base per selezione moduli E risoluzione abiti per contesto.
   const haystack = domainHaystack(input.sceneCard, passage);
   const flashback = flashbackBlock(input.flashback);
+  const dream = dreamBlock(input.dream);
   // In flashback NON iniettiamo gli outfit canonici (presente): a vestire ci pensa il blocco flashback.
   const cast = castBlock(input.characters, haystack, !!input.flashback);
   const card = sceneCardBlock(input.sceneCard);
@@ -436,10 +454,19 @@ WARDROBE CONSISTENCY: when a character in the CAST below has a "wears:" outfit n
 THAT character EXACTLY in that outfit — it is their canonical look for this scene and must stay IDENTICAL
 every time the same scene/context recurs. This overrides the general clothing guidance above for that
 character. Characters WITHOUT a noted outfit follow the general CLOTHING rules.
-DYNAMIC POSE: people must NOT look stiff or standing at attention. Give a natural, ALIVE pose with
-implied motion — head turned or tilted, arms doing something (reaching, shielding eyes, holding gear,
-mid-stride, leaning into the wind, crouching, sitting) — appropriate to the moment. A body in action or
-mid-gesture, never a static frontal mannequin.
+SIGNATURE ITEM (MANDATORY, never omit): when a character's "wears:" note contains an item marked "ALWAYS …"
+(e.g. "ALWAYS a straw hat", "ALWAYS round glasses", "ALWAYS a red cap"), that item is a PERMANENT identity
+marker the book gives them — they MUST be shown wearing it in EVERY scene, on top of whatever other clothing
+the scene calls for, regardless of place, weather or activity. Never drop it, never swap it for something
+else: if the note says straw hat, the straw hat is on their head in this image too.
+NATURAL POSE: people look relaxed and at ease in a believable, anatomically correct posture — neither a
+stiff mannequin at attention NOR contorted, twisted, off-balance or theatrically dramatic. Keep the body
+UPRIGHT and well-balanced by default: head level (not cocked or tilted), shoulders even, spine straight,
+weight settled naturally on the feet. Allow gentle, lifelike motion suited to the moment — a hand doing
+something, a calm gesture, an easy step, sitting, holding an object — but ONLY a slight, natural amount.
+Do NOT exaggerate: avoid leaning torsos, tilted bodies, dramatic crouches, strained twists or forced
+"action" poses UNLESS the scene genuinely involves that movement (e.g. actually surfing or running).
+A calm standing person stands straight and relaxed, not leaning or angled.
 KEEP IT SIMPLE: one clear setting, few elements (diffusion models ruin busy scenes); leave calm space
 for the text. Use the book's overall theme/title as mood guidance: ${input.bookTitle ?? "(book)"}.
 RULES: NO style words (do NOT write "graphic novel", "illustration", "comic", "art"); NO quotes.
@@ -454,9 +481,26 @@ colour and style, face — the SAME and clearly recognisable in EVERY image, exa
 HAIR: render each character's hair EXACTLY as the CAST states — the same COLOUR and the same cut in every
 image; NEVER lighten it, grey it, darken it, recolour it or restyle it on your own. If the CAST says black
 hair it is BLACK every time; if it says blonde it is blonde every time. AGE: render each character at the
-apparent age stated — neither younger nor markedly older (someone described as about 50 must NOT look 70).
+EXACT apparent age the CAST states for them — neither younger nor markedly older (someone stated as about 50
+must NOT look 30 or 70); do not rejuvenate or age them between images. ETHNICITY / SKIN TONE: render each
+character's ethnicity and skin tone EXACTLY as the CAST states — the SAME heritage and the SAME skin tone in
+every image; NEVER lighten, darken, whiten or change them, and never default to a generic light-skinned look.
 Do NOT drift, restyle or exaggerate their look from one image to the next (especially the protagonist):
 their face and build stay constant; only clothing and pose change with the scene.
+PORTRAY EVERY PERSON FULLY (mandatory): for EACH person you place in the frame — the protagonist AND every
+secondary character — you MUST explicitly WRITE, taken from the CAST, ALL of these: their ETHNICITY / skin
+tone, their AGE, their BUILD and height, and their HAIR (colour + cut). Never reduce a character to a bare
+"a man" / "a woman" / "a person": age and ethnicity in particular must ALWAYS be stated for every figure. If
+the person is a CAST character, copy those traits verbatim; never omit, soften or invent them.
+MULTIPLE CHARACTERS — KEEP THEM DISTINCT AND DO NOT SWAP THEM (applies to ANY two or more named people in the
+frame, in EVERY book): (1) give EACH a CONTRASTING, unmistakable set of traits from the CAST — their own
+ethnicity, age, build, hair and distinctive features (e.g. the older silver-haired man vs the younger robust
+dark-haired man; the tall slim woman vs the shorter sturdy man) — so no two can be confused or blended into a
+look-alike; (2) match each person to EXACTLY the action, position and role the PASSAGE assigns to THEM, bound
+to that person by their distinctive appearance; never reassign, mix up or reverse who is where or who does what
+(if the passage puts one lying in the bed and another standing beside it, render precisely that). This holds
+for any number of characters and whatever their names are — never let one character take on another's
+appearance, age, ethnicity, role or position.
 RELATIVE SCALE: when two or more people share the frame, respect their RELATIVE heights and builds as given
 in the CAST (e.g. a person stated as 1.60 m is clearly shorter than one at 1.85 m; a slim build is not drawn
 as heavy). Keep human-to-human and human-to-object proportions realistic and consistent.
@@ -468,7 +512,8 @@ Concrete and visual.
 ORDER (write the paragraph in THIS sequence — it is how the image model reads best):
 1) the SHOT / framing (take it from the COMPOSITION DIRECTIVE: e.g. wide shot, close-up, three-quarter
    view, from behind); 2) the main SUBJECT (the iconic element), and if a person is present describe them
-   by physical appearance; 3) what they are DOING and their pose; 4) their CLOTHING; 5) the SETTING and
+   by physical appearance ALWAYS including their ethnicity/skin tone and age (plus build and hair); 3) what
+   they are DOING and their pose, binding each action to the correct person; 4) their CLOTHING; 5) the SETTING and
    where each element sits (grounding, horizon); 6) the LIGHTING — time of day and quality of light, be
    specific (this model responds strongly to light); 7) the overall MOOD.
 Write FLOWING SENTENCES in that order, not a tag list. Do NOT add style/medium words ("illustration",
@@ -479,10 +524,13 @@ the CHAPTER PHYSICS/REALISM RULES above — none of them may be violated. If any
 (a body resting on the water, a wave breaking out to sea, a sail without a rider, contradictory shadows,
 an object floating with no support, wrong scale), rewrite that element so it complies. Do NOT output this
 check or any reasoning — output ONLY the two lines below.
-OUTPUT FORMAT — exactly TWO lines:
+OUTPUT FORMAT — exactly THREE lines:
 Line 1: the image description paragraph (~80–120 words, following the ORDER above).
 Line 2: "TAGS: " followed by 3 to 6 short lowercase keywords (the main subject, the place, the mood),
 comma-separated.
+Line 3: "CHARACTERS: " followed by the NAMES (from the CAST) of the named characters you ACTUALLY depicted in
+the image, comma-separated, in the same order they appear in the scene; write "none" if the image shows no
+named character. These names are for cataloguing only — they never appear in the image itself.
 
 CHAPTER TITLE (strong hint for the iconic subject): ${input.chapterTitle?.trim() || "(none)"}
 ${card}
@@ -493,9 +541,29 @@ about; in the IMAGE render them by appearance, NEVER write their name; feature O
 passage):
 ${cast}
 ${flashback}
+${dream}
 ${input.angle ? `COMPOSITION DIRECTIVE (follow this): ${input.angle}` : ""}
+SUBJECT MUST FIT ITS REAL CONTEXT: the iconic subject must belong to the moment you actually depict.
+- If you depict a WAKING, real scene, the subject must be PHYSICALLY PRESENT there. Do NOT drop into a waking
+  scene an element that the text only DREAMS, remembers, expects, imagines or uses as a comparison/figure of
+  speech (e.g. do not put a real turtle swimming next to the character on the beach when the turtle only
+  appeared in his dream).
+- A DREAMED or REMEMBERED element MAY be the subject — but ONLY by depicting THAT dream/memory AS its own
+  scene: frame the WHOLE image as the dream/memory (dreamlike, surreal or soft atmosphere; the dreamed content
+  fills the scene), not mixed into the awake reality. If the chapter's strongest image is a dream of a turtle
+  (or a monster, a place, a person), it is correct to illustrate that dream — as a dream.
+- NEVER pick a word that merely SOUNDS like an object/animal but names a technique, move or concept (e.g. a
+  surf "turtle roll" is NOT a turtle): that is never a real subject.
+- WHOSE dream/memory: a dream or memory belongs to the character who HAS it — usually the narrator / the "I"
+  of a first-person passage, or the point-of-view character. If you depict that dream/memory, it is THAT
+  person's; do NOT attribute it to, or feature as its protagonist, an unrelated bystander who merely appears
+  elsewhere in the chapter. Show the dream's CONTENT (what is dreamt), framed as that character's dream.
+Decide first WHICH moment you depict (waking scene OR the dream/memory) and WHOSE it is, then keep every
+element coherent with that one moment.
 FULL CHAPTER TEXT (it may contain SEVERAL moments — CHOOSE the SINGLE moment that best fits the
-COMPOSITION DIRECTIVE and the SCENE CARD, and depict only that one; find its iconic subject and mood here):
+COMPOSITION DIRECTIVE and the SCENE CARD. The SUBJECT comes from the SCENE CARD, not from here: use this text
+ONLY for the chosen subject's specific action, pose, mood and concrete details — never to introduce a subject
+the card leaves out):
 ${passage || input.bookTitle || ""}`;
 
   try {
@@ -508,7 +576,10 @@ ${passage || input.bookTitle || ""}`;
     // La riga TAGS (ovunque sia) → tag; TUTTE le altre righe → descrizione (il paragrafo lungo può
     // andare a capo su più righe: le uniamo, così non si perde testo).
     const tagLine = lines.find((l) => /^tags\s*:/i.test(l));
-    const descLines = lines.filter((l) => !/^tags\s*:/i.test(l));
+    const charLine = lines.find((l) => /^characters\s*:/i.test(l));
+    const descLines = lines.filter(
+      (l) => !/^tags\s*:/i.test(l) && !/^characters\s*:/i.test(l),
+    );
     const cleaned = descLines
       .join(" ")
       .replace(/^["'`]+|["'`]+$/g, "")
@@ -526,7 +597,18 @@ ${passage || input.bookTitle || ""}`;
           .filter((t) => t.length > 0 && t.length <= 30)
           .slice(0, 6)
       : [];
-    if (cleaned.length >= 8) return { description: cleaned, tags };
+    const charNames = charLine
+      ? charLine
+          .replace(/^characters\s*:/i, "")
+          .split(",")
+          .map((s) => s.trim().toLowerCase().replace(/[."'`]+$/g, ""))
+          .filter((s) => s.length > 0 && s.length <= 30 && !/^none$/i.test(s))
+      : [];
+    const seen = new Set<string>();
+    const mergedTags = [...charNames, ...tags]
+      .filter((t) => (seen.has(t) ? false : (seen.add(t), true)))
+      .slice(0, 8);
+    if (cleaned.length >= 8) return { description: cleaned, tags: mergedTags };
     return fallbackScene(input);
   } catch (e) {
     if (e instanceof ContentError) return fallbackScene(input);

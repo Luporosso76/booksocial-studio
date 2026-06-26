@@ -55,27 +55,39 @@ export async function stepAppearance(
   hooks.onTotal?.(cast.length);
   const updated: string[] = [];
   for (const ch of cast) {
-    if (opts.onlyWeak && (ch.physical ?? "").trim().length >= 80) {
+    const strong =
+      (ch.physical ?? "").trim().length >= 80 &&
+      (ch.age ?? "").trim() !== "" &&
+      (ch.ethnicity ?? "").trim() !== "";
+    if (opts.onlyWeak && strong) {
       hooks.onItem?.();
       continue;
     }
     const relevant =
       ch.chapters.length > 0 ? chapters.filter((c) => ch.chapters.includes(c.index)) : chapters;
     const sourceText = collectCharacterPassages(relevant, ch.name);
-    const desc = await generateAppearance(engine, {
+    const res = await generateAppearance(engine, {
       name: ch.name,
       role: ch.role,
       occupation: ch.occupation,
       personality: ch.personality,
       physical: ch.physical,
+      age: ch.age,
+      ethnicity: ch.ethnicity,
       notes: ch.notes,
       bookTitle: book.title,
       language: lang,
       sourceText,
       country,
     });
-    if (desc) {
-      await characters.update({ ...ch, physical: desc, updatedAt: Date.now() });
+    if (res) {
+      await characters.update({
+        ...ch,
+        physical: res.physical,
+        age: res.age ?? ch.age,
+        ethnicity: res.ethnicity ?? ch.ethnicity,
+        updatedAt: Date.now(),
+      });
       updated.push(ch.name);
     }
     hooks.onItem?.();
