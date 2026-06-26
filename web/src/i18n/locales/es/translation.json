@@ -1389,6 +1389,8 @@
     "flashbackEnable": "Activar flashback / recuerdo",
     "flashbackSummaryYears": "−{{years}} años",
     "flashbackSummaryOff": "Desactivado",
+    "flashbackSummaryOn": "Activado (edades de la ficha)",
+    "flashbackHint": "Las imágenes se renderizarán como flashback usando la edad por personaje configurada en las fichas de capítulo (naturaleza Flashback). Sin \"años más joven\" manual aquí.",
     "queueWaiting": "En cola",
     "cancelThis": "Cancelar este",
     "cancelThisFailed": "Error al cancelar.",

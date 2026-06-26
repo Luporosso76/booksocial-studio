@@ -3,8 +3,6 @@
 // (es. 5 immagini 9:16 sui cap. scelti, poi 5 in 1:1) e un worker per libro li svuota IN SEQUENZA
 // senza fermarsi tra l'uno e l'altro. Solo l'Annulla ferma tutto (svuota la coda + killa sd-cli).
 
-import type { SceneFlashback } from "./content/imagePrompt.js";
-
 export type SceneGenStatus = "generating" | "ready" | "failed";
 
 // Un batch accodato. `count` = immagini PER CAPITOLO se `chapters` è non vuoto; se `chapters` è
@@ -18,9 +16,7 @@ export interface SceneBatch {
   // dove compaiono (UNIONE). Vuoto/assente = comportamento normale (cast eleggibile + composizioni a
   // rotazione).
   characters?: string[];
-  // Override FLASHBACK/ricordo (manuale): se valorizzato, le immagini di questo batch rendono i
-  // personaggi più giovani e vestiti per l'epoca del ricordo (scavalca età e outfit canonici).
-  flashback?: SceneFlashback;
+  forceFlashback?: boolean;
   moment?: number;
 }
 

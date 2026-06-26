@@ -23,6 +23,7 @@ und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/spec/v
 - **Automatische Bereinigung veröffentlichter Medien**: gerenderte Reel-/Story-/Post-Videos werden 24 Stunden nach der Veröffentlichung auf Facebook und Instagram gelöscht, um Speicher freizugeben. Gerenderte Dateien liegen nun im Unterordner `media/renders/`.
 
 ### Geändert
+- **Flashback-Bildgenerierung**: Der Flashback-Schalter im Generierungspanel ist jetzt ein einfaches An/Aus — gerendert wird mit dem Alter pro Figur aus der Kapitelkarte; das manuelle Feld „Jahre jünger" wurde entfernt.
 
 - **Stärkere Figurenkonsistenz in den Bild-Prompts**: Alter, Ethnizität, Statur und Haare werden immer genannt; bei zwei oder mehr Figuren im Bild bleiben sie unterscheidbar und werden nie vertauscht; Posen sind natürlich und aufrecht; eine angeforderte Figur erscheint immer.
 

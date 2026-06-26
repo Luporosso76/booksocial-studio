@@ -1617,24 +1617,7 @@ export function buildApi(deps: AppDeps): Hono {
         if (union.size > 0) chapters = [...union];
       }
     }
-    // FLASHBACK/ricordo (opzionale): scena del passato → personaggi più giovani e vestiti d'epoca,
-    // scavalcando età e outfit canonici per le immagini di questo batch. Attivo solo se c'è almeno un
-    // dato utile (anni più giovane, ambientazione o nota).
-    let flashback: SceneFlashback | undefined;
-    const fbRaw = body.flashback as Record<string, unknown> | null | undefined;
-    if (fbRaw && typeof fbRaw === "object") {
-      const yy = Math.floor(Number(fbRaw.youngerYears));
-      const fbSetting = typeof fbRaw.setting === "string" ? fbRaw.setting.trim().slice(0, 200) : "";
-      const fbNote = typeof fbRaw.note === "string" ? fbRaw.note.trim().slice(0, 300) : "";
-      const hasYears = Number.isInteger(yy) && yy > 0 && yy <= 120;
-      if (hasYears || fbSetting || fbNote) {
-        flashback = {
-          ...(hasYears ? { youngerYears: yy } : {}),
-          ...(fbSetting ? { setting: fbSetting } : {}),
-          ...(fbNote ? { note: fbNote } : {}),
-        };
-      }
-    }
+    const forceFlashback = body.flashback === true;
     let moment: number | undefined;
     if (body.moment != null && body.moment !== "") {
       const mRaw = Math.floor(Number(body.moment));
@@ -1647,7 +1630,7 @@ export function buildApi(deps: AppDeps): Hono {
       aspect,
       chapters,
       ...(charNames ? { characters: charNames } : {}),
-      ...(flashback ? { flashback } : {}),
+      ...(forceFlashback ? { forceFlashback: true } : {}),
       ...(moment != null ? { moment } : {}),
     };
 
@@ -1704,7 +1687,7 @@ export function buildApi(deps: AppDeps): Hono {
                 ...(b.characters && b.characters.length > 0
                   ? { featureCharacters: b.characters }
                   : {}),
-                ...(b.flashback ? { flashback: b.flashback } : {}),
+                ...(b.forceFlashback ? { forceFlashback: true } : {}),
                 ...(b.moment != null ? { moment: b.moment } : { randomMoment: true }),
                 signal: ac.signal,
               });
@@ -1721,7 +1704,7 @@ export function buildApi(deps: AppDeps): Hono {
                   ...(b.characters && b.characters.length > 0
                     ? { featureCharacters: b.characters }
                     : {}),
-                  ...(b.flashback ? { flashback: b.flashback } : {}),
+                  ...(b.forceFlashback ? { forceFlashback: true } : {}),
                   ...(b.moment != null ? { moment: b.moment } : { randomMoment: true }),
                   signal: ac.signal,
                 });

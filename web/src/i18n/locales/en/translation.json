@@ -1389,6 +1389,8 @@
     "flashbackEnable": "Enable flashback / memory",
     "flashbackSummaryYears": "−{{years}} years",
     "flashbackSummaryOff": "Off",
+    "flashbackSummaryOn": "On (ages from the card)",
+    "flashbackHint": "Images will be rendered as flashbacks using the per-character ages set in the chapter cards (Flashback nature). No manual 'years younger' here.",
     "queueWaiting": "Queued",
     "cancelThis": "Cancel this",
     "cancelThisFailed": "Cancellation failed.",

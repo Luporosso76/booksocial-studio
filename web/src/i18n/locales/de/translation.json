@@ -1389,6 +1389,8 @@
     "flashbackEnable": "Flashback / Erinnerung aktivieren",
     "flashbackSummaryYears": "−{{years}} Jahre",
     "flashbackSummaryOff": "Aus",
+    "flashbackSummaryOn": "An (Alter aus der Karte)",
+    "flashbackHint": "Bilder werden als Rückblende mit dem in den Kapitelkarten festgelegten Alter pro Figur gerendert (Art Rückblende). Kein manuelles „Jahre jünger\" hier.",
     "queueWaiting": "In Warteschlange",
     "cancelThis": "Diesen abbrechen",
     "cancelThisFailed": "Abbrechen fehlgeschlagen.",

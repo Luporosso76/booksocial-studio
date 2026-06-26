@@ -271,9 +271,7 @@ export const generateBookImages = (
     aspect: SceneAspect;
     chapters: number[];
     characters?: string[];
-    // Override FLASHBACK/ricordo (opzionale): scena del passato → personaggi più giovani e vestiti
-    // per l'epoca, scavalcando età e outfit canonici per le immagini di questo batch.
-    flashback?: { youngerYears?: number; setting?: string; note?: string };
+    flashback?: boolean;
     moment?: number;
   },
 ) => apiPost<GenerateImagesResult>(`/books/${bookId}/generate-images`, body);

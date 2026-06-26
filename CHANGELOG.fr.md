@@ -23,6 +23,7 @@ et ce projet respecte le [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 - **Nettoyage automatique des médias publiés** : les vidéos de reels/stories/posts sont supprimées 24 heures après publication sur Facebook et Instagram, pour libérer de l'espace. Les fichiers rendus sont désormais dans un sous-dossier `media/renders/`.
 
 ### Modifié
+- **Génération d'images flashback** : la case flashback du panneau de génération est désormais un simple on/off — le rendu utilise les âges par personnage de la fiche de chapitre ; le champ manuel « années de moins » a été supprimé.
 
 - **Cohérence des personnages renforcée dans les prompts** : âge, origine, carrure et cheveux toujours indiqués ; deux personnages ou plus restent distincts et ne sont jamais intervertis ; poses naturelles et droites ; un personnage demandé apparaît toujours.
 

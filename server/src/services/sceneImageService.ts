@@ -151,9 +151,8 @@ export class SceneImageService {
       // Nomi dei personaggi da FEATURARE (MULTI): ne restringe i capitoli all'UNIONE, li garantisce
       // eleggibili e forza un angle che li rende prominenti. Assente/[] = comportamento normale.
       featureCharacters?: readonly string[] | null;
-      // Override FLASHBACK/ricordo (manuale): rende i personaggi più giovani e vestiti per l'epoca,
-      // scavalcando età e outfit canonici SOLO per queste immagini.
       flashback?: SceneFlashback | null;
+      forceFlashback?: boolean;
       moment?: number | null;
       randomMoment?: boolean;
       signal?: AbortSignal;
@@ -237,11 +236,11 @@ export class SceneImageService {
         .join("\n\n"),
       flashback:
         opts?.flashback ??
-        (card?.kind === "flashback"
+        (opts?.forceFlashback || card?.kind === "flashback"
           ? {
-              youngerYears: card.youngerYears ?? undefined,
-              setting: card.location ?? undefined,
-              characterAges: card.characterAges ?? undefined,
+              youngerYears: card?.youngerYears ?? undefined,
+              setting: card?.location ?? undefined,
+              characterAges: card?.characterAges ?? undefined,
             }
           : null),
       dream: card?.kind === "dream",
@@ -339,8 +338,8 @@ export class SceneImageService {
       // "Genera per personaggio" (MULTI): nomi (dal cast) da featurare; restringe i capitoli all'UNIONE
       // di quelli dove compaiono, li garantisce eleggibili e forza un angle che li rende prominenti.
       featureCharacters?: readonly string[] | null;
-      // Override FLASHBACK/ricordo (manuale): personaggi più giovani + vestiti d'epoca, solo qui.
       flashback?: SceneFlashback | null;
+      forceFlashback?: boolean;
       moment?: number | null;
       randomMoment?: boolean;
       signal?: AbortSignal;

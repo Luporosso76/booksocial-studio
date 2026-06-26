@@ -2993,8 +2993,6 @@ function SceneGenSection({
   // FLASHBACK/ricordo (opzionale): scena del passato → personaggi più giovani e vestiti per l'epoca,
   // scavalcando età e outfit canonici per le immagini di QUESTO batch. Off = comportamento normale.
   const [flashbackOn, setFlashbackOn] = useState(false);
-  const [flashbackYears, setFlashbackYears] = useState(20);
-  const [flashbackSetting, setFlashbackSetting] = useState("");
   const [selectedMoment, setSelectedMoment] = useState(-2);
   const [recomputing, setRecomputing] = useState(false);
   const [starting, setStarting] = useState(false);
@@ -3197,21 +3195,13 @@ function SceneGenSection({
     setStarting(true);
     try {
       const wasRunning = progress !== null;
-      const fbSetting = flashbackSetting.trim();
       await generateBookImages(bookId, {
         count,
         aspect,
         chapters: selectedChapters,
         ...(selectedMoment !== -2 ? { moment: selectedMoment } : {}),
         ...(selectedCharacters.length ? { characters: selectedCharacters } : {}),
-        ...(flashbackOn
-          ? {
-              flashback: {
-                ...(flashbackYears > 0 ? { youngerYears: flashbackYears } : {}),
-                ...(fbSetting ? { setting: fbSetting } : {}),
-              },
-            }
-          : {}),
+        ...(flashbackOn ? { flashback: true } : {}),
       });
       if (!wasRunning) {
         // Primo batch: feedback ottimistico (il primo poll riallinea ai dati reali del server).
@@ -3283,8 +3273,7 @@ function SceneGenSection({
       : selectedCharacters.slice(0, 3).join(", ") +
         (selectedCharacters.length > 3 ? ` +${selectedCharacters.length - 3}` : "");
   const flashbackSummary = flashbackOn
-    ? t("bookDetail.flashbackSummaryYears", { years: flashbackYears }) +
-      (flashbackSetting.trim() ? ` · ${flashbackSetting.trim()}` : "")
+    ? t("bookDetail.flashbackSummaryOn")
     : t("bookDetail.flashbackSummaryOff");
 
   return (
@@ -3505,36 +3494,7 @@ function SceneGenSection({
           />
           <span className="font-medium">{t("bookDetail.flashbackEnable")}</span>
         </label>
-        {flashbackOn && (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-[10rem_auto] sm:items-end">
-            <Field label={t("book.sceneGen.flashbackYears")}>
-              <Input
-                type="number"
-                min={1}
-                max={120}
-                value={flashbackYears}
-                disabled={starting}
-                onChange={(e) => {
-                  const n = Number(e.target.value);
-                  if (Number.isFinite(n))
-                    setFlashbackYears(Math.min(120, Math.max(1, Math.round(n))));
-                }}
-              />
-            </Field>
-            <Field label={t("book.sceneGen.flashbackSettingLabel")}>
-              <Input
-                type="text"
-                value={flashbackSetting}
-                disabled={starting}
-                placeholder={t("book.sceneGen.flashbackSettingPlaceholder")}
-                onChange={(e) => setFlashbackSetting(e.target.value)}
-              />
-            </Field>
-            <p className="text-xs text-content-tertiary sm:col-span-2">
-              {t("book.sceneGen.flashbackNote")}
-            </p>
-          </div>
-        )}
+        <p className="text-xs text-content-tertiary">{t("bookDetail.flashbackHint")}</p>
       </Collapsible>
 
       {busy && (

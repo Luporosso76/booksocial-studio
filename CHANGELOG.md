@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Automatic cleanup of published media**: rendered reel/story/post videos are deleted 24 hours after they are published on both Facebook and Instagram, to free disk space. Rendered files are now kept in a dedicated `media/renders/` subfolder.
 
 ### Changed
+- **Flashback image generation**: the generate panel's flashback toggle is now a simple on/off — it renders using the per-character ages set in the chapter card; the manual "years younger" field was removed.
 
 - **Stronger character consistency in image prompts**: age, ethnicity, build and hair are always stated for every person; when two or more characters share a frame they are kept visually distinct and never swapped; poses are natural and upright; a character explicitly requested for an image is always featured.
 
