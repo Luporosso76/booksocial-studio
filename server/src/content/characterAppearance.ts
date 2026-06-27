@@ -1,6 +1,7 @@
 import type { ContentEngine } from "./engine.js";
 import { ContentError } from "./engine.js";
 import { parseModelJson } from "./modelJson.js";
+import { languageName } from "./language.js";
 
 export interface AppearanceInput {
   name: string;
@@ -35,6 +36,7 @@ export async function generateAppearance(
   engine: ContentEngine,
   input: AppearanceInput,
 ): Promise<AppearanceResult | null> {
+  const language = languageName(input.language);
   const prompt = `You are a visual director defining the CANONICAL PHYSICAL APPEARANCE of a character, to be
 used IDENTICALLY across ALL the book's illustrations (to keep images consistent). Given the character and the
 available information, fix PRECISE, COMPLETE and STABLE values.
@@ -50,11 +52,13 @@ FIELD RULES:
 - "physical": everything ELSE about how they LOOK — build (and rough weight), height, hair (COLOR + cut/length),
   eyes (color), face and features, and permanent distinctive traits (beard/moustache, glasses, moles, scars,
   tattoos). Do NOT repeat age or ethnicity here. At most ~260 characters.
-- FAITHFUL TO THE BOOK: if the "BOOK PASSAGES" describe a trait (hair/eye color, height, scars, age, ethnicity…),
-  USE IT exactly; never contradict it. Only FILL IN what the book does not give, plausibly, once and for all.
+- FAITHFUL TO THE BOOK: read the "BOOK PASSAGES" carefully and capture EVERY physical trait they describe
+  (hair/eye color, height, build, scars, beard, glasses, age, ethnicity…), skipping NONE; USE each exactly as
+  stated; never contradict it. Only FILL IN what the book does not give, plausibly, once and for all.
 - RESPECT the existing info below (do not contradict it). NO clothing/outfit (handled separately), NO personality,
   role, biography, emotions or actions.
-- Write the VALUES in ${input.language}. JSON keys stay in English as shown.
+- LANGUAGE: write ALL the string VALUES in ${language}. Even though these instructions are in English, every
+  value (physical, age, ethnicity) MUST be written in ${language}. The JSON keys stay in English as shown.
 
 CHARACTER: ${input.name}
 ROLE: ${input.role?.trim() || "(unspecified)"}

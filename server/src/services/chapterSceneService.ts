@@ -1,6 +1,9 @@
-import { books, characters } from "../db/repositories.js";
+import { books, characters, visualDirectives } from "../db/repositories.js";
 import type { ContentEngine } from "../content/engine.js";
 import { extractChapterScene, type ExtractedChapterScene } from "../content/chapterScene.js";
+import { nameAppearsInText } from "../content/characterText.js";
+import { sha256 } from "../content/importer.js";
+import { SCENE_PROMPT_VERSION } from "../domain.js";
 import type { BookChapter, BookCharacter, ChapterScene } from "../domain.js";
 
 // Orchestratore della SCHEDA VISIVA per capitolo: estrae on-demand dal testo e mette in
@@ -19,8 +22,8 @@ export class ChapterSceneService {
   async getOrBuild(bookId: number, chapterIndex: number): Promise<ChapterScene | null> {
     const chapter = await books.chapter(bookId, chapterIndex);
     if (!chapter) return null;
-    if (chapter.scene) return chapter.scene;
-    return this.buildAndSave(bookId, chapter);
+    if (chapter.scene && isSceneFresh(chapter.scene, chapter.text)) return chapter.scene;
+    return (await this.buildAndSave(bookId, chapter)) ?? chapter.scene ?? null;
   }
 
   // Ri-estrae SEMPRE la scheda (ignora la cache) e la salva. Per il bottone "(Ri)genera scheda".
@@ -49,6 +52,7 @@ export class ChapterSceneService {
           ? patch.secondaryObjects
           : (prev?.secondaryObjects ?? []),
       characters: patch.characters !== undefined ? patch.characters : (prev?.characters ?? []),
+      pov: patch.pov !== undefined ? patch.pov : (prev?.pov ?? null),
       physicsRules:
         patch.physicsRules !== undefined ? patch.physicsRules : (prev?.physicsRules ?? []),
       keyMoment: patch.keyMoment !== undefined ? patch.keyMoment : (prev?.keyMoment ?? null),
@@ -60,6 +64,8 @@ export class ChapterSceneService {
       altMoments: patch.altMoments !== undefined ? patch.altMoments : (prev?.altMoments ?? []),
       source: "USER",
       model: prev?.model ?? null,
+      promptVersion: SCENE_PROMPT_VERSION,
+      sourceHash: sha256(chapter.text),
       updatedAt: Date.now(),
     };
     await books.setChapterScene(chapter.id, scene);
@@ -100,7 +106,15 @@ export class ChapterSceneService {
       }
       const cardNames = card.characters.map((n) => n.trim()).filter((n) => n.length > 0);
       for (const c of cast) {
-        if (cardNames.some((n) => namesMatch(c.name, n))) presence.get(c.id)!.add(chapter.index);
+        if (cardNames.some((n) => namesMatch(c.name, n)) && nameAppearsInText(c.name, chapter.text)) {
+          presence.get(c.id)!.add(chapter.index);
+        }
+      }
+      const pov = (card.pov ?? "").trim();
+      if (pov !== "") {
+        for (const c of cast) {
+          if (namesMatch(c.name, pov)) presence.get(c.id)!.add(chapter.index);
+        }
       }
     }
 
@@ -124,26 +138,39 @@ export class ChapterSceneService {
   private async buildAndSave(bookId: number, chapter: BookChapter): Promise<ChapterScene | null> {
     const cast = await characters.byBook(bookId);
     const book = await books.get(bookId);
+    if (!book) return null;
+    const alwaysOn = (await visualDirectives.byBook(bookId))
+      .filter((d) => d.enabled && d.triggers.length === 0)
+      .map((d) => (d.body ?? "").trim())
+      .filter((s) => s !== "");
     const extracted = await extractChapterScene(this.deps.engine, {
       chapterText: chapter.text,
       chapterTitle: chapter.title,
-      language: book?.language ?? "italiano",
+      language: book.language,
       knownCharacters: cast.map((c) => c.name),
-      directives: book?.visualDirectives ?? null,
+      directives: alwaysOn.length > 0 ? alwaysOn.join("\n") : null,
     });
     if (!extracted) return null;
+    const pov = (extracted.pov ?? "").trim();
+    const sceneCharacters = canonicalizeCharacters(extracted.characters, cast).filter(
+      (n) => nameAppearsInText(n, chapter.text) || (pov !== "" && namesMatch(n, pov)),
+    );
     const scene: ChapterScene = {
       ...extracted,
-      // Personaggi = SOLO quelli estratti dal GPT (fisicamente in scena), con i nomi canonicalizzati
-      // sul cast. Niente aggiunte da NLP/menzioni: un nome citato non implica presenza in scena.
-      characters: canonicalizeCharacters(extracted.characters, cast),
+      characters: sceneCharacters,
       source: "AI",
       model: this.deps.engine.name(),
+      promptVersion: SCENE_PROMPT_VERSION,
+      sourceHash: sha256(chapter.text),
       updatedAt: Date.now(),
     };
     await books.setChapterScene(chapter.id, scene);
     return scene;
   }
+}
+
+function isSceneFresh(scene: ChapterScene, chapterText: string): boolean {
+  return scene.promptVersion === SCENE_PROMPT_VERSION && scene.sourceHash === sha256(chapterText);
 }
 
 // Confronto lasco fra nomi, ma per TOKEN INTERI (no sottostringhe): "Marco" combacia con

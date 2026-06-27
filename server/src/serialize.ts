@@ -15,19 +15,23 @@ import type {
   PostingSlot,
   ScheduledPost,
   MediaType,
+  VisualDirective,
 } from "./domain.js";
 
 const DOW = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
 
 /** ISO int 1..7 (1=lun) -> enum 'MON'..'SUN'. */
 export function dayToEnum(d: number): string {
-  return DOW[(((d - 1) % 7) + 7) % 7] ?? "MON";
+  return DOW[(((d - 1) % 7) + 7) % 7]!;
 }
 
 /** enum 'MON'..'SUN' -> ISO int 1..7. */
 export function enumToDay(s: unknown): number {
   const i = DOW.indexOf(String(s ?? "").toUpperCase());
-  return i >= 0 ? i + 1 : 1;
+  if (i < 0) {
+    throw Object.assign(new Error(`Invalid dayOfWeek: ${JSON.stringify(s)}`), { httpStatus: 400 });
+  }
+  return i + 1;
 }
 
 // Il frontend usa solo TEXT|IMAGE|LINK; il dominio ha TEXT|LINK|PHOTO|REEL.
@@ -73,6 +77,20 @@ export function bookDto(b: Book, coverUrl: string | null = null) {
     visualExtras: b.visualExtras,
     textExtraInstructions: b.textExtraInstructions,
     imageExtraInstructions: b.imageExtraInstructions,
+  };
+}
+
+export function visualDirectiveDto(d: VisualDirective) {
+  return {
+    id: String(d.id),
+    bookId: String(d.bookId),
+    title: d.title,
+    triggers: d.triggers,
+    intent: d.intent,
+    body: d.body,
+    bodyEn: d.bodyEn,
+    enabled: d.enabled,
+    sortOrder: d.sortOrder,
   };
 }
 

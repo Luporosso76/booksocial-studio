@@ -1,5 +1,6 @@
 import type { ContentEngine } from "./engine.js";
 import { parseModelJson } from "./modelJson.js";
+import { languageName } from "./language.js";
 import { CURRENT_PROMPT_VERSION } from "../domain.js";
 
 // One-time book analysis -> compact BookProfile (scheda). This is the ONLY phase
@@ -42,20 +43,6 @@ export async function analyzeBook(
   };
 }
 
-const ISO_TO_LANG: Record<string, string> = {
-  it: "Italian",
-  en: "English",
-  fr: "French",
-  de: "German",
-  es: "Spanish",
-  pt: "Portuguese",
-};
-
-function resolveLanguageName(code: string): string {
-  const normalized = code.trim().toLowerCase().split(/[-_]/)[0];
-  return ISO_TO_LANG[normalized] ?? "Italian";
-}
-
 function buildPrompt(
   book: { title: string; author: string | null; language: string },
   fullText: string,
@@ -63,8 +50,7 @@ function buildPrompt(
   outputLanguage?: string,
 ): string {
   const author = book.author == null ? "(not specified)" : book.author;
-  const langCode = outputLanguage ?? book.language;
-  const langName = resolveLanguageName(langCode);
+  const langName = languageName(outputLanguage || book.language);
   const seedBlock =
     seedCharacters.length > 0
       ? `\nDETECTED CHARACTERS (real names to profile; add any missing ones): ${seedCharacters.join(", ")}\n`

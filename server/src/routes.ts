@@ -1,4 +1,4 @@
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 import { getCookie, setCookie, deleteCookie } from "hono/cookie";
 import * as auth from "./services/authService.js";
 import { writeFile, mkdir } from "node:fs/promises";
@@ -37,6 +37,7 @@ import {
   renderJobs,
   settings,
   slots,
+  visualDirectives,
   weeklyPlan,
 } from "./db/repositories.js";
 import * as aiSettings from "./content/aiSettings.js";
@@ -109,6 +110,7 @@ import {
 import { formatToVisualKind } from "./content/varietyEngine.js";
 import { booksDir, mediaDir, musicDir, resolveDataPath } from "./paths.js";
 import { translateDirectivesToEnglish } from "./content/translate.js";
+import { generateVisualDirective } from "./content/visualDirectiveAssist.js";
 import type {
   CharacterOutfits,
   ChapterMoment,
@@ -153,6 +155,24 @@ function parseVisualPropsInput(v: unknown): BookVisualProps {
   const country =
     typeof o.country === "string" && o.country.trim() !== "" ? o.country.trim() : null;
   return { props, drivingSide, country };
+}
+
+function parseTriggersInput(v: unknown): string[] {
+  const raw = Array.isArray(v)
+    ? v.map((x) => String(x))
+    : typeof v === "string"
+      ? v.split(",")
+      : [];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const t of raw) {
+    const k = t.trim().toLowerCase();
+    if (k !== "" && !seen.has(k)) {
+      seen.add(k);
+      out.push(k);
+    }
+  }
+  return out;
 }
 
 // Normalizza l'input utente per i personaggi minori/incidentali del libro (PUT /books/:id).
@@ -223,6 +243,7 @@ import {
   generatedToPostDto,
   enumToDay,
   mediaIn,
+  visualDirectiveDto,
 } from "./serialize.js";
 
 export interface AppDeps {
@@ -276,6 +297,22 @@ function err(message: string): { error: string } {
   return { error: message };
 }
 
+async function jsonBody(c: Context): Promise<any> {
+  let raw: string;
+  try {
+    raw = await c.req.text();
+  } catch {
+    return {};
+  }
+  if (raw.trim() === "") return {};
+  try {
+    const v = JSON.parse(raw);
+    return v != null && typeof v === "object" ? v : {};
+  } catch {
+    throw Object.assign(new Error("invalid-json"), { httpStatus: 400 });
+  }
+}
+
 // Regola d'uso link valida (always|sometimes|manual), altrimenti null.
 function parseUsagePolicy(v: unknown): "always" | "sometimes" | "manual" | null {
   return v === "always" || v === "sometimes" || v === "manual" ? v : null;
@@ -316,7 +353,7 @@ export function buildApi(deps: AppDeps): Hono {
   });
 
   api.post("/auth/login", async (c) => {
-    const body = await c.req.json().catch(() => ({}) as Record<string, unknown>);
+    const body = await jsonBody(c);
     const username = typeof body.username === "string" ? body.username : "";
     const password = typeof body.password === "string" ? body.password : "";
     const res = await auth.login(username, password);
@@ -332,7 +369,7 @@ export function buildApi(deps: AppDeps): Hono {
   });
 
   api.post("/auth/change-password", async (c) => {
-    const body = await c.req.json().catch(() => ({}) as Record<string, unknown>);
+    const body = await jsonBody(c);
     const current = typeof body.currentPassword === "string" ? body.currentPassword : "";
     const next = typeof body.newPassword === "string" ? body.newPassword : "";
     const res = await auth.changePassword(current, next);
@@ -657,7 +694,7 @@ export function buildApi(deps: AppDeps): Hono {
 
   api.post("/connection/pages", async (c) => {
     requireSecrets();
-    const body = await c.req.json().catch(() => ({}));
+    const body = await jsonBody(c);
     const token = typeof body.token === "string" ? body.token.trim() : "";
     if (token === "") return c.json(err("token mancante"), 400);
     const managed = await pageConnect.loadManagedPages(token);
@@ -666,7 +703,7 @@ export function buildApi(deps: AppDeps): Hono {
 
   api.post("/connection/save", async (c) => {
     requireSecrets();
-    const body = await c.req.json().catch(() => ({}));
+    const body = await jsonBody(c);
     let saved = 0;
     if (Array.isArray(body.pages)) {
       for (const p of body.pages) {
@@ -707,6 +744,9 @@ export function buildApi(deps: AppDeps): Hono {
       typeof form["language"] === "string" && form["language"].trim() !== ""
         ? (form["language"] as string)
         : null;
+    if (!language) {
+      return c.json(err("Lingua del libro obbligatoria: selezionala durante l'import"), 400);
+    }
 
     const content = await file.text();
     const fileName = sanitizeFileName(file.name || "book.md");
@@ -920,7 +960,7 @@ export function buildApi(deps: AppDeps): Hono {
     const id = Number(c.req.param("id"));
     const book = await books.get(id);
     if (!book) return c.json(err("Libro non trovato"), 404);
-    const body = await c.req.json().catch(() => ({}));
+    const body = await jsonBody(c);
     if (typeof body.title === "string" && body.title.trim() !== "") {
       await books.rename(id, body.title.trim());
     }
@@ -996,6 +1036,121 @@ export function buildApi(deps: AppDeps): Hono {
     }),
   );
 
+  api.get("/books/:id/visual-directives", async (c) => {
+    const id = Number(c.req.param("id"));
+    if (!Number.isInteger(id)) return c.json(err("id non valido"), 400);
+    const book = await books.get(id);
+    if (!book) return c.json(err("Libro non trovato"), 404);
+    const directives = await visualDirectives.byBook(id);
+    return c.json({ directives: directives.map(visualDirectiveDto) });
+  });
+
+  api.post("/books/:id/visual-directives", async (c) => {
+    const id = Number(c.req.param("id"));
+    if (!Number.isInteger(id)) return c.json(err("id non valido"), 400);
+    const book = await books.get(id);
+    if (!book) return c.json(err("Libro non trovato"), 404);
+    const body = await jsonBody(c);
+    const title = typeof body.title === "string" ? body.title.trim() : "";
+    if (title === "") return c.json(err("title mancante"), 400);
+    const triggers = parseTriggersInput(body.triggers);
+    const intent =
+      typeof body.intent === "string" && body.intent.trim() !== "" ? body.intent.trim() : null;
+    const text = typeof body.body === "string" ? body.body.trim() : "";
+    const enabled = body.enabled === undefined ? true : body.enabled === true;
+    const bodyEn = text === "" ? null : await translateDirectivesToEnglish(deps.engine, text);
+    const created = await visualDirectives.create({
+      bookId: id,
+      title,
+      triggers,
+      intent,
+      body: text === "" ? null : text,
+      bodyEn,
+      enabled,
+      sortOrder: await visualDirectives.countByBook(id),
+    });
+    return c.json(visualDirectiveDto(created));
+  });
+
+  api.put("/books/:id/visual-directives/:did", async (c) => {
+    const id = Number(c.req.param("id"));
+    const did = Number(c.req.param("did"));
+    if (!Number.isInteger(id) || !Number.isInteger(did)) return c.json(err("id non valido"), 400);
+    const book = await books.get(id);
+    if (!book) return c.json(err("Libro non trovato"), 404);
+    const existing = await visualDirectives.get(did);
+    if (!existing || existing.bookId !== id)
+      return c.json(err("Direttiva non trovata"), 404);
+    const body = await jsonBody(c);
+    const title =
+      typeof body.title === "string" && body.title.trim() !== ""
+        ? body.title.trim()
+        : existing.title;
+    const triggers = "triggers" in body ? parseTriggersInput(body.triggers) : existing.triggers;
+    const intent =
+      "intent" in body
+        ? typeof body.intent === "string" && body.intent.trim() !== ""
+          ? body.intent.trim()
+          : null
+        : existing.intent;
+    const text =
+      "body" in body
+        ? typeof body.body === "string"
+          ? body.body.trim()
+          : ""
+        : existing.body ?? "";
+    const enabled = "enabled" in body ? body.enabled === true : existing.enabled;
+    const sortOrder =
+      typeof body.sortOrder === "number" ? body.sortOrder : existing.sortOrder;
+    let bodyEn = existing.bodyEn;
+    if (text === "") bodyEn = null;
+    else if ((existing.body ?? "") !== text || existing.bodyEn == null)
+      bodyEn = await translateDirectivesToEnglish(deps.engine, text);
+    await visualDirectives.update(did, {
+      title,
+      triggers,
+      intent,
+      body: text === "" ? null : text,
+      bodyEn,
+      enabled,
+      sortOrder,
+    });
+    const updated = await visualDirectives.get(did);
+    return c.json(updated ? visualDirectiveDto(updated) : err("Direttiva non trovata"));
+  });
+
+  api.delete("/books/:id/visual-directives/:did", async (c) => {
+    const id = Number(c.req.param("id"));
+    const did = Number(c.req.param("did"));
+    if (!Number.isInteger(id) || !Number.isInteger(did)) return c.json(err("id non valido"), 400);
+    const book = await books.get(id);
+    if (!book) return c.json(err("Libro non trovato"), 404);
+    const existing = await visualDirectives.get(did);
+    if (!existing || existing.bookId !== id)
+      return c.json(err("Direttiva non trovata"), 404);
+    await visualDirectives.delete(did);
+    return c.json({ ok: true });
+  });
+
+  api.post("/books/:id/visual-directives/assist", async (c) => {
+    const id = Number(c.req.param("id"));
+    if (!Number.isInteger(id)) return c.json(err("id non valido"), 400);
+    const book = await books.get(id);
+    if (!book) return c.json(err("Libro non trovato"), 404);
+    const body = await jsonBody(c);
+    const intent = typeof body.intent === "string" ? body.intent.trim() : "";
+    if (intent === "") return c.json(err("intent mancante"), 400);
+    const title =
+      typeof body.title === "string" && body.title.trim() !== "" ? body.title.trim() : undefined;
+    const draft = await generateVisualDirective(deps.engine, {
+      intent,
+      ...(title ? { title } : {}),
+      bookTitle: book.title,
+      language: book.language,
+    });
+    return c.json(draft);
+  });
+
   api.delete("/books/:id", async (c) => {
     const id = Number(c.req.param("id"));
     await books.delete(id);
@@ -1005,7 +1160,7 @@ export function buildApi(deps: AppDeps): Hono {
   // Associate / dissociate book <-> page.
   api.post("/books/:id/pages", async (c) => {
     const id = Number(c.req.param("id"));
-    const body = await c.req.json().catch(() => ({}));
+    const body = await jsonBody(c);
     const pageId = typeof body.pageId === "string" ? body.pageId : null;
     if (!pageId) return c.json(err("pageId mancante"), 400);
     const linked = body.linked === true;
@@ -1042,7 +1197,7 @@ export function buildApi(deps: AppDeps): Hono {
     if (!Number.isInteger(idx) || idx < 0) return c.json(err("idx non valido"), 400);
     const book = await books.get(id);
     if (!book) return c.json(err("Libro non trovato"), 404);
-    const body = await c.req.json().catch(() => ({}));
+    const body = await jsonBody(c);
     const excluded = body.excluded === true;
     const ok = await books.setChapterExcluded(id, idx, excluded);
     if (!ok) return c.json(err("Capitolo non trovato"), 404);
@@ -1063,7 +1218,7 @@ export function buildApi(deps: AppDeps): Hono {
     const id = Number(c.req.param("id"));
     const book = await books.get(id);
     if (!book) return c.json(err("Libro non trovato"), 404);
-    const body = await c.req.json().catch(() => ({}));
+    const body = await jsonBody(c);
     const name = typeof body.name === "string" ? body.name.trim() : "";
     if (name === "") return c.json(err("name mancante"), 400);
     const str = (v: unknown): string | null =>
@@ -1095,7 +1250,7 @@ export function buildApi(deps: AppDeps): Hono {
     const id = Number(c.req.param("id"));
     const existing = await characters.get(id);
     if (!existing) return c.json(err("Personaggio non trovato"), 404);
-    const body = await c.req.json().catch(() => ({}));
+    const body = await jsonBody(c);
     const str = (v: unknown): string | null =>
       typeof v === "string" && v.trim() !== "" ? v : null;
     const updated = {
@@ -1146,7 +1301,7 @@ export function buildApi(deps: AppDeps): Hono {
     const bookId = Number(c.req.param("id"));
     const book = await books.get(bookId);
     if (!book) return c.json(err("Libro non trovato"), 404);
-    const body = await c.req.json().catch(() => ({}));
+    const body = await jsonBody(c);
     const onlyWeak = body.onlyWeak === true;
     const updated = await stepAppearance(deps.engine, bookId, { onlyWeak });
     const fresh = await characters.byBook(bookId);
@@ -1198,7 +1353,7 @@ export function buildApi(deps: AppDeps): Hono {
     if (isVisualBibleRunning(id)) {
       return c.json(err("Costruzione bibbia visiva già in corso"), 409);
     }
-    const body = await c.req.json().catch(() => ({}));
+    const body = await jsonBody(c);
     const requested = Array.isArray(body.steps) ? (body.steps as unknown[]).map(String) : null;
     const stepKeys: VBStepKey[] = requested
       ? VB_STEP_ORDER.filter((k) => requested.includes(k))
@@ -1234,7 +1389,7 @@ export function buildApi(deps: AppDeps): Hono {
     const id = Number(c.req.param("id"));
     const book = await books.get(id);
     if (!book) return c.json(err("Libro non trovato"), 404);
-    const body = (await c.req.json().catch(() => ({}))) as { language?: string };
+    const body = (await jsonBody(c)) as { language?: string };
     const language = typeof body.language === "string" ? body.language : undefined;
     setJob(id, "analyzing");
     // Fire-and-forget: la richiesta HTTP non aspetta la fine dell'analisi.
@@ -1300,7 +1455,7 @@ export function buildApi(deps: AppDeps): Hono {
     if (!Number.isInteger(idx) || idx < 0) return c.json(err("idx non valido"), 400);
     const book = await books.get(id);
     if (!book) return c.json(err("Libro non trovato"), 404);
-    const body = await c.req.json().catch(() => ({}));
+    const body = await jsonBody(c);
     const str = (v: unknown): string | null => {
       if (v == null) return null;
       const s = String(v).trim();
@@ -1451,7 +1606,7 @@ export function buildApi(deps: AppDeps): Hono {
 
   api.post("/books/:id/links", async (c) => {
     const id = Number(c.req.param("id"));
-    const body = await c.req.json().catch(() => ({}));
+    const body = await jsonBody(c);
     if (typeof body.url !== "string" || body.url.trim() === "") {
       return c.json(err("url mancante"), 400);
     }
@@ -1471,7 +1626,7 @@ export function buildApi(deps: AppDeps): Hono {
     const linkId = Number(c.req.param("linkId"));
     const existing = await links.get(linkId);
     if (!existing) return c.json(err("Link non trovato"), 404);
-    const body = await c.req.json().catch(() => ({}));
+    const body = await jsonBody(c);
     if (typeof body.url === "string" && body.url.trim() !== "") existing.url = body.url.trim();
     if (typeof body.channel === "string" && body.channel.trim() !== "")
       existing.channel = body.channel.trim();
@@ -1565,7 +1720,7 @@ export function buildApi(deps: AppDeps): Hono {
         503,
       );
     }
-    const body = await c.req.json().catch(() => ({}));
+    const body = await jsonBody(c);
     const count = Math.max(1, Math.min(20, Math.floor(Number(body.count)) || 1));
     const aspect: SceneAspect = isSceneAspect(body.aspect) ? body.aspect : "1:1";
     // Capitoli scelti (MULTISELECT): array di indici >= 0. `count` è PER CAPITOLO quando ne scegli.
@@ -1782,7 +1937,7 @@ export function buildApi(deps: AppDeps): Hono {
     return c.json({ mode: v, available: deps.sceneImages.available() });
   });
   api.put("/settings/ai-image-mode", async (c) => {
-    const body = await c.req.json().catch(() => ({}));
+    const body = await jsonBody(c);
     const mode = body.mode === "direct" ? "direct" : "library";
     await settings.set("ai_image_mode", mode);
     return c.json({ mode });
@@ -1795,7 +1950,7 @@ export function buildApi(deps: AppDeps): Hono {
     return c.json({ enabled });
   });
   api.put("/settings/qa-check", async (c) => {
-    const body = await c.req.json().catch(() => ({}));
+    const body = await jsonBody(c);
     const enabled = body.enabled !== false;
     await settings.set("qa_enabled", enabled ? "on" : "off");
     return c.json({ enabled });
@@ -1808,7 +1963,7 @@ export function buildApi(deps: AppDeps): Hono {
     return c.json(aiSettings.effectiveView());
   });
   api.put("/settings/ai", async (c) => {
-    const body = await c.req.json().catch(() => ({}));
+    const body = await jsonBody(c);
     const TEXT_PROVIDERS = new Set(["opencode", "codex", "claude", "agy", "ollama", "none"]);
     const IMAGE_PROVIDERS = new Set([
       "local",
@@ -1843,7 +1998,7 @@ export function buildApi(deps: AppDeps): Hono {
   // - ollama: HTTP listTextModels
   // - codex/claude/openai/google/stability/bfl/replicate/fal: default-codice ∪ DB
   api.post("/settings/ai/models", async (c) => {
-    const body = await c.req.json().catch(() => ({}));
+    const body = await jsonBody(c);
     const provider = typeof body.provider === "string" ? body.provider.trim() : "";
     if (provider === "") return c.json({ models: [], error: "provider mancante" });
 
@@ -1934,7 +2089,7 @@ export function buildApi(deps: AppDeps): Hono {
   // POST /settings/ai/models/add — aggiunge un modello alla lista DB del provider.
   // Body: { provider, model }. HTTP 200: { models }.
   api.post("/settings/ai/models/add", async (c) => {
-    const body = await c.req.json().catch(() => ({}));
+    const body = await jsonBody(c);
     const provider = typeof body.provider === "string" ? body.provider.trim() : "";
     const model = typeof body.model === "string" ? body.model.trim() : "";
     if (provider === "" || model === "") {
@@ -1947,7 +2102,7 @@ export function buildApi(deps: AppDeps): Hono {
   // POST /settings/ai/models/remove — rimuove un modello dalla lista DB del provider.
   // Body: { provider, model }. HTTP 200: { models }.
   api.post("/settings/ai/models/remove", async (c) => {
-    const body = await c.req.json().catch(() => ({}));
+    const body = await jsonBody(c);
     const provider = typeof body.provider === "string" ? body.provider.trim() : "";
     const model = typeof body.model === "string" ? body.model.trim() : "";
     if (provider === "" || model === "") {
@@ -2031,7 +2186,7 @@ export function buildApi(deps: AppDeps): Hono {
   // - agy/claude → primo avvio interattivo che lancia l'OAuth; se non pilotabile l'utente completa a mano.
   // - opencode → `opencode auth login` è un picker TUI: ritorna started:false + hint (non pilotabile).
   api.post("/settings/ai/cli-login", async (c) => {
-    const body = await c.req.json().catch(() => ({}));
+    const body = await jsonBody(c);
     const tool = typeof body.tool === "string" ? body.tool : "";
     if (tool !== "opencode" && tool !== "codex" && tool !== "claude" && tool !== "agy") {
       return c.json(err("tool non valido"), 400);
@@ -2262,7 +2417,7 @@ export function buildApi(deps: AppDeps): Hono {
   api.post("/media/regenerate-batch", async (c) => {
     if (!deps.sceneImages.available())
       return c.json(err("Generazione immagini non disponibile."), 503);
-    const body = await c.req.json().catch(() => ({}));
+    const body = await jsonBody(c);
     const rawIds: unknown[] = Array.isArray(body.mediaIds) ? body.mediaIds : [];
     const ids = [
       ...new Set(
@@ -2313,7 +2468,7 @@ export function buildApi(deps: AppDeps): Hono {
       return c.json(err("Generazione immagini non disponibile."), 503);
     if (isMediaRegenerating(id))
       return c.json(err("Rigenerazione già in corso o accodata per questa immagine"), 409);
-    const body = await c.req.json().catch(() => ({}));
+    const body = await jsonBody(c);
     const edited =
       typeof body.prompt === "string" && body.prompt.trim() !== "" ? body.prompt.trim() : undefined;
     const changes =
@@ -2400,7 +2555,7 @@ export function buildApi(deps: AppDeps): Hono {
     const id = Number(c.req.param("id"));
     const m = await media.get(id);
     if (!m) return c.json(err("Immagine non trovata"), 404);
-    const body = await c.req.json().catch(() => ({}));
+    const body = await jsonBody(c);
 
     // tags: se presente dev'essere un array; normalizza (trim, scarta vuoti/lunghi, dedup case-insensitive, max 20).
     let tags = m.tags;
@@ -2441,7 +2596,7 @@ export function buildApi(deps: AppDeps): Hono {
 
   api.post("/pages/:id/slots", async (c) => {
     const pageId = c.req.param("id");
-    const body = await c.req.json().catch(() => ({}));
+    const body = await jsonBody(c);
     // Il frontend invia dayOfWeek come enum 'MON'..'SUN'; supporta anche int 1..7.
     const dayOfWeek =
       typeof body.dayOfWeek === "string" && /[A-Za-z]/.test(body.dayOfWeek)
@@ -2519,7 +2674,7 @@ export function buildApi(deps: AppDeps): Hono {
   api.put("/pages/:id/weekly-plan", async (c) => {
     const pageId = c.req.param("id");
     if (!(await pages.find(pageId))) return c.json(err("Pagina non trovata"), 404);
-    const body = await c.req.json().catch(() => ({}));
+    const body = await jsonBody(c);
     const clamp = (v: unknown): number => {
       const n = Math.floor(Number(v));
       return Number.isFinite(n) && n >= 0 ? Math.min(n, 100) : 0;
@@ -2543,7 +2698,7 @@ export function buildApi(deps: AppDeps): Hono {
   // la richiesta ritorna subito, le bozze compaiono progressivamente (il frontend fa polling
   // della lista + di /pages/:id/weekgen per avanzamento e motivo finale). Una per pagina.
   api.post("/planner/generate-week", async (c) => {
-    const body = await c.req.json().catch(() => ({}));
+    const body = await jsonBody(c);
     const pageId = typeof body.pageId === "string" ? body.pageId : null;
     const bookId = Number(body.bookId);
     if (!pageId) return c.json(err("pageId mancante"), 400);
@@ -2756,7 +2911,7 @@ export function buildApi(deps: AppDeps): Hono {
 
   // Generate a draft post (shows base + specific + final hashtags).
   api.post("/posts/generate", async (c) => {
-    const body = await c.req.json().catch(() => ({}));
+    const body = await jsonBody(c);
     const bookId = Number(body.bookId);
     if (!Number.isInteger(bookId)) return c.json(err("bookId mancante o non valido"), 400);
     if (typeof body.angle !== "string" || body.angle.trim() === "") {
@@ -2791,7 +2946,7 @@ export function buildApi(deps: AppDeps): Hono {
     if (!isEditable(post.status)) {
       return c.json(err(`Bozza non modificabile (stato ${post.status})`), 409);
     }
-    const body = await c.req.json().catch(() => ({}));
+    const body = await jsonBody(c);
     if (typeof body.message === "string" && body.message.trim() !== "") {
       post.message = body.message;
     }
@@ -2899,7 +3054,7 @@ export function buildApi(deps: AppDeps): Hono {
     if (!isEditable(post.status)) {
       return c.json(err(`Bozza non modificabile (stato ${post.status})`), 409);
     }
-    const body = await c.req.json().catch(() => ({}));
+    const body = await jsonBody(c);
     const angle = typeof body.angle === "string" ? body.angle : undefined;
     let regenerated: { message: string; hashtags: string };
     try {
@@ -2964,7 +3119,7 @@ export function buildApi(deps: AppDeps): Hono {
     const id = Number(c.req.param("id"));
     const post = await posts.get(id);
     if (!post) return c.json(err("Bozza non trovata"), 404);
-    const body = await c.req.json().catch(() => ({}));
+    const body = await jsonBody(c);
     if (!isVisualKind(body.kind)) {
       return c.json(err("kind non valido (quote_card|reel_text|storyboard)"), 400);
     }
@@ -3154,7 +3309,7 @@ export function buildApi(deps: AppDeps): Hono {
     if (post.status !== "DRAFT" && post.status !== "SCHEDULED") {
       return c.json(err(`Bozza non pubblicabile (stato ${post.status})`), 409);
     }
-    const body = await c.req.json().catch(() => ({}));
+    const body = await jsonBody(c);
 
     // PROGRAMMA: scheduledAt (epoch ms) ben nel futuro → la pubblica lo scheduler interno.
     const sched =
@@ -3479,7 +3634,7 @@ export function buildApi(deps: AppDeps): Hono {
     const postId = c.req.param("postId");
     const r = await resolvePageToken(pageId);
     if (r.fail) return c.json(r.fail.body, r.fail.status);
-    const body = await c.req.json().catch(() => ({}));
+    const body = await jsonBody(c);
     if (typeof body.message !== "string" || body.message.trim() === "") {
       return c.json({ ok: false, error: "message mancante" }, 400);
     }
@@ -3515,7 +3670,7 @@ export function buildApi(deps: AppDeps): Hono {
     const postId = c.req.param("postId");
     const r = await resolvePageToken(pageId);
     if (r.fail) return c.json(r.fail.body, r.fail.status);
-    const body = await c.req.json().catch(() => ({}));
+    const body = await jsonBody(c);
     if (typeof body.pinned !== "boolean") {
       return c.json({ ok: false, error: "pinned (boolean) mancante" }, 400);
     }
@@ -3536,7 +3691,7 @@ export function buildApi(deps: AppDeps): Hono {
     const pageId = c.req.param("id");
     const r = await resolvePageToken(pageId);
     if (r.fail) return c.json(r.fail.body, r.fail.status);
-    const body = await c.req.json().catch(() => ({}));
+    const body = await jsonBody(c);
     if (typeof body.message !== "string" || body.message.trim() === "") {
       return c.json({ ok: false, error: "message mancante" }, 400);
     }
@@ -3586,7 +3741,7 @@ export function buildApi(deps: AppDeps): Hono {
     const commentId = c.req.param("commentId");
     const r = await resolvePageToken(pageId);
     if (r.fail) return c.json(r.fail.body, r.fail.status);
-    const body = await c.req.json().catch(() => ({}));
+    const body = await jsonBody(c);
     if (typeof body.message !== "string" || body.message.trim() === "") {
       return c.json({ ok: false, error: "message mancante" }, 400);
     }
@@ -3606,7 +3761,7 @@ export function buildApi(deps: AppDeps): Hono {
     const commentId = c.req.param("commentId");
     const r = await resolvePageToken(pageId);
     if (r.fail) return c.json(r.fail.body, r.fail.status);
-    const body = await c.req.json().catch(() => ({}));
+    const body = await jsonBody(c);
     if (typeof body.hidden !== "boolean") {
       return c.json({ ok: false, error: "hidden (boolean) mancante" }, 400);
     }
@@ -3642,7 +3797,7 @@ export function buildApi(deps: AppDeps): Hono {
     const commentId = c.req.param("commentId");
     const r = await resolvePageToken(pageId);
     if (r.fail) return c.json(r.fail.body, r.fail.status);
-    const body = await c.req.json().catch(() => ({}));
+    const body = await jsonBody(c);
     if (typeof body.like !== "boolean") {
       return c.json({ ok: false, error: "like (boolean) mancante" }, 400);
     }
@@ -3731,7 +3886,7 @@ export function buildApi(deps: AppDeps): Hono {
     const commentId = c.req.param("commentId");
     const r = await resolveIgContext(pageId);
     if (r.fail) return c.json(r.fail.body, r.fail.status);
-    const body = await c.req.json().catch(() => ({}));
+    const body = await jsonBody(c);
     if (typeof body.message !== "string" || body.message.trim() === "") {
       return c.json({ ok: false, error: "message mancante" }, 400);
     }
@@ -3751,7 +3906,7 @@ export function buildApi(deps: AppDeps): Hono {
     const commentId = c.req.param("commentId");
     const r = await resolveIgContext(pageId);
     if (r.fail) return c.json(r.fail.body, r.fail.status);
-    const body = await c.req.json().catch(() => ({}));
+    const body = await jsonBody(c);
     if (typeof body.hidden !== "boolean") {
       return c.json({ ok: false, error: "hidden (boolean) mancante" }, 400);
     }
@@ -3812,7 +3967,7 @@ export function buildApi(deps: AppDeps): Hono {
     if (pageToken == null) {
       return c.json({ ok: false, error: "Token di pagina non trovato nel keyring" }, 503);
     }
-    const body = await c.req.json().catch(() => ({}));
+    const body = await jsonBody(c);
     const patch: PageSettingsPatch = {};
     if (typeof body.about === "string") patch.about = body.about;
     if (typeof body.description === "string") patch.description = body.description;

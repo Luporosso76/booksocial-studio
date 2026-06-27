@@ -1,6 +1,7 @@
 import type { ContentEngine } from "./engine.js";
 import { ContentError } from "./engine.js";
 import { parseModelJson } from "./modelJson.js";
+import { languageName } from "./language.js";
 import type { MinorCharacter } from "../domain.js";
 
 // Estrae i PERSONAGGI MINORI/incidentali di un capitolo: figure secondarie (spesso senza nome) che
@@ -29,6 +30,7 @@ export async function extractMinorsForChapter(
   if (text === "") return [];
   const cast = input.knownCast.length > 0 ? input.knownCast.join(", ") : "(none known)";
   const sceneKeywords = (input.sceneKeywords ?? "").trim() || "(not available)";
+  const language = languageName(input.language);
 
   const prompt = `You are an assistant that prepares VISUAL CARDS for generating consistent illustrations. From
 the following chapter, identify the INCIDENTAL/MINOR figures that MATTER visually and are NOT in the
@@ -40,7 +42,7 @@ consistent every time that scene recurs.
 Reply EXCLUSIVELY with a valid JSON object, no text before or after:
 {
   "minors": [
-    { "label": "role+brief context (e.g. 'Roberto's companion (bar scene)')", "when": "2-5 keywords in ${input.language} matching the scene of THIS chapter", "appearance": "FIXED specific physical appearance: age, build, hair color+style, face, skin tone", "outfit": "clothing appropriate to the context, or "" " }
+    { "label": "role+brief context (e.g. 'the protagonist's companion (bar scene)')", "when": "2-5 keywords in ${language} matching the scene of THIS chapter", "appearance": "FIXED specific physical appearance: age, build, hair color+style, face, skin tone", "outfit": "clothing appropriate to the context, or "" " }
   ]
 }
 
@@ -50,10 +52,11 @@ RULES:
   waiters, or extras with no role) — that is handled elsewhere with a variety rule.
 - "appearance": INVENT a plausible, specific and VARIED one (age, build, hair color+style, face, skin
   tone) — it must remain IDENTICAL across images.
-- "when": a few KEYWORDS (in ${input.language}) that will match the chapter card
+- "when": a few KEYWORDS (in ${language}) that will match the chapter card
   (location/setting/objects); you may REUSE the scene keywords provided below.
 - "outfit": clothing appropriate to the context, or "" if not relevant.
-- Write label/when/appearance/outfit in ${input.language}. Concrete and visual, no plot details.
+- LANGUAGE: write label/when/appearance/outfit in ${language}. Even though these instructions are in English,
+  those values MUST be in ${language}. Concrete and visual, no plot details.
 
 KNOWN CAST (EXCLUDE): ${cast}
 SCENE KEYWORDS (reusable for "when"): ${sceneKeywords}

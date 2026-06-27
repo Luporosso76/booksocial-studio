@@ -1,6 +1,7 @@
 import type { ContentEngine } from "./engine.js";
 import { ContentError } from "./engine.js";
 import { parseModelJson } from "./modelJson.js";
+import { languageName } from "./language.js";
 import type { BookVisualProps, DrivingSide } from "../domain.js";
 
 // Genera il CANONE degli OGGETTI/VEICOLI ricorrenti del libro (aspetto fisso da rendere sempre uguale,
@@ -26,6 +27,7 @@ export async function generateVisualProps(
   const objects =
     input.objects.length > 0 ? input.objects.slice(0, 60).join("; ") : "(not available)";
   const cast = input.characters.length > 0 ? input.characters.join(", ") : "(none)";
+  const language = languageName(input.language);
 
   const prompt = `Define the VISUAL CANON of the recurring OBJECTS in a book and the WORLD FACTS, for
 CONSISTENT illustrations: important objects must always be rendered the same way.
@@ -35,7 +37,7 @@ Reply EXCLUSIVELY with a valid JSON object, no text before or after:
   "country": "main country of the setting (or "" if unclear)",
   "driving_side": "right" or "left" (driving side for that country; "" if not determinable)",
   "props": [
-    { "name": "short label for the object (e.g. 'Roberto's car')", "when": "2-5 context keywords where it appears, comma-separated, in ${input.language}", "description": "FIXED CANONICAL concrete appearance to always render the same way", "owner": "name of the character who owns it, or "" " }
+    { "name": "short label for the object (e.g. 'the protagonist's car')", "when": "2-5 context keywords where it appears, comma-separated, in ${language}", "description": "FIXED CANONICAL concrete appearance to always render the same way", "owner": "name of the character who owns it, or "" " }
   ]
 }
 
@@ -45,12 +47,13 @@ RULES:
   object that recurs). For vehicles, state make+model+color if deducible from the text, otherwise
   choose a plausible model and FIX it. Do NOT include generic scenery (tables, chairs), nor the
   symbolic "red door" (handled elsewhere).
-- "when": a few KEYWORDS (in ${input.language}) that will match the chapter card text
+- "when": a few KEYWORDS (in ${language}) that will match the chapter card text
   (location/setting/objects), e.g. "car, road, driving".
 - "owner": the character the object belongs to (choose from the CAST), if applicable; otherwise "".
 - "driving_side": deduce from the country (most countries drive on the right; UK/Ireland/Japan/
   Australia etc. on the left). If the setting is ambiguous, use "".
-- Write name/description/when in ${input.language}. Concrete and visual, no plot details.
+- LANGUAGE: write name/description/when in ${language}. Even though these instructions are in English, those
+  values MUST be in ${language}. Concrete and visual, no plot details.
 
 BOOK: ${input.bookTitle?.trim() || "(untitled)"}
 CAST: ${cast}

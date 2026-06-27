@@ -20,28 +20,40 @@ function nameVariants(name: string): string[] {
   return [...set].sort((a, b) => b.length - a.length);
 }
 
-// Frasi del libro che parlano del personaggio. `chapters` può essere ristretto ai capitoli dove il
-// personaggio compare (mappa NLP) per pertinenza; se vuoto, scandisce tutto. maxChars limita il
-// totale. Le frasi troppo corte/lunghe sono scartate. L'ordine segue i capitoli (narrativo).
+export function nameAppearsInText(name: string, text: string): boolean {
+  const variants = nameVariants(name);
+  if (variants.length === 0) return false;
+  const re = new RegExp(`(^|[^\\p{L}])(${variants.map(escapeRegExp).join("|")})([^\\p{L}]|$)`, "iu");
+  return re.test(text || "");
+}
+
+const WINDOW_BEFORE = 2;
+const WINDOW_AFTER = 4;
+
 export function collectCharacterPassages(
   chapters: { text: string }[],
   name: string,
-  maxChars = 2800,
+  maxChars = 6500,
 ): string {
   const variants = nameVariants(name);
   if (variants.length === 0) return "";
-  const re = new RegExp(
-    `(^|[^\\p{L}])(${variants.map(escapeRegExp).join("|")})([^\\p{L}]|$)`,
-    "iu",
-  );
+  const re = new RegExp(`(^|[^\\p{L}])(${variants.map(escapeRegExp).join("|")})([^\\p{L}]|$)`, "iu");
   const out: string[] = [];
   let total = 0;
   for (const ch of chapters) {
-    const sentences = (ch.text || "").split(/(?<=[.!?…»"])\s+/);
-    for (const s of sentences) {
-      const t = s.trim();
-      if (t.length < 15 || t.length > 400) continue;
+    const sentences = (ch.text || "").split(/(?<=[.!?…»"”’')\]])\s+/).map((s) => s.trim());
+    const keep = new Set<number>();
+    for (let i = 0; i < sentences.length; i++) {
+      const t = sentences[i];
+      if (t.length === 0) continue;
       if (!re.test(t)) continue;
+      for (let j = i - WINDOW_BEFORE; j <= i + WINDOW_AFTER; j++) {
+        if (j >= 0 && j < sentences.length) keep.add(j);
+      }
+    }
+    for (const idx of [...keep].sort((a, b) => a - b)) {
+      const t = sentences[idx];
+      if (t.length === 0 || t.length > 400) continue;
       out.push(t);
       total += t.length + 1;
       if (total >= maxChars) return out.join(" ");

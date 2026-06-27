@@ -8,7 +8,7 @@
 // nessuna duplicazione). Il callback `onItem` permette al chiamante (orchestratore) di avanzare i
 // contatori del job; gli endpoint sincroni lo omettono.
 
-import { books, characters } from "../db/repositories.js";
+import { books, characters, visualDirectives } from "../db/repositories.js";
 import type { ContentEngine } from "../content/engine.js";
 import type { ChapterSceneService } from "./chapterSceneService.js";
 import { generateAppearance } from "../content/characterAppearance.js";
@@ -48,7 +48,7 @@ export async function stepAppearance(
 ): Promise<string[]> {
   const book = await books.get(bookId);
   if (!book) return [];
-  const lang = book.language || "italiano";
+  const lang = book.language;
   const country = book.visualProps?.country ?? null;
   const chapters = await books.chapters(bookId);
   const cast = await characters.byBook(bookId);
@@ -63,9 +63,7 @@ export async function stepAppearance(
       hooks.onItem?.();
       continue;
     }
-    const relevant =
-      ch.chapters.length > 0 ? chapters.filter((c) => ch.chapters.includes(c.index)) : chapters;
-    const sourceText = collectCharacterPassages(relevant, ch.name);
+    const sourceText = collectCharacterPassages(chapters, ch.name);
     const res = await generateAppearance(engine, {
       name: ch.name,
       role: ch.role,
@@ -103,7 +101,7 @@ export async function stepOutfits(
 ): Promise<string[]> {
   const book = await books.get(bookId);
   if (!book) return [];
-  const lang = book.language || "italiano";
+  const lang = book.language;
   const country = book.visualProps?.country ?? null;
   const chapters = await books.chapters(bookId);
   const settingSet = new Set<string>();
@@ -118,13 +116,16 @@ export async function stepOutfits(
     }
   }
   const settings = [...settingSet];
+  const alwaysOn = (await visualDirectives.byBook(bookId))
+    .filter((d) => d.enabled && d.triggers.length === 0)
+    .map((d) => (d.body ?? "").trim())
+    .filter((s) => s !== "");
+  const directives = alwaysOn.length > 0 ? alwaysOn.join("\n") : null;
   const cast = await characters.byBook(bookId);
   hooks.onTotal?.(cast.length);
   const updated: string[] = [];
   for (const ch of cast) {
-    const relevant =
-      ch.chapters.length > 0 ? chapters.filter((c) => ch.chapters.includes(c.index)) : chapters;
-    const sourceText = collectCharacterPassages(relevant, ch.name);
+    const sourceText = collectCharacterPassages(chapters, ch.name);
     const outfits = await generateOutfits(engine, {
       name: ch.name,
       role: ch.role,
@@ -136,7 +137,7 @@ export async function stepOutfits(
       settings,
       sourceText,
       country,
-      directives: book.visualDirectives ?? null,
+      directives,
     });
     if (outfits) {
       await characters.update({ ...ch, outfits, updatedAt: Date.now() });
@@ -174,7 +175,7 @@ export async function stepProps(
   const cast = await characters.byBook(bookId);
   const props = await generateVisualProps(engine, {
     bookTitle: book.title,
-    language: book.language || "italiano",
+    language: book.language,
     settings: [...settingSet],
     objects: [...objectSet],
     characters: cast.map((ch) => ch.name),
@@ -205,7 +206,7 @@ export async function stepMinors(
     const extracted = await extractMinorsForChapter(engine, {
       chapterText: ch.text,
       chapterTitle: ch.title,
-      language: book.language || "italiano",
+      language: book.language,
       knownCast,
       sceneKeywords,
     });

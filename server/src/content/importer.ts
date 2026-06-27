@@ -49,13 +49,16 @@ export function readBook(
   if (content.trim() === "") {
     throw new ContentError("Il file libro e' vuoto");
   }
+  if (language == null || language.trim() === "") {
+    throw new ContentError("Book language is required: select it during import");
+  }
   const hash = sha256(content);
   const chapters = splitChapters(content);
   const title = detectTitle(content) ?? (titleFromFileName(defaultTitle) || defaultTitle);
   return {
     title,
     author,
-    language: language ?? "it",
+    language: language.trim(),
     contentHash: hash,
     charCount: content.length,
     chapters,

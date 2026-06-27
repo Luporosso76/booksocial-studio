@@ -356,6 +356,26 @@ const MIGRATIONS: Migration[] = [
       `CREATE INDEX IF NOT EXISTS ix_session_expires ON app_session(expires_at)`,
     ],
   },
+  {
+    version: 9,
+    statements: [
+      `CREATE TABLE IF NOT EXISTS visual_directive (
+         id         INTEGER PRIMARY KEY AUTOINCREMENT,
+         book_id    INTEGER NOT NULL,
+         title      TEXT    NOT NULL,
+         triggers   TEXT    NULL,
+         intent     TEXT    NULL,
+         body       TEXT    NULL,
+         body_en    TEXT    NULL,
+         enabled    INTEGER NOT NULL DEFAULT 1,
+         sort_order INTEGER NOT NULL DEFAULT 0,
+         created_at INTEGER NOT NULL,
+         updated_at INTEGER NOT NULL,
+         FOREIGN KEY (book_id) REFERENCES book(id) ON DELETE CASCADE
+       )`,
+      `CREATE INDEX IF NOT EXISTS ix_visual_directive_book ON visual_directive(book_id)`,
+    ],
+  },
 ];
 
 async function currentVersion(): Promise<number> {

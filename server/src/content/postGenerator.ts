@@ -1,6 +1,7 @@
 import type { ContentEngine } from "./engine.js";
 import { ContentError } from "./engine.js";
 import { parseModelJson } from "./modelJson.js";
+import { languageName } from "./language.js";
 import type { BookProfile, ChapterMarketingCardData, MediaType } from "../domain.js";
 import { MEDIA_TYPES } from "../domain.js";
 
@@ -59,15 +60,26 @@ export async function generatePost(
   // senza dettaglio reale dal capitolo, da "quarta di copertina" o con rischio spoiler. Se bocciato,
   // UNA rigenerazione mirata (con il motivo del rifiuto) e si tiene il migliore. Best-effort: se il
   // giudice non risponde, si tiene il post così com'è (non blocca mai la generazione).
-  const verdict = await judgePost(engine, first.message, req).catch(() => null);
+  const verdict = await judgePost(engine, first.message, req).catch((e) => {
+    console.error("[postGenerator] quality judge failed on first attempt (keeping post as-is)", e);
+    return null;
+  });
   if (!verdict || !verdict.needsRegeneration) return first;
-  const retry = await generateOnce(engine, req, verdict).catch(() => null);
+  const retry = await generateOnce(engine, req, verdict).catch((e) => {
+    console.error("[postGenerator] targeted regeneration failed (keeping first post)", e);
+    return null;
+  });
   if (!retry) return first;
-  const v2 = await judgePost(engine, retry.message, req).catch(() => null);
-  // Tieni il retry se NON va più rigenerato o se è almeno meno generico del primo.
-  const retryBetter =
-    !v2 || !v2.needsRegeneration || v2.genericnessScore <= verdict.genericnessScore;
-  return retryBetter ? retry : first;
+  const v2 = await judgePost(engine, retry.message, req).catch((e) => {
+    console.error("[postGenerator] quality judge failed on retry (keeping targeted correction)", e);
+    return null;
+  });
+  if (!v2) return retry;
+  const firstHigh = verdict.spoilerRisk === "high";
+  const retryHigh = v2.spoilerRisk === "high";
+  if (firstHigh !== retryHigh) return retryHigh ? first : retry;
+  if (!v2.needsRegeneration) return retry;
+  return v2.genericnessScore <= verdict.genericnessScore ? retry : first;
 }
 
 // Una singola generazione (idea → post → umanizzazione). `regenHint` (opzionale) = verdetto del
@@ -94,7 +106,10 @@ async function generateOnce(
   // SECONDO PASSO — UMANIZZAZIONE (anti-AI): riscrive il testo per togliere i segni residui da
   // "macchina" (vocabolario IA, em-dash, regola del tre, parallelismi negativi, chiuse moraleggianti,
   // passivo, filler). Best-effort: se fallisce o torna fuori scala, tiene l'originale.
-  const message = await humanizeMessage(engine, rawMessage, req.language).catch(() => rawMessage);
+  const message = await humanizeMessage(engine, rawMessage, req.language).catch((e) => {
+    console.error("[postGenerator] humanization failed (keeping original text)", e);
+    return rawMessage;
+  });
   return {
     message,
     hashtags: specific, // final = specific until ContentService adds the base
@@ -109,6 +124,7 @@ async function generateOnce(
 interface PostVerdict {
   genericnessScore: number; // 0 = unico per questo libro, 10 = va bene per qualunque libro
   usesRealChapterDetail: boolean;
+  hasSpecificImage: boolean;
   soundsLikeBackCover: boolean;
   spoilerRisk: "low" | "medium" | "high";
   needsRegeneration: boolean;
@@ -123,7 +139,7 @@ async function judgePost(
   message: string,
   req: GenerateRequest,
 ): Promise<PostVerdict> {
-  const lang = req.language || "Italian";
+  const lang = languageName(req.language);
   const hasChapter =
     !!req.chapterExcerpt &&
     req.chapterExcerpt.trim() !== "" &&
@@ -164,6 +180,7 @@ ${message}`;
   const bool = (v: unknown): boolean => v === true || v === "true";
   const genericnessScore = num(j["genericness_score"]);
   const usesRealChapterDetail = bool(j["uses_real_chapter_detail"]);
+  const hasSpecificImage = bool(j["has_specific_image"]);
   const soundsLikeBackCover = bool(j["sounds_like_back_cover"]);
   const risk = String(j["spoiler_risk"] ?? "low").toLowerCase();
   const spoilerRisk: PostVerdict["spoilerRisk"] =
@@ -173,11 +190,13 @@ ${message}`;
     bool(j["needs_regeneration"]) ||
     genericnessScore >= 7 ||
     !usesRealChapterDetail ||
+    !hasSpecificImage ||
     soundsLikeBackCover ||
     spoilerRisk === "high";
   return {
     genericnessScore,
     usesRealChapterDetail,
+    hasSpecificImage,
     soundsLikeBackCover,
     spoilerRisk,
     needsRegeneration,
@@ -195,7 +214,7 @@ async function humanizeMessage(
 ): Promise<string> {
   const original = (message ?? "").trim();
   if (original === "") return message;
-  const lang = language || "Italian";
+  const lang = languageName(language);
   const prompt = `Rewrite the text below so it sounds written by a REAL PERSON, not by an AI. It is a social post about a book.
 
 HARD RULES:
@@ -225,8 +244,9 @@ ${original}`;
   let out: string;
   try {
     out = (await engine.run(prompt)) ?? "";
-  } catch {
-    return message; // motore non disponibile: tieni l'originale
+  } catch (e) {
+    console.error("[postGenerator] engine unavailable during humanization (keeping original)", e);
+    return message;
   }
   // Ripulisci eventuali recinti di codice / virgolette esterne aggiunte dal modello.
   let cleaned = out.trim();
@@ -245,7 +265,25 @@ ${original}`;
   if (cleaned.length < original.length * 0.4 || cleaned.length > original.length * 2.5) {
     return message;
   }
+  if (!guillemetsPreserved(original, cleaned)) return message;
   return cleaned;
+}
+
+function extractGuillemets(text: string): string[] {
+  const matches: string[] = [];
+  const re = /«([^»]*)»/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text)) !== null) {
+    matches.push(m[1]!.trim());
+  }
+  return matches.sort();
+}
+
+function guillemetsPreserved(original: string, rewritten: string): boolean {
+  const orig = extractGuillemets(original);
+  const rewr = extractGuillemets(rewritten);
+  if (orig.length !== rewr.length) return false;
+  return orig.every((q, i) => q === rewr[i]);
 }
 
 function buildPrompt(req: GenerateRequest, regenHint?: PostVerdict): string {
@@ -296,7 +334,7 @@ function buildChapterPrompt(req: GenerateRequest): string {
   const p = req.profile;
   const recent =
     req.recentMessages.length === 0 ? "(no previous posts)" : req.recentMessages.join("\n---\n");
-  const language = req.language || "italiano";
+  const language = languageName(req.language);
   const characters = renderCharacters(req.characters);
 
   return `You are a passionate reader who runs the Facebook page "${req.pageName}" and talks about the book to other readers. Write like a real person, NOT like a marketing agency.
@@ -359,7 +397,7 @@ function buildSchedaPrompt(req: GenerateRequest): string {
     req.recentMessages.length === 0 ? "(no previous posts)" : req.recentMessages.join("\n---\n");
   const excerpt =
     !req.chapterExcerpt || req.chapterExcerpt.trim() === "" ? "(non fornito)" : req.chapterExcerpt;
-  const language = req.language || "italiano";
+  const language = languageName(req.language);
   const characters = renderCharacters(req.characters);
 
   return `You are a passionate reader who runs the Facebook page "${req.pageName}" and talks about the book below to other readers. Write like a real person, NOT like a marketing agency.
@@ -474,6 +512,21 @@ function marketingCardBlock(
   const quotes = card.safeQuotes.filter((q) => q.spoilerRisk !== "high" && q.quote.trim() !== "");
   if (quotes.length > 0) {
     lines.push(`Safe quotes you may use: ${quotes.map((q) => `«${q.quote}»`).join(" ")}`);
+  }
+  const focus = (card.characterFocus || []).filter((c) => c.name.trim() !== "");
+  if (focus.length > 0) {
+    lines.push("CHARACTERS IN FOCUS (use for human tension, NEVER as spoiler):");
+    for (const c of focus) {
+      const parts = [
+        c.stateInChapter && `state: ${c.stateInChapter}`,
+        c.desire && `desire: ${c.desire}`,
+        c.fear && `fear: ${c.fear}`,
+        c.changeWithoutSpoiler && `change (no spoiler): ${c.changeWithoutSpoiler}`,
+      ]
+        .map((x) => (typeof x === "string" ? x.trim() : x))
+        .filter(Boolean);
+      lines.push(parts.length ? `- ${c.name} — ${parts.join("; ")}` : `- ${c.name}`);
+    }
   }
   if (chosen && chosen.hook.trim() !== "") {
     lines.push(

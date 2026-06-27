@@ -495,7 +495,8 @@ export class ContentService {
         "La scheda del libro non è aggiornata rispetto al contenuto importato. Esegui prima l'analisi del libro.",
       );
     }
-    const language = book?.language ?? "it";
+    if (!book) throw new ContentError("Libro non trovato");
+    const language = book.language;
     const avoid = new Set(opts?.avoidChapterIndexes ?? []);
     const excerpt = await this.safeChapterExcerpt(bookId, avoid);
     const characterBriefs = await this.characterBriefs(bookId);
@@ -591,7 +592,8 @@ export class ContentService {
         "La scheda del libro non è aggiornata rispetto al contenuto importato. Esegui prima l'analisi del libro.",
       );
     }
-    const language = book?.language ?? "it";
+    if (!book) throw new ContentError("Libro non trovato");
+    const language = book.language;
     const excerpt = await this.safeChapterExcerpt(post.bookId);
     const characterBriefs = await this.characterBriefs(post.bookId);
     const marketing = await this.marketingFor(

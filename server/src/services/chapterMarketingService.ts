@@ -54,10 +54,11 @@ export class ChapterMarketingService {
     ]);
     const chapter = chapters.find((c) => c.index === chapterIndex);
     if (!chapter || !chapter.text || chapter.text.trim() === "") return null;
+    if (!book) return null;
     const data = await extractMarketingCard(this.deps.engine, {
       chapterText: chapter.text,
       chapterTitle: chapter.title,
-      language: book?.language ?? "italiano",
+      language: book.language,
       knownCharacters: cast.map((c) => c.name),
       keyMoment: chapter.scene?.keyMoment ?? null,
       spoilerPolicy: profile?.analysisJson ?? null,

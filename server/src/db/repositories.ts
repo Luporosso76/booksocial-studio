@@ -17,6 +17,7 @@ import {
   type DrivingSide,
   type MinorCharacter,
   type BookVisualExtras,
+  type VisualDirective,
   type BookLink,
   type BookProfile,
   type ChapterMarketingCard,
@@ -149,6 +150,7 @@ function parseChapterScene(raw: unknown): ChapterScene | null {
     mainObjects: strArr(o.mainObjects),
     secondaryObjects: strArr(o.secondaryObjects),
     characters: strArr(o.characters),
+    pov: str(o.pov),
     // Schede senza physicsRules → [].
     physicsRules: strArr(o.physicsRules),
     // Schede vecchie senza keyMoment → null.
@@ -162,6 +164,8 @@ function parseChapterScene(raw: unknown): ChapterScene | null {
     altMoments: parseAltMoments(o.altMoments),
     source: o.source === "USER" ? "USER" : "AI",
     model: str(o.model),
+    promptVersion: Number.isFinite(Number(o.promptVersion)) ? Number(o.promptVersion) : undefined,
+    sourceHash: typeof o.sourceHash === "string" && o.sourceHash.trim() !== "" ? o.sourceHash : undefined,
     updatedAt: Number.isFinite(Number(o.updatedAt)) ? Number(o.updatedAt) : 0,
   };
 }
@@ -1817,5 +1821,116 @@ export const marketingCards = {
 
   async deleteByBook(bookId: number): Promise<void> {
     await execute("DELETE FROM chapter_marketing_card WHERE book_id=?", [bookId]);
+  },
+};
+
+function mapVisualDirective(r: Row): VisualDirective {
+  return {
+    id: Number(r.id),
+    bookId: Number(r.book_id),
+    title: r.title as string,
+    triggers: ((r.triggers as string | null) ?? "")
+      .split(",")
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0),
+    intent: (r.intent as string | null) ?? null,
+    body: (r.body as string | null) ?? null,
+    bodyEn: (r.body_en as string | null) ?? null,
+    enabled: Number(r.enabled) === 1,
+    sortOrder: Number(r.sort_order),
+  };
+}
+
+function triggersCsv(triggers: string[]): string | null {
+  const csv = triggers.map((t) => t.trim()).filter((t) => t.length > 0).join(",");
+  return csv === "" ? null : csv;
+}
+
+export const visualDirectives = {
+  async byBook(bookId: number): Promise<VisualDirective[]> {
+    const rows = await query(
+      "SELECT * FROM visual_directive WHERE book_id=? ORDER BY sort_order, id",
+      [bookId],
+    );
+    return rows.map(mapVisualDirective);
+  },
+
+  async get(id: number): Promise<VisualDirective | null> {
+    const rows = await query("SELECT * FROM visual_directive WHERE id=?", [id]);
+    return rows.length ? mapVisualDirective(rows[0]) : null;
+  },
+
+  async create(d: {
+    bookId: number;
+    title: string;
+    triggers: string[];
+    intent: string | null;
+    body: string | null;
+    bodyEn: string | null;
+    enabled: boolean;
+    sortOrder: number;
+  }): Promise<VisualDirective> {
+    const now = Date.now();
+    const r = await execute(
+      `INSERT INTO visual_directive(book_id, title, triggers, intent, body, body_en, enabled, sort_order, created_at, updated_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?)`,
+      [
+        d.bookId,
+        d.title,
+        triggersCsv(d.triggers),
+        d.intent,
+        d.body,
+        d.bodyEn,
+        d.enabled,
+        d.sortOrder,
+        now,
+        now,
+      ],
+    );
+    const created = await this.get(r.insertId);
+    if (!created) throw new Error("insert visual_directive: row missing");
+    return created;
+  },
+
+  async update(
+    id: number,
+    d: {
+      title: string;
+      triggers: string[];
+      intent: string | null;
+      body: string | null;
+      bodyEn: string | null;
+      enabled: boolean;
+      sortOrder: number;
+    },
+  ): Promise<void> {
+    await execute(
+      `UPDATE visual_directive
+         SET title=?, triggers=?, intent=?, body=?, body_en=?, enabled=?, sort_order=?, updated_at=?
+       WHERE id=?`,
+      [
+        d.title,
+        triggersCsv(d.triggers),
+        d.intent,
+        d.body,
+        d.bodyEn,
+        d.enabled,
+        d.sortOrder,
+        Date.now(),
+        id,
+      ],
+    );
+  },
+
+  async delete(id: number): Promise<void> {
+    await execute("DELETE FROM visual_directive WHERE id=?", [id]);
+  },
+
+  async countByBook(bookId: number): Promise<number> {
+    const rows = await query(
+      "SELECT COUNT(*) AS n FROM visual_directive WHERE book_id=?",
+      [bookId],
+    );
+    return rows.length ? Number(rows[0].n) : 0;
   },
 };

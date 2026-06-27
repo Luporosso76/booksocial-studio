@@ -1,6 +1,7 @@
 import type { ContentEngine } from "./engine.js";
 import { ContentError } from "./engine.js";
 import { parseModelJson } from "./modelJson.js";
+import { languageName } from "./language.js";
 import type { ChapterMarketingCardData } from "../domain.js";
 
 // SCHEDA MARKETING DI CAPITOLO: comprensione NARRATIVA persistente del capitolo, separata
@@ -36,7 +37,7 @@ export async function extractMarketingCard(
 ): Promise<ChapterMarketingCardData | null> {
   const text = (input.chapterText ?? "").trim();
   if (text === "") return null;
-  const lang = input.language || "italiano";
+  const lang = languageName(input.language);
   const cast = input.knownCharacters.length > 0 ? input.knownCharacters.join(", ") : "(none known)";
 
   const prompt = `You are a book-marketing analyst preparing a CHAPTER MARKETING CARD: the narrative

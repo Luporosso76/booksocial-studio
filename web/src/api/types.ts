@@ -94,6 +94,18 @@ export interface VisualDomainInfo {
   description: string;
 }
 
+export interface VisualDirective {
+  id: string;
+  bookId: string;
+  title: string;
+  triggers: string[];
+  intent: string | null;
+  body: string | null;
+  bodyEn: string | null;
+  enabled: boolean;
+  sortOrder: number;
+}
+
 // Attività di lavoro in background. Il backend restituisce via GET /jobs sia le
 // analisi AI dei libri sia i render dei visual. I due tipi si distinguono dal
 // campo `kind`: 'analysis' porta bookId/title, i render portano postId/renderKind.

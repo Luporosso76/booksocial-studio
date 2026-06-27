@@ -1,6 +1,7 @@
 import type { ContentEngine } from "./engine.js";
 import { ContentError } from "./engine.js";
 import { parseModelJson } from "./modelJson.js";
+import { languageName } from "./language.js";
 import type { CharacterOutfits } from "../domain.js";
 
 // Genera l'ABBIGLIAMENTO CANONICO di un personaggio: un abito di DEFAULT (quotidiano) + alcuni abiti
@@ -38,6 +39,7 @@ export async function generateOutfits(
 ): Promise<CharacterOutfits | null> {
   const settings =
     input.settings.length > 0 ? input.settings.slice(0, 24).join("; ") : "(not available)";
+  const language = languageName(input.language);
 
   const prompt = `Define a character's CANONICAL WARDROBE for CONSISTENT illustrations: the character must
 ALWAYS dress the same way in the same situation. Given the character, write a DEFAULT outfit plus a few
@@ -47,25 +49,31 @@ Reply with ONLY a valid JSON object, no text before or after:
 {
   "default": "the character's typical everyday outfit (concrete garments + colors)",
   "contexts": [
-    { "when": "2-5 CONTEXT keywords (places/activities) separated by commas, written in ${input.language}", "outfit": "concrete, coherent clothing for that context" }
+    { "when": "2-5 CONTEXT keywords (places/activities) separated by commas, written in ${language}", "outfit": "concrete, coherent clothing for that context" }
   ],
   "signature": "a SINGLE item the book says this character ALWAYS wears (a straw hat, particular glasses, a signature cap, a specific necklace), or \\"\\" if the book gives none"
 }
 
 RULES:
-- "signature" (SIGNATURE ITEM): ONLY fill it when the BOOK PASSAGES make clear the character wears something
-  PERMANENTLY / ALWAYS / as a recognisable trademark (e.g. "always wore a straw hat", "never took off his
-  round glasses"). It is a permanent identity marker added to EVERY outfit in every scene, so it must be a
-  single concrete accessory/garment, NOT a full outfit. If the book does not clearly mark such an always-worn
-  item, leave it "". Do NOT invent one. Do NOT duplicate it inside "default"/"contexts".
+- "signature" (SIGNATURE ITEM): the single distinctive accessory/garment the book ties to THIS character as a
+  recognisable trademark. Fill it in BOTH these cases, as long as it is in the BOOK PASSAGES (never invented):
+  (a) the book says it is worn PERMANENTLY / ALWAYS ("always wore a straw hat", "never took off his round glasses");
+  (b) the book introduces it as HIS/HER characteristic item via a possessive or a defining description, even
+      WITHOUT the word "always" — e.g. "his Crocodile-Dundee-style hat", "the man with the round glasses",
+      "her red scarf". IMPORTANT: such a phrase often does NOT repeat the character's name — it uses a pronoun
+      or "the man/the woman". When a BOOK PASSAGE about THIS character describes "he/she/the man/the woman" (or
+      "his/her") wearing a specific, distinctive item, ATTRIBUTE it to this character and use it as the signature.
+  It is a permanent identity marker added to EVERY outfit in every scene, so it must be a single concrete
+  accessory/garment, NOT a full outfit. If the passages give no such distinctive item, leave it "". Do NOT
+  invent one. Do NOT duplicate it inside "default"/"contexts".
 - BOOK ART DIRECTION IS AUTHORITATIVE: if the "BOOK ART DIRECTION" below states how a character dresses for
   a specific activity or scene type (e.g. spiritual practice / yoga / meditation / reiki, ceremony, sport,
   work), you MUST add a DEDICATED context for it: its "when" keywords name that activity (prefer words from
   the SETTINGS vocabulary so they match the scene cards, e.g. "meditazione, yoga, reiki, tappetino") and its
   "outfit" is EXACTLY the clothing the direction describes. This OVERRIDES the "MODERN, NOT AGING" default
   below for that context. Never leave such an activity dressed in the generic everyday outfit.
-- FAITHFUL TO THE BOOK: if the "BOOK PASSAGES" below say what the character wears (a garment, a color, an
-  accessory in a certain scene), RESPECT it and put it in the right context; do NOT invent against the text.
+- FAITHFUL TO THE BOOK: capture EVERY garment, color or accessory the "BOOK PASSAGES" below attribute to the
+  character (skipping none), RESPECT each and put it in the right context; do NOT invent against the text.
   Only fill in what the book does not say.
 - "default": how the character normally dresses (concrete garments, e.g. "light-blue shirt, dark jeans,
   sneakers"); consistent with age, role, occupation and with the CLIMATE/CULTURE of the setting
@@ -80,11 +88,13 @@ RULES:
   jackets like denim/bomber/field/leather. Formal wear (suit, dress) ONLY when the scene is genuinely formal.
 - "contexts": 0 to ${MAX_CTX} entries, ONLY for the recurring situations where this character plausibly
   appears. Each "when" is a few KEYWORDS taken FROM THE VOCABULARY of the SETTINGS below (so they will match
-  the chapter scene cards), written in ${input.language} (e.g. "beach, sea, surf" or "meditation, yoga, mat"
+  the chapter scene cards), written in ${language} (e.g. "beach, sea, surf" or "meditation, yoga, mat"
   or "office, work"). Each "outfit" is the CONCRETE clothing suited to that context, coherent with its climate.
 - Realistic outfits, consistent with the character; no uniforms/costumes unless the role truly requires it
   (no gi/martial-arts outfit for a meditation scene). CLOTHING ONLY, no physical appearance.
-- Write in ${input.language}. If you don't know what to put in a field, use "" or [].
+- LANGUAGE: write ALL string values (default, when, outfit, signature) in ${language}. Even though these
+  instructions are in English, the values MUST be in ${language}. If you don't know what to put in a field,
+  use "" or [].
 
 CHARACTER: ${input.name}
 ROLE: ${input.role?.trim() || "(unspecified)"}

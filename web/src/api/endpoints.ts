@@ -58,6 +58,7 @@ import type {
   ScheduledPost,
   UpdatePageSettingsResult,
   UsageStats,
+  VisualDirective,
   VisualDomainInfo,
   VisualRequest,
   WeeklyPlan,
@@ -136,6 +137,39 @@ export const generateBookMinors = (bookId: string) =>
 
 export const getVisualDomains = (signal?: AbortSignal) =>
   apiGet<{ domains: VisualDomainInfo[] }>(`/visual-domains`, signal);
+
+export const listVisualDirectives = (bookId: string, signal?: AbortSignal) =>
+  apiGet<{ directives: VisualDirective[] }>(`/books/${bookId}/visual-directives`, signal);
+
+export const createVisualDirective = (
+  bookId: string,
+  payload: { title: string; triggers?: string[]; intent?: string; body?: string; enabled?: boolean },
+) => apiPost<VisualDirective>(`/books/${bookId}/visual-directives`, payload);
+
+export const updateVisualDirective = (
+  bookId: string,
+  did: string,
+  payload: {
+    title?: string;
+    triggers?: string[];
+    intent?: string;
+    body?: string;
+    enabled?: boolean;
+    sortOrder?: number;
+  },
+) => apiPut<VisualDirective>(`/books/${bookId}/visual-directives/${did}`, payload);
+
+export const deleteVisualDirective = (bookId: string, did: string) =>
+  apiDelete<{ ok: true }>(`/books/${bookId}/visual-directives/${did}`);
+
+export const assistVisualDirective = (
+  bookId: string,
+  body: { intent: string; title?: string },
+) =>
+  apiPost<{ title: string; body: string; triggers: string[] }>(
+    `/books/${bookId}/visual-directives/assist`,
+    body,
+  );
 
 export const deleteBook = (id: string) => apiDelete<{ ok: boolean }>(`/books/${id}`);
 

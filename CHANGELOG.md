@@ -5,6 +5,22 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-06-27
+
+### Added
+- **Visual directives as a list**: per-book art-direction rules are now managed as individual, reusable entries — add, edit, delete, enable/disable, with optional trigger keywords that decide when each rule applies (no trigger = always on). An AI-assist turns a plain-language intent into a ready-to-use directive. This replaces the previous single free-text directives box.
+
+### Changed
+- **Correct output language everywhere**: every generated value — character age, ethnicity and appearance, scene cards, outfits, marketing cards and posts — is now always written in the book's language. Short fields that could previously come out in English are fixed.
+- **More faithful character extraction**: physical appearance and outfits are grounded on the whole book and also capture details that continue right after a character's name (the sentences that describe them with "he/she/the man…"), so the book's stated traits are used instead of being invented.
+- **Signature item detection**: a character's recognizable item (a particular hat, glasses, a scarf…) is now detected even when the book introduces it indirectly ("his hat"), not only when it literally says "always".
+- **More accurate character presence per chapter**: a cast member is no longer dropped when they appear in a service role (e.g. a bartender or waiter), the narrator counts as present in the chapters they narrate, and someone merely mentioned but not actually in the scene is no longer added — no more invented presences.
+- **Scene point of view**: each chapter scene now records its narrator / point-of-view, and on long chapters the most representative key moment is chosen.
+- **Marketing card quotes**: quotes are now verbatim, complete phrases taken from the chapter, with stricter spoiler classification.
+
+### Fixed
+- **Stricter, clearer input handling**: the book language is required at import and malformed or invalid requests are rejected explicitly instead of silently falling back to a default — which previously could produce content in the wrong language.
+
 ## [0.4.0] - 2026-06-26
 
 ### Added

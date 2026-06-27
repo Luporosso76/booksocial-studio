@@ -40,6 +40,18 @@ export interface Book {
   imageExtraInstructions: string | null;
 }
 
+export interface VisualDirective {
+  id: number;
+  bookId: number;
+  title: string;
+  triggers: string[];
+  intent: string | null;
+  body: string | null;
+  bodyEn: string | null;
+  enabled: boolean;
+  sortOrder: number;
+}
+
 // Personaggio MINORE/incidentale (non nel cast principale, spesso senza nome): un look FISSO per
 // ruolo+contesto, da rendere coerente nelle scene dove compare. Persistito in book.visual_extras_json.
 export interface MinorCharacter {
@@ -94,6 +106,7 @@ export interface ChapterScene {
   mainObjects: string[]; // oggetti/soggetti iconici principali del capitolo
   secondaryObjects: string[]; // oggetti comuni/di contorno
   characters: string[]; // personaggi presenti nel capitolo (nomi)
+  pov: string | null;
   // Vincoli CONCRETI di fisica/realismo per illustrare scene di QUESTO capitolo (come si comportano
   // gravità/acqua/onde/vento/luce nel contesto; cosa NON deve accadere). In lingua del libro,
   // editabili. Si COMBINANO con la baseline universale del prompt (vedi imagePrompt.ts).
@@ -107,8 +120,12 @@ export interface ChapterScene {
   altMoments: ChapterMoment[];
   source: CharacterSource; // 'AI' = estratta dal modello, 'USER' = editata a mano
   model: string | null; // motore che l'ha estratta
+  promptVersion?: number;
+  sourceHash?: string;
   updatedAt: number;
 }
+
+export const SCENE_PROMPT_VERSION = 5;
 
 export interface CharacterAge {
   name: string;

@@ -64,7 +64,11 @@ import {
   updateChapterScene,
   getMediaRegenStatusGlobal,
   cancelAllMediaRegen,
-  getVisualDomains,
+  listVisualDirectives,
+  createVisualDirective,
+  updateVisualDirective,
+  deleteVisualDirective,
+  assistVisualDirective,
   regenerateMediaBatch,
   getPages,
   getSceneGen,
@@ -103,7 +107,7 @@ import type {
   SceneAspect,
   SceneBatch,
   SceneGenStatus,
-  VisualDomainInfo,
+  VisualDirective,
   VisualProp,
 } from "@/api/types";
 import type { VBStepKey, VisualBibleStatus } from "@/api/endpoints";
@@ -349,29 +353,7 @@ export function BookDetailScreen() {
 
               {visivoTab === "direttive" && (
                 <div className="flex animate-fade-in flex-col gap-4">
-                  <VisualDirectivesCard
-                    bookId={id}
-                    domains={book.visualDomains ?? []}
-                    directives={book.visualDirectives ?? ""}
-                    directivesEn={book.visualDirectivesEn ?? ""}
-                    onSave={async (next) => {
-                      const updated = await renameBook(id, next);
-                      detail.setData((prev) =>
-                        prev
-                          ? {
-                              ...prev,
-                              book: {
-                                ...prev.book,
-                                visualDomains: updated.visualDomains,
-                                visualDirectives: updated.visualDirectives,
-                                visualDirectivesEn: updated.visualDirectivesEn,
-                              },
-                            }
-                          : prev,
-                      );
-                      toast.success(t("book.directives.saved"));
-                    }}
-                  />
+                  <VisualDirectivesCard bookId={id} />
                   <BookExtraInstructionsCard
                     textExtra={book.textExtraInstructions ?? ""}
                     imageExtra={book.imageExtraInstructions ?? ""}
@@ -924,75 +906,253 @@ function BaseHashtagsCard({
   );
 }
 
-function VisualDirectivesCard({
-  bookId: _bookId,
-  domains,
-  directives,
-  directivesEn,
-  onSave,
-}: {
-  bookId: string;
-  domains: string[];
-  directives: string;
-  directivesEn: string;
-  onSave: (next: { visualDomains: string[]; visualDirectives: string | null }) => Promise<void>;
-}) {
-  const toast = useToast();
+function VisualDirectivesCard({ bookId }: { bookId: string }) {
   const { t } = useTranslation();
-  const [availableDomains, setAvailableDomains] = useState<VisualDomainInfo[]>([]);
-  const [loadingDomains, setLoadingDomains] = useState(true);
-  const [domainsError, setDomainsError] = useState<string | null>(null);
-  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set(domains));
-  const [text, setText] = useState(directives);
-  const [enPreview, setEnPreview] = useState(directivesEn);
-  const [saving, setSaving] = useState(false);
+  const toast = useToast();
 
-  useEffect(() => {
-    setSelectedKeys(new Set(domains));
-  }, [domains]);
+  const [directives, setDirectives] = useState<VisualDirective[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editing, setEditing] = useState<VisualDirective | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<VisualDirective | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
-  useEffect(() => {
-    setText(directives);
-  }, [directives]);
-
-  useEffect(() => {
-    setEnPreview(directivesEn);
-  }, [directivesEn]);
-
-  useEffect(() => {
-    const ctrl = new AbortController();
-    setLoadingDomains(true);
-    setDomainsError(null);
-    getVisualDomains(ctrl.signal)
+  function load(signal?: AbortSignal) {
+    setLoading(true);
+    setLoadError(null);
+    listVisualDirectives(bookId, signal)
       .then((res) => {
-        setAvailableDomains(res.domains);
-        setLoadingDomains(false);
+        setDirectives(res.directives);
+        setLoading(false);
       })
       .catch((err) => {
         if (err instanceof DOMException && err.name === "AbortError") return;
-        setDomainsError(errorMessage(err) || t("book.directives.loadFailed"));
-        setLoadingDomains(false);
+        setLoadError(errorMessage(err) || t("common.saveFailed"));
+        setLoading(false);
       });
-    return () => ctrl.abort();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  function toggleDomain(key: string) {
-    setSelectedKeys((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
   }
 
-  async function save() {
+  useEffect(() => {
+    const ctrl = new AbortController();
+    load(ctrl.signal);
+    return () => ctrl.abort();
+  }, [bookId]);
+
+  function openCreate() {
+    setEditing(null);
+    setModalOpen(true);
+  }
+
+  function openEdit(d: VisualDirective) {
+    setEditing(d);
+    setModalOpen(true);
+  }
+
+  async function handleToggleEnabled(d: VisualDirective) {
+    try {
+      const updated = await updateVisualDirective(bookId, d.id, { enabled: !d.enabled });
+      setDirectives((prev) => prev.map((x) => (x.id === updated.id ? updated : x)));
+    } catch (err) {
+      toast.error(errorMessage(err) || t("common.saveFailed"));
+    }
+  }
+
+  async function handleDelete() {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await deleteVisualDirective(bookId, deleteTarget.id);
+      setDirectives((prev) => prev.filter((d) => d.id !== deleteTarget.id));
+      toast.success(t("book.directives.vdDeleted"));
+      setDeleteTarget(null);
+    } catch (err) {
+      toast.error(errorMessage(err) || t("common.saveFailed"));
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  return (
+    <>
+      <Card>
+        <CardHeader
+          title={t("book.directives.title")}
+          description={t("book.directives.vdDesc")}
+          action={
+            <Button variant="secondary" size="sm" onClick={openCreate}>
+              <Plus className="h-3.5 w-3.5" />
+              {t("book.directives.vdAdd")}
+            </Button>
+          }
+        />
+        <CardBody className="flex flex-col gap-3">
+          {loading && <Spinner className="h-4 w-4" />}
+          {loadError && <ErrorBanner message={loadError} onRetry={() => load()} />}
+          {!loading && !loadError && directives.length === 0 && (
+            <EmptyState
+              title={t("book.directives.vdEmpty")}
+              description={t("book.directives.vdEmptyDesc")}
+            />
+          )}
+          {!loading &&
+            directives.map((d) => (
+              <div
+                key={d.id}
+                className="flex items-start justify-between gap-3 rounded-lg border border-border-subtle bg-bg-inset px-3 py-2.5"
+              >
+                <div className="flex min-w-0 flex-col gap-1.5">
+                  <span className="text-sm font-medium text-content-primary">{d.title}</span>
+                  <div className="flex flex-wrap gap-1">
+                    {d.triggers.length === 0 ? (
+                      <Badge tone="accent">{t("book.directives.vdAlwaysOn")}</Badge>
+                    ) : (
+                      d.triggers.map((tr) => (
+                        <Badge key={tr} tone="neutral">
+                          {tr}
+                        </Badge>
+                      ))
+                    )}
+                  </div>
+                </div>
+                <div className="flex shrink-0 items-center gap-1.5">
+                  <input
+                    type="checkbox"
+                    checked={d.enabled}
+                    onChange={() => handleToggleEnabled(d)}
+                    title={t("book.directives.vdFieldEnabled")}
+                    aria-label={t("book.directives.vdFieldEnabled")}
+                  />
+                  <Button variant="ghost" size="sm" onClick={() => openEdit(d)}>
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => setDeleteTarget(d)}>
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+        </CardBody>
+      </Card>
+
+      <DirectiveEditorModal
+        bookId={bookId}
+        open={modalOpen}
+        editing={editing}
+        onClose={() => setModalOpen(false)}
+        onSaved={(saved) => {
+          if (editing) {
+            setDirectives((prev) => prev.map((d) => (d.id === saved.id ? saved : d)));
+            toast.success(t("book.directives.vdUpdated"));
+          } else {
+            setDirectives((prev) => [...prev, saved]);
+            toast.success(t("book.directives.vdCreated"));
+          }
+          setModalOpen(false);
+        }}
+      />
+
+      <Modal
+        open={deleteTarget !== null}
+        onClose={() => setDeleteTarget(null)}
+        title={t("book.directives.vdDeleteConfirmTitle")}
+        description={t("book.directives.vdDeleteConfirmDesc")}
+        size="sm"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setDeleteTarget(null)}>
+              {t("common.cancel")}
+            </Button>
+            <Button variant="danger" loading={deleting} onClick={handleDelete}>
+              {t("common.delete")}
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-content-secondary">{deleteTarget?.title}</p>
+      </Modal>
+    </>
+  );
+}
+
+function DirectiveEditorModal({
+  bookId,
+  open,
+  editing,
+  onClose,
+  onSaved,
+}: {
+  bookId: string;
+  open: boolean;
+  editing: VisualDirective | null;
+  onClose: () => void;
+  onSaved: (saved: VisualDirective) => void;
+}) {
+  const { t } = useTranslation();
+  const toast = useToast();
+
+  const [title, setTitle] = useState("");
+  const [intent, setIntent] = useState("");
+  const [body, setBody] = useState("");
+  const [triggers, setTriggers] = useState("");
+  const [enabled, setEnabled] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [generating, setGenerating] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    if (editing) {
+      setTitle(editing.title);
+      setIntent(editing.intent ?? "");
+      setBody(editing.body ?? "");
+      setTriggers(editing.triggers.join(", "));
+      setEnabled(editing.enabled);
+    } else {
+      setTitle("");
+      setIntent("");
+      setBody("");
+      setTriggers("");
+      setEnabled(true);
+    }
+  }, [open, editing]);
+
+  function parseTriggers(raw: string): string[] {
+    return [...new Set(raw.split(",").map((s) => s.trim()).filter(Boolean))];
+  }
+
+  async function handleGenerate() {
+    if (!intent.trim()) return;
+    setGenerating(true);
+    try {
+      const res = await assistVisualDirective(bookId, {
+        intent: intent.trim(),
+        title: title.trim() || undefined,
+      });
+      setTitle(res.title);
+      setBody(res.body);
+      setTriggers(res.triggers.join(", "));
+    } catch (err) {
+      toast.error(errorMessage(err) || t("book.directives.vdGenerateFailed"));
+    } finally {
+      setGenerating(false);
+    }
+  }
+
+  async function handleSave() {
+    if (!title.trim()) return;
     setSaving(true);
     try {
-      await onSave({
-        visualDomains: Array.from(selectedKeys),
-        visualDirectives: text.trim() === "" ? null : text.trim(),
-      });
+      const payload = {
+        title: title.trim(),
+        intent: intent.trim() || undefined,
+        body: body.trim() || undefined,
+        triggers: parseTriggers(triggers),
+        enabled,
+      };
+      const saved = editing
+        ? await updateVisualDirective(bookId, editing.id, payload)
+        : await createVisualDirective(bookId, payload);
+      onSaved(saved);
     } catch (err) {
       toast.error(errorMessage(err) || t("common.saveFailed"));
     } finally {
@@ -1000,71 +1160,99 @@ function VisualDirectivesCard({
     }
   }
 
+  const showEnPreview =
+    editing &&
+    editing.bodyEn &&
+    editing.bodyEn.trim() !== "" &&
+    editing.bodyEn.trim() !== body.trim();
+
   return (
-    <Card>
-      <CardHeader
-        title={t("book.directives.title")}
-        description={t("book.directives.description")}
-      />
-      <CardBody className="flex flex-col gap-4">
-        <p className="text-sm text-content-secondary">{t("book.directives.intro")}</p>
-        {loadingDomains && <Spinner className="h-4 w-4" />}
-        {domainsError && <ErrorBanner message={domainsError} />}
-        {!loadingDomains && !domainsError && availableDomains.length === 0 && (
-          <p className="text-sm text-content-tertiary">{t("book.directives.noDomains")}</p>
-        )}
-        {!loadingDomains && availableDomains.length > 0 && (
-          <div className="flex flex-col gap-2">
-            {availableDomains.map((domain) => (
-              <label
-                key={domain.key}
-                className="flex cursor-pointer items-start gap-2.5 rounded-lg border border-border-subtle bg-bg-inset px-3 py-2.5 transition-colors hover:bg-bg-hover"
-              >
-                <input
-                  type="checkbox"
-                  className="mt-0.5 shrink-0"
-                  checked={selectedKeys.has(domain.key)}
-                  onChange={() => toggleDomain(domain.key)}
-                />
-                <div className="flex flex-col gap-0.5">
-                  <span className="text-sm font-medium text-content-primary">
-                    {t("visualDomain." + domain.key + ".label", { defaultValue: domain.label })}
-                  </span>
-                  {domain.description && (
-                    <span className="text-xs text-content-tertiary">
-                      {t("visualDomain." + domain.key + ".description", {
-                        defaultValue: domain.description,
-                      })}
-                    </span>
-                  )}
-                </div>
-              </label>
-            ))}
-          </div>
-        )}
-        <Field label={t("book.directives.freeText")}>
-          <Textarea
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            rows={4}
-            placeholder={t("book.directives.freeTextPlaceholder")}
-          />
-        </Field>
-        {enPreview.trim() !== "" && enPreview.trim() !== text.trim() && (
-          <div className="rounded-lg border border-border-subtle bg-bg-inset px-3 py-2.5">
-            <p className="mb-1 text-2xs font-semibold uppercase tracking-wide text-content-secondary">
-              {t("book.directives.translatedLabel")}
-            </p>
-            <p className="text-sm leading-relaxed text-content-tertiary">{enPreview}</p>
-          </div>
-        )}
-        <div className="flex justify-end">
-          <Button variant="primary" loading={saving} onClick={save}>
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={editing ? t("book.directives.vdEditTitle") : t("book.directives.vdNewTitle")}
+      size="lg"
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose}>
+            {t("common.cancel")}
+          </Button>
+          <Button variant="primary" loading={saving} onClick={handleSave}>
             {t("common.save")}
           </Button>
-        </div>
-      </CardBody>
-    </Card>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-4">
+        <Field label={t("book.directives.vdFieldTitle")}>
+          <Input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder={t("book.directives.vdFieldTitlePlaceholder")}
+          />
+        </Field>
+        <Field
+          label={t("book.directives.vdFieldIntent")}
+          hint={t("book.directives.vdFieldIntentHint")}
+        >
+          <div className="flex flex-col gap-2">
+            <Textarea
+              value={intent}
+              onChange={(e) => setIntent(e.target.value)}
+              rows={2}
+              placeholder={t("book.directives.vdFieldIntentPlaceholder")}
+            />
+            <div className="flex justify-end">
+              <Button
+                variant="secondary"
+                size="sm"
+                loading={generating}
+                onClick={handleGenerate}
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                {t("book.directives.vdGenerate")}
+              </Button>
+            </div>
+          </div>
+        </Field>
+        <Field label={t("book.directives.vdFieldBody")}>
+          <Textarea
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            rows={6}
+            placeholder={t("book.directives.vdFieldBodyPlaceholder")}
+          />
+        </Field>
+        {showEnPreview && (
+          <div className="rounded-lg border border-border-subtle bg-bg-inset px-3 py-2.5">
+            <p className="mb-1 text-2xs font-semibold uppercase tracking-wide text-content-secondary">
+              {t("book.directives.vdEnPreview")}
+            </p>
+            <p className="text-sm leading-relaxed text-content-tertiary">{editing.bodyEn}</p>
+          </div>
+        )}
+        <Field
+          label={t("book.directives.vdFieldTriggers")}
+          hint={t("book.directives.vdFieldTriggersHint")}
+        >
+          <Input
+            value={triggers}
+            onChange={(e) => setTriggers(e.target.value)}
+            placeholder={t("book.directives.vdFieldTriggersPlaceholder")}
+          />
+        </Field>
+        <label className="flex cursor-pointer items-center gap-2.5">
+          <input
+            type="checkbox"
+            checked={enabled}
+            onChange={(e) => setEnabled(e.target.checked)}
+          />
+          <span className="text-sm text-content-primary">
+            {t("book.directives.vdFieldEnabled")}
+          </span>
+        </label>
+      </div>
+    </Modal>
   );
 }
 
