@@ -509,7 +509,12 @@
       "generateStarted": "Minor character generation started.",
       "generateFailed": "Failed to generate minor characters.",
       "newMinor": "New minor character",
-      "noAppearance": "No appearance"
+      "noAppearance": "No appearance",
+      "promote": "Promote to character",
+      "promoteConfirmTitle": "Promote to main character",
+      "promoteConfirmBody": "Promote \"{{label}}\" to a main character? A new character will be created in the cast and removed from the minor ones.",
+      "promoted": "Minor character promoted.",
+      "promoteFailed": "Promotion failed."
     },
     "schedaSub": {
       "profilo": "Profile",

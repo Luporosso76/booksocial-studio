@@ -1245,6 +1245,46 @@ export function buildApi(deps: AppDeps): Hono {
     return c.json(characterDto(created));
   });
 
+  api.post("/books/:id/minors/promote", async (c) => {
+    const id = Number(c.req.param("id"));
+    const book = await books.get(id);
+    if (!book) return c.json(err("Libro non trovato"), 404);
+    const body = await jsonBody(c);
+    const index = Number(body.index);
+    const minors = book.visualExtras.minors;
+    if (!Number.isInteger(index) || index < 0 || index >= minors.length) {
+      return c.json(err("Indice del personaggio minore non valido"), 400);
+    }
+    const minor = minors[index]!;
+    const name = minor.label.trim();
+    if (name === "") return c.json(err("Il personaggio minore non ha un'etichetta utilizzabile come nome"), 400);
+    const now = Date.now();
+    const created = await characters.insert({
+      bookId: id,
+      name,
+      role: null,
+      occupation: null,
+      personality: null,
+      physical: minor.appearance.trim() !== "" ? minor.appearance.trim() : null,
+      age: null,
+      ethnicity: null,
+      notes: null,
+      source: "USER",
+      sortOrder: await characters.nextSortOrder(id),
+      mentions: null,
+      chapters: [],
+      outfits: {
+        default: minor.outfit && minor.outfit.trim() !== "" ? minor.outfit.trim() : null,
+        contexts: [],
+        signature: null,
+      },
+      createdAt: now,
+      updatedAt: now,
+    });
+    await books.setVisualExtras(id, { minors: minors.filter((_, i) => i !== index) });
+    return c.json(characterDto(created));
+  });
+
   // Aggiorna i campi forniti; marca source='USER' (e' un'edit manuale).
   api.put("/characters/:id", async (c) => {
     const id = Number(c.req.param("id"));

@@ -509,7 +509,12 @@
       "generateStarted": "Génération des mineurs démarrée.",
       "generateFailed": "Échec de la génération des mineurs.",
       "newMinor": "Nouveau personnage mineur",
-      "noAppearance": "Sans aspect"
+      "noAppearance": "Sans aspect",
+      "promote": "Promouvoir en personnage",
+      "promoteConfirmTitle": "Promouvoir en personnage principal",
+      "promoteConfirmBody": "Promouvoir « {{label}} » en personnage principal ? Un nouveau personnage sera créé dans le casting et retiré des mineurs.",
+      "promoted": "Personnage mineur promu.",
+      "promoteFailed": "Échec de la promotion."
     },
     "schedaSub": {
       "profilo": "Profil",

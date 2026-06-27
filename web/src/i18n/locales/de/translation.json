@@ -509,7 +509,12 @@
       "generateStarted": "Generierung der Nebencharaktere gestartet.",
       "generateFailed": "Generierung der Nebencharaktere fehlgeschlagen.",
       "newMinor": "Neuer Nebencharakter",
-      "noAppearance": "Ohne Erscheinungsbild"
+      "noAppearance": "Ohne Erscheinungsbild",
+      "promote": "Zu Charakter befördern",
+      "promoteConfirmTitle": "Zu Hauptcharakter befördern",
+      "promoteConfirmBody": "„{{label}}“ zu einem Hauptcharakter befördern? Es wird ein neuer Charakter im Cast erstellt und aus den Nebencharakteren entfernt.",
+      "promoted": "Nebencharakter befördert.",
+      "promoteFailed": "Beförderung fehlgeschlagen."
     },
     "schedaSub": {
       "profilo": "Profil",

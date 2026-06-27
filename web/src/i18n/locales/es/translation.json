@@ -509,7 +509,12 @@
       "generateStarted": "Generación de menores iniciada.",
       "generateFailed": "Error en la generación de menores.",
       "newMinor": "Nuevo personaje menor",
-      "noAppearance": "Sin aspecto"
+      "noAppearance": "Sin aspecto",
+      "promote": "Promover a personaje",
+      "promoteConfirmTitle": "Promover a personaje principal",
+      "promoteConfirmBody": "¿Promover «{{label}}» a personaje principal? Se creará un nuevo personaje en el elenco y se eliminará de los menores.",
+      "promoted": "Personaje menor promovido.",
+      "promoteFailed": "Error en la promoción."
     },
     "schedaSub": {
       "profilo": "Perfil",

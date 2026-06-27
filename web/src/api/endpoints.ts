@@ -466,6 +466,9 @@ export const deleteCharacter = (characterId: string) =>
 export const recomputeCharacterChapters = (bookId: string) =>
   apiPost<{ characters: BookCharacter[] }>(`/books/${bookId}/recompute-character-chapters`);
 
+export const promoteMinor = (bookId: string, index: number) =>
+  apiPost<BookCharacter>(`/books/${bookId}/minors/promote`, { index });
+
 // --- Ri-analisi AI (rigenera scheda + personaggi) ---
 export const reanalyzeBook = (bookId: string, language?: string) =>
   apiPost<{ status: AnalysisStatus }>(

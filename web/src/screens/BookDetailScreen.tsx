@@ -22,6 +22,7 @@ import {
   ShieldCheck,
   Trash2,
   User,
+  UserPlus,
   Users,
   Wand2,
   X,
@@ -75,6 +76,7 @@ import {
   getVisualBibleStatus,
   imageGenAvailable,
   linkBookToPage,
+  promoteMinor,
   reanalyzeBook,
   reindexBookNlp,
   recomputeCharacterChapters,
@@ -399,6 +401,7 @@ export function BookDetailScreen() {
                         prev ? { ...prev, book: { ...prev.book, visualExtras } } : prev,
                       )
                     }
+                    onPromoted={() => setReloadKey((k) => k + 1)}
                   />
                 </div>
               )}
@@ -5239,15 +5242,19 @@ function VisualPropsCard({
 function VisualExtrasCard({
   book,
   onUpdated,
+  onPromoted,
 }: {
   book: BookDetail["book"];
   onUpdated: (visualExtras: BookVisualExtras) => void;
+  onPromoted?: () => void;
 }) {
   const toast = useToast();
   const { t } = useTranslation();
   const [minors, setMinors] = useState<MinorCharacter[]>(book.visualExtras?.minors ?? []);
   const [saving, setSaving] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [promoteIdx, setPromoteIdx] = useState<number | null>(null);
+  const [promoting, setPromoting] = useState(false);
   // Flusso async+resumable: il pannello "Bibbia visiva" globale segue l'avanzamento e ricarica i
   // dati del libro a fine build; qui basta `running` per disabilitare e `start` per avviare lo step.
   const { running, start } = useVisualBibleStatus(book.id);
@@ -5303,6 +5310,27 @@ function VisualExtrasCard({
     }
   }
 
+  async function confirmPromote() {
+    if (promoteIdx === null) return;
+    const idx = promoteIdx;
+    setPromoting(true);
+    try {
+      await promoteMinor(book.id, idx);
+      const next: BookVisualExtras = {
+        minors: (book.visualExtras?.minors ?? []).filter((_, i) => i !== idx),
+      };
+      setMinors(next.minors);
+      onUpdated(next);
+      onPromoted?.();
+      setPromoteIdx(null);
+      toast.success(t("book.visualExtras.promoted"));
+    } catch (err) {
+      toast.error(errorMessage(err) || t("book.visualExtras.promoteFailed"));
+    } finally {
+      setPromoting(false);
+    }
+  }
+
   return (
     <Card>
       <CardHeader
@@ -5343,14 +5371,24 @@ function VisualExtrasCard({
                   m.appearance.trim() || m.when.trim() || t("book.visualExtras.noAppearance")
                 }
                 actions={
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => removeMinor(idx)}
-                    aria-label={t("book.visualExtras.removeAria")}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  <>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setPromoteIdx(idx)}
+                      aria-label={t("book.visualExtras.promote")}
+                    >
+                      <UserPlus className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeMinor(idx)}
+                      aria-label={t("book.visualExtras.removeAria")}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </>
                 }
                 bodyClassName="flex flex-col gap-2"
               >
@@ -5395,6 +5433,32 @@ function VisualExtrasCard({
           </Button>
         </div>
       </CardBody>
+      <Modal
+        open={promoteIdx !== null}
+        onClose={() => setPromoteIdx(null)}
+        title={t("book.visualExtras.promoteConfirmTitle")}
+        size="sm"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setPromoteIdx(null)}>
+              {t("common.cancel")}
+            </Button>
+            <Button variant="primary" loading={promoting} onClick={confirmPromote}>
+              <UserPlus className="h-4 w-4" />
+              {t("book.visualExtras.promote")}
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-content-secondary">
+          {t("book.visualExtras.promoteConfirmBody", {
+            label:
+              promoteIdx !== null
+                ? minors[promoteIdx]?.label.trim() || t("book.visualExtras.newMinor")
+                : "",
+          })}
+        </p>
+      </Modal>
     </Card>
   );
 }
