@@ -6,7 +6,7 @@ import type {
   BookVisualProps,
   BookVisualExtras,
 } from "../domain.js";
-import { selectDomainBlocks } from "./imageDomains.js";
+import { selectDomainBlocks, anyKeywordMatches } from "./imageDomains.js";
 
 // Rivede un prompt-immagine ESISTENTE applicando le MODIFICHE chieste dall'utente in italiano.
 // Usato dalla rigenerazione: l'utente scrive cosa cambiare ("togli la persona", "cielo al tramonto",
@@ -214,11 +214,10 @@ function resolveOutfit(outfits: CharacterOutfits | undefined, haystack: string):
   if (!outfits) return null;
   for (const ctx of outfits.contexts) {
     const kws = ctx.when
-      .toLowerCase()
       .split(/[,;]/)
       .map((s) => s.trim())
       .filter((s) => s.length > 0);
-    if (kws.some((k) => haystack.includes(k))) return ctx.outfit;
+    if (anyKeywordMatches(haystack, kws)) return ctx.outfit;
   }
   return outfits.default ?? null;
 }
@@ -232,11 +231,10 @@ function propsBlock(vp: BookVisualProps | undefined, haystack: string, names: st
   const lines: string[] = [];
   for (const p of vp.props) {
     const kws = p.when
-      .toLowerCase()
       .split(/[,;]/)
       .map((s) => s.trim())
       .filter((s) => s.length > 0);
-    const matchWhen = kws.some((k) => haystack.includes(k));
+    const matchWhen = anyKeywordMatches(haystack, kws);
     const matchOwner = p.owner != null && nameSet.has(p.owner.toLowerCase());
     if (matchWhen || matchOwner) {
       lines.push(
@@ -270,11 +268,10 @@ function extrasBlock(extras: BookVisualExtras | undefined, haystack: string): st
   const lines: string[] = [];
   for (const m of extras.minors) {
     const kws = m.when
-      .toLowerCase()
       .split(/[,;]/)
       .map((s) => s.trim())
       .filter((s) => s.length > 0);
-    if (kws.some((k) => haystack.includes(k))) {
+    if (anyKeywordMatches(haystack, kws)) {
       lines.push(
         `- ${m.label}: an incidental character — ${m.appearance}${m.outfit ? `; wears ${m.outfit}` : ""}. Keep this character's look IDENTICAL whenever this scene recurs.`,
       );
@@ -403,8 +400,13 @@ export async function buildSceneDescription(
 
   const prompt = `You write IMAGE PROMPTS for an AI image model that wants a DETAILED, flowing
 NATURAL-LANGUAGE description (full sentences), NOT a list of comma-separated tags. From the book passage,
-output ONE rich English paragraph of about 80–120 words describing an EVOCATIVE, ATMOSPHERIC image that
-captures the MOOD and THEME of the moment. The image is a BACKGROUND behind a quote (text will be placed
+output ONE rich English paragraph describing an EVOCATIVE, ATMOSPHERIC image that
+captures the MOOD and THEME of the moment. WORD BUDGET (adaptive): about 80–110 words for an OBJECT or
+PLACE with NO person; about 120–170 words when ONE OR MORE named characters are featured (more people
+need more words to keep each one distinct). The budget is a guide, NOT a hard cap: NEVER drop a
+character's ethnicity, age, hair, the exact pose, a mandatory signature item, a single object's
+signature colour, or the activity's required equipment, posture/stance and clothing, just to fit the
+budget — exceed the budget instead. The image is a BACKGROUND behind a quote (text will be placed
 on top), so it must be emotional, cinematic and UNCLUTTERED. Favour mood over busy literal narration —
 but you MAY depict the chapter's KEY MOMENT or central ACTION when that action is what the chapter turns
 on (a person doing the pivotal activity of the scene): an event in the MIDDLE of the book is NOT a spoiler,
@@ -540,7 +542,7 @@ the CHAPTER PHYSICS/REALISM RULES above — none of them may be violated. If any
 an object floating with no support, wrong scale), rewrite that element so it complies. Do NOT output this
 check or any reasoning — output ONLY the two lines below.
 OUTPUT FORMAT — exactly THREE lines:
-Line 1: the image description paragraph (~80–120 words, following the ORDER above).
+Line 1: the image description paragraph (within the WORD BUDGET above, following the ORDER above).
 Line 2: "TAGS: " followed by 3 to 6 short lowercase keywords (the main subject, the place, the mood),
 comma-separated.
 Line 3: "CHARACTERS: " followed by the NAMES (from the CAST) of the named characters you ACTUALLY depicted in
