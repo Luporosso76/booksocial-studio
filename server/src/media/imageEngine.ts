@@ -6,7 +6,7 @@ import { join, delimiter, dirname } from "node:path";
 import { appConfig } from "../config.js";
 import * as aiSettings from "../content/aiSettings.js";
 import { resolveBinary, enginePath } from "../content/engine.js";
-import { dimsForAspect, type SceneAspect } from "./imageGen.js";
+import { applyStyleForProvider, dimsForAspect, type SceneAspect } from "./imageGen.js";
 import { dataDir } from "../paths.js";
 
 // Astrazione PLUGGABLE del motore IMMAGINI (analoga a ContentEngine per il testo).
@@ -845,6 +845,28 @@ export class NoopImageEngine implements ImageEngine {
   }
 }
 
+class StyledImageEngine implements ImageEngine {
+  constructor(
+    private readonly inner: ImageEngine,
+    private readonly provider: string,
+  ) {}
+
+  name(): string {
+    return this.inner.name();
+  }
+
+  available(): boolean {
+    return this.inner.available();
+  }
+
+  async generate(input: ImageGenInput): Promise<string | null> {
+    return this.inner.generate({
+      ...input,
+      prompt: applyStyleForProvider(input.prompt, this.provider),
+    });
+  }
+}
+
 /** Base dir per le work dir temporanee degli agenti: dentro il data dir (scrivibile in Docker). */
 function agentWorkBase(): string {
   const base = join(dataDir(), ".agent-work");
@@ -1027,45 +1049,66 @@ function buildImageEngine(provider: string, modelOverride?: string): ImageEngine
     : base;
   switch (provider) {
     case "local":
-      return new LocalSdCliImageEngine();
+      return new StyledImageEngine(new LocalSdCliImageEngine(), "local");
     case "openai":
-      return new OpenAIImageEngine(
-        cfg.openaiApiKey,
-        cfg.openaiBaseUrl,
-        cfg.openaiImageModel,
-        appConfig.engineTimeoutMs,
+      return new StyledImageEngine(
+        new OpenAIImageEngine(
+          cfg.openaiApiKey,
+          cfg.openaiBaseUrl,
+          cfg.openaiImageModel,
+          appConfig.engineTimeoutMs,
+        ),
+        "openai",
       );
     case "google":
-      return new GoogleImagenImageEngine(
-        cfg.googleApiKey,
-        cfg.googleBaseUrl,
-        cfg.googleImageModel,
-        appConfig.engineTimeoutMs,
+      return new StyledImageEngine(
+        new GoogleImagenImageEngine(
+          cfg.googleApiKey,
+          cfg.googleBaseUrl,
+          cfg.googleImageModel,
+          appConfig.engineTimeoutMs,
+        ),
+        "google",
       );
     case "stability":
-      return new StabilityImageEngine(
-        cfg.stabilityApiKey,
-        cfg.stabilityImageModel,
-        appConfig.engineTimeoutMs,
+      return new StyledImageEngine(
+        new StabilityImageEngine(
+          cfg.stabilityApiKey,
+          cfg.stabilityImageModel,
+          appConfig.engineTimeoutMs,
+        ),
+        "stability",
       );
     case "bfl":
-      return new BflImageEngine(cfg.bflApiKey, cfg.bflImageModel, appConfig.engineTimeoutMs);
+      return new StyledImageEngine(
+        new BflImageEngine(cfg.bflApiKey, cfg.bflImageModel, appConfig.engineTimeoutMs),
+        "bfl",
+      );
     case "replicate":
-      return new ReplicateImageEngine(
-        cfg.replicateApiKey,
-        cfg.replicateImageModel,
-        appConfig.engineTimeoutMs,
+      return new StyledImageEngine(
+        new ReplicateImageEngine(
+          cfg.replicateApiKey,
+          cfg.replicateImageModel,
+          appConfig.engineTimeoutMs,
+        ),
+        "replicate",
       );
     case "fal":
-      return new FalImageEngine(cfg.falApiKey, cfg.falImageModel, appConfig.engineTimeoutMs);
+      return new StyledImageEngine(
+        new FalImageEngine(cfg.falApiKey, cfg.falImageModel, appConfig.engineTimeoutMs),
+        "fal",
+      );
     case "agy":
-      return new AgyImageEngine(appConfig.agyBinary, cfg.agyImageModel);
+      return new StyledImageEngine(
+        new AgyImageEngine(appConfig.agyBinary, cfg.agyImageModel),
+        "agy",
+      );
     case "none":
       return new NoopImageEngine();
     case "auto":
     default: {
       const local = new LocalSdCliImageEngine();
-      return local.available() ? local : new NoopImageEngine();
+      return local.available() ? new StyledImageEngine(local, "local") : new NoopImageEngine();
     }
   }
 }

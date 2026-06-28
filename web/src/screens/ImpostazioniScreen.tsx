@@ -46,6 +46,8 @@ import type {
   AiTextFallback,
   AiTextProvider,
   CliStatus,
+  ImageStyleCfg,
+  ImageStylePreset,
 } from "@/api/types";
 import { cn } from "@/lib/cn";
 
@@ -182,6 +184,34 @@ const IMAGE_FALLBACKS: AiImageFallback[] = [
   "fal",
 ];
 
+const STYLE_PRESETS: ImageStylePreset[] = [
+  "graphic-novel",
+  "cel-anime",
+  "painterly",
+  "photorealistic",
+  "cinematic",
+  "watercolor",
+  "oil",
+  "3d-render",
+  "flat-vector",
+  "storybook",
+  "pencil-sketch",
+  "concept-art",
+  "line-art",
+  "custom",
+];
+
+const LOCAL_STYLE_PROVIDERS = ["local"];
+
+const DEFAULT_STYLE: ImageStyleCfg = {
+  preset: "graphic-novel",
+  customStyle: "",
+  intensity: 75,
+  vividness: 55,
+  steps: null,
+  cfg: null,
+};
+
 // Quale provider usa quale "famiglia" di chiave (per badge + invio chiavi).
 type KeyName = "openai" | "anthropic" | "google" | "stability" | "bfl" | "replicate" | "fal";
 
@@ -195,6 +225,121 @@ const ALL_KEY_NAMES: KeyName[] = [
   "fal",
 ];
 
+function ImageStyleBlock({
+  title,
+  description,
+  provider,
+  style,
+  onField,
+}: {
+  title: string;
+  description: string;
+  provider: string;
+  style: ImageStyleCfg;
+  onField: (key: keyof ImageStyleCfg, value: ImageStyleCfg[keyof ImageStyleCfg]) => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div className="flex flex-col gap-3 border-t border-border-subtle pt-4">
+      <div>
+        <h5 className="text-sm font-semibold text-content-primary">{title}</h5>
+        <p className="text-xs leading-snug text-content-tertiary">{description}</p>
+      </div>
+
+      <Field label={t("settings.ai.imageStyle.preset")}>
+        <select
+          className={selectClass}
+          value={style.preset}
+          onChange={(e) => onField("preset", e.target.value as ImageStylePreset)}
+        >
+          {STYLE_PRESETS.map((p) => (
+            <option key={p} value={p}>
+              {t(`settings.ai.imageStyle.presets.${p}`)}
+            </option>
+          ))}
+        </select>
+      </Field>
+
+      {style.preset === "custom" && (
+        <Field
+          label={t("settings.ai.imageStyle.customStyle")}
+          hint={t("settings.ai.imageStyle.customStyleHint")}
+        >
+          <Input
+            value={style.customStyle}
+            onChange={(e) => onField("customStyle", e.target.value)}
+            placeholder={t("settings.ai.imageStyle.customStylePlaceholder")}
+          />
+        </Field>
+      )}
+
+      <Field
+        label={`${t("settings.ai.imageStyle.intensity")}: ${style.intensity}`}
+        hint={t("settings.ai.imageStyle.intensityHint")}
+      >
+        <input
+          type="range"
+          min={0}
+          max={100}
+          step={1}
+          value={style.intensity}
+          onChange={(e) => onField("intensity", Number(e.target.value))}
+          className="w-full accent-accent"
+        />
+      </Field>
+
+      <Field
+        label={`${t("settings.ai.imageStyle.vividness")}: ${style.vividness}`}
+        hint={t("settings.ai.imageStyle.vividnessHint")}
+      >
+        <input
+          type="range"
+          min={0}
+          max={100}
+          step={1}
+          value={style.vividness}
+          onChange={(e) => onField("vividness", Number(e.target.value))}
+          className="w-full accent-accent"
+        />
+      </Field>
+
+      {LOCAL_STYLE_PROVIDERS.includes(provider) && (
+        <div className="grid grid-cols-2 gap-3">
+          <Field
+            label={t("settings.ai.imageStyle.steps")}
+            hint={t("settings.ai.imageStyle.engineOverrideHint")}
+          >
+            <Input
+              type="number"
+              min={1}
+              value={style.steps ?? ""}
+              onChange={(e) =>
+                onField("steps", e.target.value === "" ? null : Number(e.target.value))
+              }
+              placeholder={t("settings.ai.imageStyle.defaultPlaceholder")}
+            />
+          </Field>
+          <Field
+            label={t("settings.ai.imageStyle.cfg")}
+            hint={t("settings.ai.imageStyle.engineOverrideHint")}
+          >
+            <Input
+              type="number"
+              min={0}
+              step={0.1}
+              value={style.cfg ?? ""}
+              onChange={(e) =>
+                onField("cfg", e.target.value === "" ? null : Number(e.target.value))
+              }
+              placeholder={t("settings.ai.imageStyle.defaultPlaceholder")}
+            />
+          </Field>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function AiProvidersCard({ section }: { section: "text" | "image" }) {
   const { t } = useTranslation();
   const toast = useToast();
@@ -203,6 +348,7 @@ function AiProvidersCard({ section }: { section: "text" | "image" }) {
   // Bozza locale dei campi (testo + immagini). Le chiavi sono gestite a parte.
   const [text, setText] = useState<AiSettings["text"] | null>(null);
   const [image, setImage] = useState<AiSettings["image"] | null>(null);
+  const [imageStyle, setImageStyle] = useState<Record<string, ImageStyleCfg> | null>(null);
   // Input chiavi: '' = invariata. Tracciamo separatamente quali sono state "rimosse".
   const emptyKeyRecord = (): Record<KeyName, string> => ({
     openai: "",
@@ -230,6 +376,7 @@ function AiProvidersCard({ section }: { section: "text" | "image" }) {
     if (state.data) {
       setText(state.data.text);
       setImage(state.data.image);
+      setImageStyle(state.data.imageStyle);
       setKeyInputs(emptyKeyRecord());
       setRemovedKeys(emptyRemovedRecord());
     }
@@ -244,6 +391,19 @@ function AiProvidersCard({ section }: { section: "text" | "image" }) {
     value: AiSettings["image"][K],
   ) {
     setImage((prev) => (prev ? { ...prev, [key]: value } : prev));
+  }
+  const styleFor = (provider: string): ImageStyleCfg => imageStyle?.[provider] || DEFAULT_STYLE;
+  const currentStyle: ImageStyleCfg = image ? styleFor(image.provider) : DEFAULT_STYLE;
+  function setStyleFieldFor<K extends keyof ImageStyleCfg>(
+    provider: string,
+    key: K,
+    value: ImageStyleCfg[K],
+  ) {
+    setImageStyle((prev) => {
+      const base = prev ?? {};
+      const cur = base[provider] ?? DEFAULT_STYLE;
+      return { ...base, [provider]: { ...cur, [key]: value } };
+    });
   }
 
   function onKeyInput(name: KeyName, value: string) {
@@ -264,6 +424,13 @@ function AiProvidersCard({ section }: { section: "text" | "image" }) {
       else if (removedKeys[name]) keys[name] = null;
     });
     if (Object.keys(keys).length) patch.keys = keys;
+    if (imageStyle) {
+      patch.imageStyle = { [image.provider]: styleFor(image.provider) };
+      const fb = image.fallbackProvider;
+      if (fb && fb !== "none" && fb !== image.provider) {
+        patch.imageStyle[fb] = styleFor(fb);
+      }
+    }
 
     setSaving(true);
     try {
@@ -575,6 +742,29 @@ function AiProvidersCard({ section }: { section: "text" | "image" }) {
                     editable={image.fallbackProvider !== "agy"}
                   />
                 )}
+
+                <ImageStyleBlock
+                  title={t("settings.ai.imageStyle.primaryTitle")}
+                  description={t("settings.ai.imageStyle.description", {
+                    provider: t(`settings.ai.imageProvider.${image.provider}`),
+                  })}
+                  provider={image.provider}
+                  style={currentStyle}
+                  onField={(key, value) => setStyleFieldFor(image.provider, key, value)}
+                />
+
+                {image.fallbackProvider !== "none" &&
+                  image.fallbackProvider !== image.provider && (
+                    <ImageStyleBlock
+                      title={t("settings.ai.imageStyle.fallbackTitle")}
+                      description={t("settings.ai.imageStyle.description", {
+                        provider: t(`settings.ai.imageProvider.${image.fallbackProvider}`),
+                      })}
+                      provider={image.fallbackProvider}
+                      style={styleFor(image.fallbackProvider)}
+                      onField={(key, value) => setStyleFieldFor(image.fallbackProvider, key, value)}
+                    />
+                  )}
 
                 <TestConnectionButton run={() => testAiImage(image.provider)} />
               </section>

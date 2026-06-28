@@ -5,6 +5,19 @@ Tutte le modifiche rilevanti a questo progetto sono documentate in questo file.
 Il formato è basato su [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 e questo progetto aderisce al [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.3] - 2026-06-28
+
+### Aggiunto
+- **Stile immagine per-provider**: scegli lo stile visivo delle immagini generate (graphic novel, pittorico, fotorealistico, acquerello, concept art e altri) con intensità di stilizzazione e vivacità del colore regolabili, impostabili in modo indipendente per ogni provider immagine — e separatamente per il provider principale e il suo fallback, così ognuno rende nel proprio stile.
+
+### Modificato
+- **I prompt immagine mantengono tutta l'art-direction**: il prompt ora trascrive per intero le regole visive del libro (attrezzatura, postura, tecnica) invece di riassumerle, e scrive il prompt nella forma che il modello immagine attivo interpreta meglio.
+- **Fisica per-scena**: le regole di realismo del capitolo ora si applicano solo agli oggetti realmente presenti nella scena, così le regole su oggetti assenti non finiscono più nell'immagine.
+- Indicazioni sull'abbigliamento nel prompt consolidate per coerenza.
+
+### Corretto
+- **Campo token Facebook**: il browser non riempie più automaticamente la password di login admin nel campo del token di accesso Facebook nella pagina Connessione.
+
 ## [0.5.2] - 2026-06-28
 
 ### Modificato

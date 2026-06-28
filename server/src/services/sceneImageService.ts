@@ -11,6 +11,7 @@ import {
 } from "../content/imagePrompt.js";
 import * as aiSettings from "../content/aiSettings.js";
 import {
+  applyStyleForProvider,
   buildScenePrompt,
   generateSceneImage,
   imageGenAvailable,
@@ -492,7 +493,10 @@ export class SceneImageService {
       path: outPath,
       caption: null, // caption PULITA: niente prompt nei campi user-facing
       // Il prompt completo va nel campo dedicato gen_prompt (ispezionabile, non pubblicabile).
-      genPrompt: buildScenePrompt(scene.description),
+      genPrompt: applyStyleForProvider(
+        buildScenePrompt(scene.description),
+        aiSettings.getImage().provider,
+      ),
       chapterIdx: scene.chapterIndex, // capitolo di riferimento (catalogazione)
       tags: scene.tags, // soggetti/mood (catalogazione + selezione per pertinenza)
       seed, // seed di generazione (riproducibilità)

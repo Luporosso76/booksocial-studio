@@ -5,6 +5,19 @@ Toutes les modifications notables apportées à ce projet sont documentées dans
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 et ce projet respecte le [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.3] - 2026-06-28
+
+### Ajouté
+- **Style d'image par fournisseur** : choisissez le style visuel des images générées (roman graphique, pictural, photoréaliste, aquarelle, concept art et plus) avec une intensité de stylisation et une vivacité des couleurs réglables, définies indépendamment pour chaque fournisseur d'images — et séparément pour le fournisseur principal et son fournisseur de secours, afin que chacun rende dans son propre style.
+
+### Modifié
+- **Les prompts d'image conservent toute la direction artistique** : le générateur de prompt transcrit désormais intégralement les règles visuelles du livre (équipement, posture, technique) au lieu de les résumer, et écrit le prompt dans la forme que le modèle d'image actif interprète le mieux.
+- **Physique par scène** : les règles de réalisme d'un chapitre ne s'appliquent désormais qu'aux objets réellement présents dans la scène, afin que les règles concernant des objets absents ne s'infiltrent plus dans l'image.
+- Conseils vestimentaires du prompt consolidés pour la cohérence.
+
+### Corrigé
+- **Champ du jeton Facebook** : le navigateur ne remplit plus automatiquement le mot de passe de connexion admin dans le champ du jeton d'accès Facebook de la page Connexion.
+
 ## [0.5.2] - 2026-06-28
 
 ### Modifié

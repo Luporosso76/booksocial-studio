@@ -2028,6 +2028,7 @@ export function buildApi(deps: AppDeps): Hono {
     if (body.image && typeof body.image === "object") patch.image = body.image;
     if (body.keys && typeof body.keys === "object") patch.keys = body.keys;
     if (body.extra && typeof body.extra === "object") patch.extra = body.extra;
+    if (body.imageStyle && typeof body.imageStyle === "object") patch.imageStyle = body.imageStyle;
     const view = await aiSettings.save(patch);
     return c.json(view);
   });

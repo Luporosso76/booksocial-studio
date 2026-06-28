@@ -5,6 +5,19 @@ Alle wesentlichen Änderungen an diesem Projekt werden in dieser Datei dokumenti
 Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.3] - 2026-06-28
+
+### Hinzugefügt
+- **Bildstil pro Anbieter**: Wähle den visuellen Stil der generierten Bilder (Graphic Novel, malerisch, fotorealistisch, Aquarell, Concept Art und mehr) mit einstellbarer Stilisierungsstärke und Farbintensität, unabhängig für jeden Bildanbieter festlegbar — und getrennt für den primären Anbieter und seinen Fallback, sodass jeder in seinem eigenen Stil rendert.
+
+### Geändert
+- **Bild-Prompts behalten die vollständige Art-Direction**: Der Prompt-Generator überträgt die visuellen Regeln des Buches jetzt vollständig (Ausrüstung, Haltung, Technik), statt sie zusammenzufassen, und schreibt den Prompt in der Form, die das aktive Bildmodell am besten versteht.
+- **Physik pro Szene**: Die Realismusregeln eines Kapitels gelten jetzt nur noch für die tatsächlich in der Szene vorhandenen Objekte, sodass Regeln zu abwesenden Objekten nicht mehr ins Bild gelangen.
+- Kleidungshinweise im Prompt für Konsistenz zusammengeführt.
+
+### Behoben
+- **Facebook-Token-Feld**: Der Browser füllt das gespeicherte Admin-Login-Passwort nicht mehr automatisch in das Facebook-Zugriffstoken-Feld auf der Verbindungsseite ein.
+
 ## [0.5.2] - 2026-06-28
 
 ### Geändert

@@ -270,6 +270,32 @@ export interface AiSettings {
     textPrompt: string;
     imagePrompt: string;
   };
+  imageStyle: Record<string, ImageStyleCfg>;
+}
+
+export type ImageStylePreset =
+  | "graphic-novel"
+  | "cel-anime"
+  | "painterly"
+  | "photorealistic"
+  | "cinematic"
+  | "watercolor"
+  | "oil"
+  | "3d-render"
+  | "flat-vector"
+  | "storybook"
+  | "pencil-sketch"
+  | "concept-art"
+  | "line-art"
+  | "custom";
+
+export interface ImageStyleCfg {
+  preset: ImageStylePreset;
+  customStyle: string;
+  intensity: number;
+  vividness: number;
+  steps: number | null;
+  cfg: number | null;
 }
 
 // Patch PUT /settings/ai: sottoinsiemi opzionali. Le chiavi si inviano SOLO se digitate
@@ -290,6 +316,7 @@ export interface AiSettingsPatch {
     textPrompt?: string;
     imagePrompt?: string;
   };
+  imageStyle?: Record<string, Partial<ImageStyleCfg>>;
 }
 
 // Risposta di POST /settings/ai/models: elenco modelli del provider (vuoto su errore).

@@ -59,6 +59,35 @@ export interface ImageCfg {
   fallbackModel: string;
 }
 
+export interface ImageStyleCfg {
+  preset: string;
+  customStyle: string;
+  intensity: number;
+  vividness: number;
+  steps: number | null;
+  cfg: number | null;
+}
+
+export const STYLE_PROVIDERS = [
+  "local",
+  "openai",
+  "google",
+  "stability",
+  "bfl",
+  "replicate",
+  "fal",
+  "agy",
+] as const;
+
+export const DEFAULT_IMAGE_STYLE: ImageStyleCfg = {
+  preset: "graphic-novel",
+  customStyle: "",
+  intensity: 75,
+  vividness: 55,
+  steps: null,
+  cfg: null,
+};
+
 export interface EffectiveView {
   text: {
     provider: string;
@@ -103,6 +132,7 @@ export interface EffectiveView {
     textPrompt: string;
     imagePrompt: string;
   };
+  imageStyle: Record<string, ImageStyleCfg>;
 }
 
 // Patch accettata da save(): solo i campi NON-segreti, più le chiavi separate.
@@ -151,6 +181,7 @@ export interface AiSettingsPatch {
     textPrompt?: string;
     imagePrompt?: string;
   };
+  imageStyle?: Record<string, Partial<ImageStyleCfg>>;
 }
 
 // ---------------------------------------------------------------------------
@@ -242,6 +273,14 @@ export async function load(): Promise<void> {
       db.set(k, null);
     }
   }
+  for (const p of STYLE_PROVIDERS) {
+    const k = imageStyleKey(p);
+    try {
+      db.set(k, await settings.get(k));
+    } catch {
+      db.set(k, null);
+    }
+  }
   const keys = new Map<string, string | null>();
   for (const k of Object.values(KEY_KEYS)) {
     try {
@@ -252,6 +291,51 @@ export async function load(): Promise<void> {
   }
   cache.db = db;
   cache.keys = keys;
+}
+
+function imageStyleKey(provider: string): string {
+  return `ai.imagestyle.${provider}`;
+}
+
+function clampPct(v: unknown, fallback: number): number {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(100, Math.max(0, Math.round(n)));
+}
+
+function toNumberOrNull(v: unknown): number | null {
+  if (v == null) return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+function mergeImageStyle(o: Record<string, unknown>): ImageStyleCfg {
+  return {
+    preset:
+      typeof o.preset === "string" && o.preset !== ""
+        ? o.preset
+        : DEFAULT_IMAGE_STYLE.preset,
+    customStyle: typeof o.customStyle === "string" ? o.customStyle : DEFAULT_IMAGE_STYLE.customStyle,
+    intensity: clampPct(o.intensity, DEFAULT_IMAGE_STYLE.intensity),
+    vividness: clampPct(o.vividness, DEFAULT_IMAGE_STYLE.vividness),
+    steps: "steps" in o ? toNumberOrNull(o.steps) : DEFAULT_IMAGE_STYLE.steps,
+    cfg: "cfg" in o ? toNumberOrNull(o.cfg) : DEFAULT_IMAGE_STYLE.cfg,
+  };
+}
+
+/** Config EFFETTIVA dello STILE immagine per un provider (cache ?? default). SINCRONA. */
+export function getImageStyle(provider: string): ImageStyleCfg {
+  const raw = cache.db.get(imageStyleKey(provider));
+  if (raw == null || raw === "") return { ...DEFAULT_IMAGE_STYLE };
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === "object") {
+      return mergeImageStyle(parsed as Record<string, unknown>);
+    }
+  } catch {
+    return { ...DEFAULT_IMAGE_STYLE };
+  }
+  return { ...DEFAULT_IMAGE_STYLE };
 }
 
 /** Config EFFETTIVA del motore TESTO (cache ?? env). SINCRONA. */
@@ -318,6 +402,8 @@ export function effectiveView(): EffectiveView {
   const t = getText();
   const i = getImage();
   const extra = getPromptExtras();
+  const imageStyle: Record<string, ImageStyleCfg> = {};
+  for (const p of STYLE_PROVIDERS) imageStyle[p] = getImageStyle(p);
   return {
     text: {
       provider: t.provider,
@@ -361,6 +447,7 @@ export function effectiveView(): EffectiveView {
       textPrompt: extra.text,
       imagePrompt: extra.image,
     },
+    imageStyle,
   };
 }
 
@@ -436,6 +523,14 @@ export async function save(patch: AiSettingsPatch): Promise<EffectiveView> {
     }
     if (typeof patch.extra.imagePrompt === "string") {
       await settings.set(DB_KEYS.imagePromptExtra, patch.extra.imagePrompt.trim());
+    }
+  }
+  if (patch.imageStyle && typeof patch.imageStyle === "object") {
+    for (const [provider, partial] of Object.entries(patch.imageStyle)) {
+      if (!partial || typeof partial !== "object") continue;
+      const current = getImageStyle(provider);
+      const merged = mergeImageStyle({ ...current, ...partial });
+      await settings.set(imageStyleKey(provider), JSON.stringify(merged));
     }
   }
   await load();

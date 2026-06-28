@@ -9,6 +9,8 @@
 // (via buildScenePrompt) prima di passare il prompt COMPLETO al motore — vale per TUTTI i backend.
 
 import { createImageEngine, type ImageEngine } from "./imageEngine.js";
+import * as aiSettings from "../content/aiSettings.js";
+import type { ImageStyleCfg } from "../content/aiSettings.js";
 
 export type SceneAspect = "1:1" | "4:5" | "1.91:1" | "9:16" | "16:9";
 
@@ -21,25 +23,63 @@ const DIMS: Record<SceneAspect, { w: number; h: number }> = {
   "16:9": { w: 1344, h: 768 },
 };
 
-// ORDINE OTTIMALE PER Z-IMAGE: la descrizione della scena (soggetto→...→mood, da content/imagePrompt.ts)
-// va PRIMA; lo STILE/medium e i vincoli vanno in CODA, in LINGUAGGIO NATURALE (non tag). Z-Image (cfg
-// basso) IGNORA i negative: i divieti stanno qui in POSITIVO, alla fine. Vedi content/imagePrompt.ts.
-const STYLE_TAIL =
-  "The whole image is rendered as a graphic-novel illustration: bold ink outlines, cel shading, rich warm cinematic colors, soft volumetric light, highly detailed and atmospheric, a single full-bleed picture. There is no text, no letters, no words, no signs, no captions, no speech bubbles, no panels and no watermark anywhere in the image.";
+export const STYLE_PLACEHOLDER = "§STYLE§";
+
+const PRESET_MEDIUM: Record<string, string> = {
+  "graphic-novel": "graphic-novel illustration with ink outlines and cel shading",
+  "cel-anime": "anime cel-shaded illustration",
+  painterly: "painterly digital illustration with visible brushwork",
+  photorealistic: "photorealistic image with natural detail",
+  cinematic: "cinematic photographic frame with filmic lighting",
+  watercolor: "watercolor illustration with soft washes",
+  oil: "oil painting with rich textured brushwork",
+  "3d-render": "polished 3D-rendered image",
+  "flat-vector": "flat vector illustration with clean shapes",
+  storybook: "soft storybook illustration",
+  "pencil-sketch": "pencil and ink sketch",
+  "concept-art": "digital concept-art illustration",
+  "line-art": "clean line-art illustration",
+};
+
+export function buildStyleTail(style: ImageStyleCfg): string {
+  const preset = style.preset || "graphic-novel";
+  let medium: string;
+  if (preset === "custom") {
+    const cs = (style.customStyle || "").trim();
+    medium = cs !== "" ? cs : PRESET_MEDIUM["graphic-novel"];
+  } else {
+    medium = PRESET_MEDIUM[preset] ?? PRESET_MEDIUM["graphic-novel"];
+  }
+  const intensity = Math.min(100, Math.max(0, Number(style.intensity)));
+  const vividness = Math.min(100, Math.max(0, Number(style.vividness)));
+  const qualifier =
+    intensity < 34 ? "subtle, lightly stylized " : intensity > 66 ? "bold, heavily stylized " : "";
+  const colour =
+    vividness < 34
+      ? ", with muted, soft colours"
+      : vividness > 66
+        ? ", with vivid, high-contrast colours"
+        : ", with natural colours";
+  return `${qualifier}${medium}${colour}`;
+}
 
 export function dimsForAspect(aspect: SceneAspect): { w: number; h: number } {
   return DIMS[aspect] ?? DIMS["1:1"];
 }
 
-// Compone il prompt completo dallo SOGGETTO+SCENA fornito dal chiamante.
 export function buildScenePrompt(subjectScene: string): string {
   const s = subjectScene
     .trim()
     .replace(/\s+/g, " ")
     .replace(/^["']|["']$/g, "");
-  // Scena PRIMA, stile+vincoli in CODA. Chiude la descrizione con un punto se non già punteggiata.
   const sep = /[.!?]$/.test(s) ? "" : ".";
-  return `${s}${sep} ${STYLE_TAIL}`;
+  return `${s}${sep} Rendered as a single full-bleed uninterrupted ${STYLE_PLACEHOLDER}, the palette and lighting matching the scene described above; any signs, screens or papers appear blank and unlettered.`;
+}
+
+export function applyStyleForProvider(prompt: string, provider: string): string {
+  if (!prompt.includes(STYLE_PLACEHOLDER)) return prompt;
+  const tail = buildStyleTail(aiSettings.getImageStyle(provider));
+  return prompt.split(STYLE_PLACEHOLDER).join(tail);
 }
 
 // Motore attivo: ricreato a OGNI operazione da createImageEngine(), che legge la config EFFETTIVA
@@ -78,13 +118,26 @@ export interface RawGenInput {
 // singola (che riusa/modifica il gen_prompt salvato). Delega al motore attivo.
 export async function generateFromPrompt(input: RawGenInput): Promise<string | null> {
   if (!input.prompt || input.prompt.trim() === "") return null;
+  const style = aiSettings.getImageStyle(aiSettings.getImage().provider);
+  const steps =
+    input.steps != null
+      ? input.steps
+      : typeof style.steps === "number" && style.steps > 0
+        ? style.steps
+        : undefined;
+  const cfg =
+    input.cfg != null
+      ? input.cfg
+      : typeof style.cfg === "number" && style.cfg > 0
+        ? style.cfg
+        : undefined;
   return activeEngine().generate({
     prompt: input.prompt,
     aspect: input.aspect,
     outPath: input.outPath,
     ...(input.seed != null ? { seed: input.seed } : {}),
-    ...(input.steps != null ? { steps: input.steps } : {}),
-    ...(input.cfg != null ? { cfg: input.cfg } : {}),
+    ...(steps != null ? { steps } : {}),
+    ...(cfg != null ? { cfg } : {}),
     ...(input.signal ? { signal: input.signal } : {}),
   });
 }
