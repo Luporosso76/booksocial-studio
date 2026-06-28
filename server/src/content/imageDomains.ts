@@ -258,9 +258,7 @@ export function selectDomainBlocks(opts: {
   const enabledSet = new Set(opts.enabled.map((k) => k.trim()).filter((k) => k.length > 0));
   const candidates =
     enabledSet.size > 0 ? VISUAL_DOMAINS.filter((d) => enabledSet.has(d.key)) : VISUAL_DOMAINS;
-  return candidates
-    .filter((d) => anyKeywordMatches(opts.haystack, d.triggers))
-    .map((d) => d.block);
+  return candidates.filter((d) => anyKeywordMatches(opts.haystack, d.triggers)).map((d) => d.block);
 }
 
 // Chiavi valide (per validare l'input dell'endpoint di configurazione).

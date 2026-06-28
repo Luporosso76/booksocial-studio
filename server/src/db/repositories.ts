@@ -124,7 +124,12 @@ function parseChapterScene(raw: unknown): ChapterScene | null {
     for (const x of v) {
       if (x == null || typeof x !== "object") continue;
       const m = x as Record<string, unknown>;
-      const type = m.type === "dream" || m.type === "flashback" ? m.type : m.type === "memory" ? "flashback" : null;
+      const type =
+        m.type === "dream" || m.type === "flashback"
+          ? m.type
+          : m.type === "memory"
+            ? "flashback"
+            : null;
       const km = str(m.keyMoment);
       if (!type || !km) continue;
       const yy = Number(m.youngerYears);
@@ -165,7 +170,8 @@ function parseChapterScene(raw: unknown): ChapterScene | null {
     source: o.source === "USER" ? "USER" : "AI",
     model: str(o.model),
     promptVersion: Number.isFinite(Number(o.promptVersion)) ? Number(o.promptVersion) : undefined,
-    sourceHash: typeof o.sourceHash === "string" && o.sourceHash.trim() !== "" ? o.sourceHash : undefined,
+    sourceHash:
+      typeof o.sourceHash === "string" && o.sourceHash.trim() !== "" ? o.sourceHash : undefined,
     updatedAt: Number.isFinite(Number(o.updatedAt)) ? Number(o.updatedAt) : 0,
   };
 }
@@ -308,7 +314,11 @@ function serializeOutfits(o: CharacterOutfits | null | undefined): string | null
   const sig = (o.signature ?? "").trim();
   const contexts = (o.contexts ?? []).filter((x) => x.when.trim() !== "" && x.outfit.trim() !== "");
   if (def === "" && sig === "" && contexts.length === 0) return null;
-  return JSON.stringify({ default: def === "" ? null : def, contexts, signature: sig === "" ? null : sig });
+  return JSON.stringify({
+    default: def === "" ? null : def,
+    contexts,
+    signature: sig === "" ? null : sig,
+  });
 }
 
 // Parsa book_character.outfits_json in CharacterOutfits, tollerante (default vuoto se assente/rotto).
@@ -317,7 +327,8 @@ function parseOutfits(raw: string | null): CharacterOutfits {
   try {
     const o = JSON.parse(raw) as Partial<CharacterOutfits>;
     const def = typeof o.default === "string" && o.default.trim() !== "" ? o.default : null;
-    const sig = typeof o.signature === "string" && o.signature.trim() !== "" ? o.signature.trim() : null;
+    const sig =
+      typeof o.signature === "string" && o.signature.trim() !== "" ? o.signature.trim() : null;
     const contexts = Array.isArray(o.contexts)
       ? o.contexts
           .filter(
@@ -1842,7 +1853,10 @@ function mapVisualDirective(r: Row): VisualDirective {
 }
 
 function triggersCsv(triggers: string[]): string | null {
-  const csv = triggers.map((t) => t.trim()).filter((t) => t.length > 0).join(",");
+  const csv = triggers
+    .map((t) => t.trim())
+    .filter((t) => t.length > 0)
+    .join(",");
   return csv === "" ? null : csv;
 }
 
@@ -1927,10 +1941,9 @@ export const visualDirectives = {
   },
 
   async countByBook(bookId: number): Promise<number> {
-    const rows = await query(
-      "SELECT COUNT(*) AS n FROM visual_directive WHERE book_id=?",
-      [bookId],
-    );
+    const rows = await query("SELECT COUNT(*) AS n FROM visual_directive WHERE book_id=?", [
+      bookId,
+    ]);
     return rows.length ? Number(rows[0].n) : 0;
   },
 };

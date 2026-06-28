@@ -36,7 +36,12 @@ const SETTINGS: NavItem[] = [
   { to: "/impostazioni", labelKey: "nav.settings", icon: Settings },
 ];
 
-function SidebarLink({ to, labelKey, icon: Icon, onNavigate }: NavItem & { onNavigate?: () => void }) {
+function SidebarLink({
+  to,
+  labelKey,
+  icon: Icon,
+  onNavigate,
+}: NavItem & { onNavigate?: () => void }) {
   const { t } = useTranslation();
   return (
     <NavLink
@@ -84,51 +89,51 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
           open ? "translate-x-0" : "-translate-x-full md:translate-x-0",
         )}
       >
-      <div className="flex h-14 items-center gap-2.5 border-b border-border-subtle px-5">
-        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent text-white shadow-accent-glow">
-          <BookOpen className="h-4 w-4" />
-        </span>
-        <div className="leading-tight">
-          <div className="text-sm font-semibold text-content-primary">{t("nav.brand")}</div>
-          <div className="text-2xs font-medium uppercase tracking-wide text-content-faint">
-            {t("nav.brandSub")}
+        <div className="flex h-14 items-center gap-2.5 border-b border-border-subtle px-5">
+          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent text-white shadow-accent-glow">
+            <BookOpen className="h-4 w-4" />
+          </span>
+          <div className="leading-tight">
+            <div className="text-sm font-semibold text-content-primary">{t("nav.brand")}</div>
+            <div className="text-2xs font-medium uppercase tracking-wide text-content-faint">
+              {t("nav.brandSub")}
+            </div>
           </div>
         </div>
-      </div>
 
-      <nav className="flex flex-1 flex-col gap-1 p-3">
-        {PRIMARY.map((item) => (
-          <SidebarLink key={item.to} {...item} onNavigate={onClose} />
-        ))}
-
-        <div className="mt-3 border-t border-border-subtle pt-3">
-          <div className="mb-1 px-3 text-2xs font-medium uppercase tracking-wide text-content-faint">
-            {t("nav.settingsGroup")}
-          </div>
-          {SETTINGS.map((item) => (
+        <nav className="flex flex-1 flex-col gap-1 p-3">
+          {PRIMARY.map((item) => (
             <SidebarLink key={item.to} {...item} onNavigate={onClose} />
           ))}
-        </div>
-      </nav>
 
-      <div className="border-t border-border-subtle p-3">
-        <button
-          type="button"
-          onClick={async () => {
-            try {
-              await authLogout();
-            } finally {
-              window.location.reload();
-            }
-          }}
-          className="group flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-content-secondary transition-colors duration-150 hover:bg-bg-hover hover:text-content-primary"
-        >
-          <LogOut className="h-[1.05rem] w-[1.05rem] shrink-0 text-content-tertiary group-hover:text-content-secondary" />
-          <span>{t("auth.logout")}</span>
-        </button>
-        <div className="px-3 pt-2 text-2xs text-content-faint">{t("nav.localNote")}</div>
-      </div>
-    </aside>
+          <div className="mt-3 border-t border-border-subtle pt-3">
+            <div className="mb-1 px-3 text-2xs font-medium uppercase tracking-wide text-content-faint">
+              {t("nav.settingsGroup")}
+            </div>
+            {SETTINGS.map((item) => (
+              <SidebarLink key={item.to} {...item} onNavigate={onClose} />
+            ))}
+          </div>
+        </nav>
+
+        <div className="border-t border-border-subtle p-3">
+          <button
+            type="button"
+            onClick={async () => {
+              try {
+                await authLogout();
+              } finally {
+                window.location.reload();
+              }
+            }}
+            className="group flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-content-secondary transition-colors duration-150 hover:bg-bg-hover hover:text-content-primary"
+          >
+            <LogOut className="h-[1.05rem] w-[1.05rem] shrink-0 text-content-tertiary group-hover:text-content-secondary" />
+            <span>{t("auth.logout")}</span>
+          </button>
+          <div className="px-3 pt-2 text-2xs text-content-faint">{t("nav.localNote")}</div>
+        </div>
+      </aside>
     </>
   );
 }

@@ -28,7 +28,10 @@ const MAX_LEN = 320;
 const MAX_SHORT = 80;
 
 function clamp(s: string, max: number): string {
-  const t = s.trim().replace(/^["'`]+|["'`]+$/g, "").trim();
+  const t = s
+    .trim()
+    .replace(/^["'`]+|["'`]+$/g, "")
+    .trim();
   return t.length > max ? `${t.slice(0, max).trimEnd()}…` : t;
 }
 

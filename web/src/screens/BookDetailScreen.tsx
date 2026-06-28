@@ -1120,7 +1120,14 @@ function DirectiveEditorModal({
   }, [open, editing]);
 
   function parseTriggers(raw: string): string[] {
-    return [...new Set(raw.split(",").map((s) => s.trim()).filter(Boolean))];
+    return [
+      ...new Set(
+        raw
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean),
+      ),
+    ];
   }
 
   async function handleGenerate() {
@@ -1206,12 +1213,7 @@ function DirectiveEditorModal({
               placeholder={t("book.directives.vdFieldIntentPlaceholder")}
             />
             <div className="flex justify-end">
-              <Button
-                variant="secondary"
-                size="sm"
-                loading={generating}
-                onClick={handleGenerate}
-              >
+              <Button variant="secondary" size="sm" loading={generating} onClick={handleGenerate}>
                 <Sparkles className="h-3.5 w-3.5" />
                 {t("book.directives.vdGenerate")}
               </Button>
@@ -1245,11 +1247,7 @@ function DirectiveEditorModal({
           />
         </Field>
         <label className="flex cursor-pointer items-center gap-2.5">
-          <input
-            type="checkbox"
-            checked={enabled}
-            onChange={(e) => setEnabled(e.target.checked)}
-          />
+          <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
           <span className="text-sm text-content-primary">
             {t("book.directives.vdFieldEnabled")}
           </span>
@@ -2173,7 +2171,11 @@ function MediaCard({
                 className="flex flex-1 flex-wrap gap-1.5"
               >
                 {[
-                  { id: "all" as const, label: t("bookDetail.chapterTabAll"), n: chapterTabs.total },
+                  {
+                    id: "all" as const,
+                    label: t("bookDetail.chapterTabAll"),
+                    n: chapterTabs.total,
+                  },
                   ...chapterTabs.chapters.map((c) => ({
                     id: c.id,
                     label: t("book.media.chapterBadge", { index: c.id }),
@@ -3208,7 +3210,7 @@ function SceneGenSection({
 
   const singleChapter =
     selectedChapters.length === 1
-      ? chapters.find((ch) => ch.index === selectedChapters[0]) ?? null
+      ? (chapters.find((ch) => ch.index === selectedChapters[0]) ?? null)
       : null;
   const availMoments = singleChapter?.scene?.altMoments ?? [];
   useEffect(() => {
@@ -4205,9 +4207,7 @@ function ChapterSceneEditor({
               keyMoment: keyMoment.trim() || null,
               kind,
               youngerYears:
-                kind === "flashback" && youngerYears.trim()
-                  ? Number(youngerYears.trim())
-                  : null,
+                kind === "flashback" && youngerYears.trim() ? Number(youngerYears.trim()) : null,
               characterAges: kind === "flashback" ? presentAges : [],
             }
           : { altMoments: altForms.map(formToMoment) };

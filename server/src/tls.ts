@@ -51,7 +51,9 @@ export function loadTls(): TlsMaterial | null {
     return { key: readFileSync(keyPath), cert: readFileSync(certPath) };
   }
   try {
-    console.log(`[tls] certificato assente: genero self-signed (CN=${appConfig.tlsCn}) in ${certPath}`);
+    console.log(
+      `[tls] certificato assente: genero self-signed (CN=${appConfig.tlsCn}) in ${certPath}`,
+    );
     generateSelfSigned(certPath, keyPath);
     return { key: readFileSync(keyPath), cert: readFileSync(certPath) };
   } catch {

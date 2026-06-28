@@ -311,11 +311,9 @@ function toNumberOrNull(v: unknown): number | null {
 
 function mergeImageStyle(o: Record<string, unknown>): ImageStyleCfg {
   return {
-    preset:
-      typeof o.preset === "string" && o.preset !== ""
-        ? o.preset
-        : DEFAULT_IMAGE_STYLE.preset,
-    customStyle: typeof o.customStyle === "string" ? o.customStyle : DEFAULT_IMAGE_STYLE.customStyle,
+    preset: typeof o.preset === "string" && o.preset !== "" ? o.preset : DEFAULT_IMAGE_STYLE.preset,
+    customStyle:
+      typeof o.customStyle === "string" ? o.customStyle : DEFAULT_IMAGE_STYLE.customStyle,
     intensity: clampPct(o.intensity, DEFAULT_IMAGE_STYLE.intensity),
     vividness: clampPct(o.vividness, DEFAULT_IMAGE_STYLE.vividness),
     steps: "steps" in o ? toNumberOrNull(o.steps) : DEFAULT_IMAGE_STYLE.steps,

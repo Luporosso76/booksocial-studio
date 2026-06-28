@@ -608,9 +608,7 @@ ${passage || input.bookTitle || ""}`;
     // andare a capo su più righe: le uniamo, così non si perde testo).
     const tagLine = lines.find((l) => /^tags\s*:/i.test(l));
     const charLine = lines.find((l) => /^characters\s*:/i.test(l));
-    const descLines = lines.filter(
-      (l) => !/^tags\s*:/i.test(l) && !/^characters\s*:/i.test(l),
-    );
+    const descLines = lines.filter((l) => !/^tags\s*:/i.test(l) && !/^characters\s*:/i.test(l));
     const cleaned = descLines
       .join(" ")
       .replace(/^["'`]+|["'`]+$/g, "")
@@ -632,7 +630,12 @@ ${passage || input.bookTitle || ""}`;
       ? charLine
           .replace(/^characters\s*:/i, "")
           .split(",")
-          .map((s) => s.trim().toLowerCase().replace(/[."'`]+$/g, ""))
+          .map((s) =>
+            s
+              .trim()
+              .toLowerCase()
+              .replace(/[."'`]+$/g, ""),
+          )
           .filter((s) => s.length > 0 && s.length <= 30 && !/^none$/i.test(s))
       : [];
     const seen = new Set<string>();
@@ -695,8 +698,7 @@ function selectionCardSummary(card: ChapterScene | null | undefined): string {
     lines.push(`- main subjects pool: ${card.mainObjects.join(", ")}`);
   if (card.secondaryObjects.length > 0)
     lines.push(`- secondary objects pool: ${card.secondaryObjects.join(", ")}`);
-  if (card.characters.length > 0)
-    lines.push(`- characters pool: ${card.characters.join(", ")}`);
+  if (card.characters.length > 0) lines.push(`- characters pool: ${card.characters.join(", ")}`);
   for (const m of card.altMoments ?? []) {
     if (m.keyMoment && m.keyMoment.trim() !== "")
       lines.push(`- alternate ${m.type} moment: ${m.keyMoment.trim()}`);
@@ -713,7 +715,8 @@ export async function selectChapterScenes(
   const passage = (input.chapterExcerpt ?? "").trim().slice(0, 20000);
   const cast =
     input.castNames.map((c) => `- ${c.name}${c.role ? ` (${c.role})` : ""}`).join("\n") || "(none)";
-  const objects = (input.objectNames ?? []).length > 0 ? (input.objectNames ?? []).join(", ") : "(none)";
+  const objects =
+    (input.objectNames ?? []).length > 0 ? (input.objectNames ?? []).join(", ") : "(none)";
   const directives =
     (input.directiveNames ?? []).length > 0 ? (input.directiveNames ?? []).join(", ") : "(none)";
 
@@ -747,7 +750,10 @@ ${passage || input.bookTitle || ""}`;
     if (!arr) return null;
     const toStrArr = (v: unknown): string[] =>
       Array.isArray(v)
-        ? v.filter((x): x is string => typeof x === "string").map((x) => x.trim()).filter(Boolean)
+        ? v
+            .filter((x): x is string => typeof x === "string")
+            .map((x) => x.trim())
+            .filter(Boolean)
         : [];
     const out: SceneSelection[] = [];
     for (const it of arr) {

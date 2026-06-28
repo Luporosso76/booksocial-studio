@@ -1079,8 +1079,7 @@ export function buildApi(deps: AppDeps): Hono {
     const book = await books.get(id);
     if (!book) return c.json(err("Libro non trovato"), 404);
     const existing = await visualDirectives.get(did);
-    if (!existing || existing.bookId !== id)
-      return c.json(err("Direttiva non trovata"), 404);
+    if (!existing || existing.bookId !== id) return c.json(err("Direttiva non trovata"), 404);
     const body = await jsonBody(c);
     const title =
       typeof body.title === "string" && body.title.trim() !== ""
@@ -1098,10 +1097,9 @@ export function buildApi(deps: AppDeps): Hono {
         ? typeof body.body === "string"
           ? body.body.trim()
           : ""
-        : existing.body ?? "";
+        : (existing.body ?? "");
     const enabled = "enabled" in body ? body.enabled === true : existing.enabled;
-    const sortOrder =
-      typeof body.sortOrder === "number" ? body.sortOrder : existing.sortOrder;
+    const sortOrder = typeof body.sortOrder === "number" ? body.sortOrder : existing.sortOrder;
     let bodyEn = existing.bodyEn;
     if (text === "") bodyEn = null;
     else if ((existing.body ?? "") !== text || existing.bodyEn == null)
@@ -1126,8 +1124,7 @@ export function buildApi(deps: AppDeps): Hono {
     const book = await books.get(id);
     if (!book) return c.json(err("Libro non trovato"), 404);
     const existing = await visualDirectives.get(did);
-    if (!existing || existing.bookId !== id)
-      return c.json(err("Direttiva non trovata"), 404);
+    if (!existing || existing.bookId !== id) return c.json(err("Direttiva non trovata"), 404);
     await visualDirectives.delete(did);
     return c.json({ ok: true });
   });
@@ -1257,7 +1254,8 @@ export function buildApi(deps: AppDeps): Hono {
     }
     const minor = minors[index]!;
     const name = minor.label.trim();
-    if (name === "") return c.json(err("Il personaggio minore non ha un'etichetta utilizzabile come nome"), 400);
+    if (name === "")
+      return c.json(err("Il personaggio minore non ha un'etichetta utilizzabile come nome"), 400);
     const now = Date.now();
     const created = await characters.insert({
       bookId: id,
@@ -1511,7 +1509,8 @@ export function buildApi(deps: AppDeps): Hono {
         const a = x as Record<string, unknown>;
         const name = String(a.name ?? "").trim();
         const age = Number(a.age);
-        if (name !== "" && Number.isFinite(age) && age > 0) out.push({ name, age: Math.round(age) });
+        if (name !== "" && Number.isFinite(age) && age > 0)
+          out.push({ name, age: Math.round(age) });
       }
       return out;
     };

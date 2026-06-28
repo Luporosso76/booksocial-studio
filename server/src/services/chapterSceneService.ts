@@ -106,7 +106,10 @@ export class ChapterSceneService {
       }
       const cardNames = card.characters.map((n) => n.trim()).filter((n) => n.length > 0);
       for (const c of cast) {
-        if (cardNames.some((n) => namesMatch(c.name, n)) && nameAppearsInText(c.name, chapter.text)) {
+        if (
+          cardNames.some((n) => namesMatch(c.name, n)) &&
+          nameAppearsInText(c.name, chapter.text)
+        ) {
           presence.get(c.id)!.add(chapter.index);
         }
       }

@@ -32,7 +32,17 @@ function namesMatch(a: string, b: string): boolean {
 }
 
 const PHYSICS_TOKEN_STOP = new Set([
-  "del", "della", "delle", "dei", "degli", "con", "una", "uno", "per", "alla", "dal",
+  "del",
+  "della",
+  "delle",
+  "dei",
+  "degli",
+  "con",
+  "una",
+  "uno",
+  "per",
+  "alla",
+  "dal",
 ]);
 function physicsTokens(s: string): string[] {
   return s
@@ -218,7 +228,7 @@ export class SceneImageService {
       const pick = Math.floor(Math.random() * (altCount + 1));
       effMoment = pick === altCount ? -1 : pick;
     }
-    const chosenMoment = effMoment >= 0 ? baseCard?.altMoments?.[effMoment] ?? null : null;
+    const chosenMoment = effMoment >= 0 ? (baseCard?.altMoments?.[effMoment] ?? null) : null;
     const card: ChapterScene | null =
       chosenMoment && baseCard
         ? {
@@ -299,7 +309,8 @@ export class SceneImageService {
           };
         }
         twoPassExcerpt = sel.brief || excerpt.text;
-        if (sel.framing) angle = [angle, sel.framing].filter((s) => s && s.trim() !== "").join("; ");
+        if (sel.framing)
+          angle = [angle, sel.framing].filter((s) => s && s.trim() !== "").join("; ");
       }
     }
     const scene = await buildSceneDescription(this.deps.engine, {
@@ -359,7 +370,9 @@ export class SceneImageService {
       const age = (c.age ?? "").trim();
       const phys = (c.physical ?? "").trim();
       const short = phys.length > 280 ? `${phys.slice(0, 280).trimEnd()}…` : phys;
-      return [eth ? `ethnicity ${eth}` : "", age ? `age ${age}` : "", short].filter(Boolean).join("; ");
+      return [eth ? `ethnicity ${eth}` : "", age ? `age ${age}` : "", short]
+        .filter(Boolean)
+        .join("; ");
     };
     const describe = (c: BookCharacter): string => {
       const look = lookOf(c);

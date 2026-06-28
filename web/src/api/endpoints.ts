@@ -143,7 +143,13 @@ export const listVisualDirectives = (bookId: string, signal?: AbortSignal) =>
 
 export const createVisualDirective = (
   bookId: string,
-  payload: { title: string; triggers?: string[]; intent?: string; body?: string; enabled?: boolean },
+  payload: {
+    title: string;
+    triggers?: string[];
+    intent?: string;
+    body?: string;
+    enabled?: boolean;
+  },
 ) => apiPost<VisualDirective>(`/books/${bookId}/visual-directives`, payload);
 
 export const updateVisualDirective = (
@@ -162,10 +168,7 @@ export const updateVisualDirective = (
 export const deleteVisualDirective = (bookId: string, did: string) =>
   apiDelete<{ ok: true }>(`/books/${bookId}/visual-directives/${did}`);
 
-export const assistVisualDirective = (
-  bookId: string,
-  body: { intent: string; title?: string },
-) =>
+export const assistVisualDirective = (bookId: string, body: { intent: string; title?: string }) =>
   apiPost<{ title: string; body: string; triggers: string[] }>(
     `/books/${bookId}/visual-directives/assist`,
     body,

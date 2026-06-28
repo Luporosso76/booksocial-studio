@@ -753,18 +753,17 @@ function AiProvidersCard({ section }: { section: "text" | "image" }) {
                   onField={(key, value) => setStyleFieldFor(image.provider, key, value)}
                 />
 
-                {image.fallbackProvider !== "none" &&
-                  image.fallbackProvider !== image.provider && (
-                    <ImageStyleBlock
-                      title={t("settings.ai.imageStyle.fallbackTitle")}
-                      description={t("settings.ai.imageStyle.description", {
-                        provider: t(`settings.ai.imageProvider.${image.fallbackProvider}`),
-                      })}
-                      provider={image.fallbackProvider}
-                      style={styleFor(image.fallbackProvider)}
-                      onField={(key, value) => setStyleFieldFor(image.fallbackProvider, key, value)}
-                    />
-                  )}
+                {image.fallbackProvider !== "none" && image.fallbackProvider !== image.provider && (
+                  <ImageStyleBlock
+                    title={t("settings.ai.imageStyle.fallbackTitle")}
+                    description={t("settings.ai.imageStyle.description", {
+                      provider: t(`settings.ai.imageProvider.${image.fallbackProvider}`),
+                    })}
+                    provider={image.fallbackProvider}
+                    style={styleFor(image.fallbackProvider)}
+                    onField={(key, value) => setStyleFieldFor(image.fallbackProvider, key, value)}
+                  />
+                )}
 
                 <TestConnectionButton run={() => testAiImage(image.provider)} />
               </section>

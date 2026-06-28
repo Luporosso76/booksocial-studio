@@ -167,7 +167,12 @@ export async function extractChapterScene(
   if (parts.length === 0) return null;
   const scene = parts.length === 1 ? parts[0]! : mergeScenes(parts);
   if (parts.length > 1) {
-    const best = await pickBestKeyMoment(engine, input.chapterTitle ?? null, parts, scene.keyMoment);
+    const best = await pickBestKeyMoment(
+      engine,
+      input.chapterTitle ?? null,
+      parts,
+      scene.keyMoment,
+    );
     if (best != null && best.trim() !== "") scene.keyMoment = best;
   }
   return ensurePresentFilled(scene);
@@ -275,8 +280,7 @@ async function extractOnePass(
 ): Promise<ExtractedChapterScene | null> {
   const text = (input.chapterText ?? "").trim();
   if (text === "") return null;
-  const cast =
-    input.knownCharacters.length > 0 ? input.knownCharacters.join(", ") : "(none known)";
+  const cast = input.knownCharacters.length > 0 ? input.knownCharacters.join(", ") : "(none known)";
   const language = languageName(input.language);
 
   const prompt = `You are an assistant preparing VISUAL CARDS of chapters to generate illustrations.

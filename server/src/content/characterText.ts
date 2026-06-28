@@ -23,7 +23,10 @@ function nameVariants(name: string): string[] {
 export function nameAppearsInText(name: string, text: string): boolean {
   const variants = nameVariants(name);
   if (variants.length === 0) return false;
-  const re = new RegExp(`(^|[^\\p{L}])(${variants.map(escapeRegExp).join("|")})([^\\p{L}]|$)`, "iu");
+  const re = new RegExp(
+    `(^|[^\\p{L}])(${variants.map(escapeRegExp).join("|")})([^\\p{L}]|$)`,
+    "iu",
+  );
   return re.test(text || "");
 }
 
@@ -37,7 +40,10 @@ export function collectCharacterPassages(
 ): string {
   const variants = nameVariants(name);
   if (variants.length === 0) return "";
-  const re = new RegExp(`(^|[^\\p{L}])(${variants.map(escapeRegExp).join("|")})([^\\p{L}]|$)`, "iu");
+  const re = new RegExp(
+    `(^|[^\\p{L}])(${variants.map(escapeRegExp).join("|")})([^\\p{L}]|$)`,
+    "iu",
+  );
   const out: string[] = [];
   let total = 0;
   for (const ch of chapters) {

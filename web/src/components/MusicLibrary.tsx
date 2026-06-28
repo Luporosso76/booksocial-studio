@@ -189,13 +189,11 @@ export function MusicLibrary({ bookId }: { bookId: string }) {
               aria-label="Filtra le tracce per utilizzo"
               className="inline-flex self-start rounded-lg border border-border-subtle p-0.5"
             >
-              {(
-                [
-                  { id: "all" as const, label: "Tutte", n: tracks.length },
-                  { id: "used" as const, label: "Usate", n: usageCounts.used },
-                  { id: "unused" as const, label: "Mai usate", n: usageCounts.unused },
-                ]
-              ).map((tab) => {
+              {[
+                { id: "all" as const, label: "Tutte", n: tracks.length },
+                { id: "used" as const, label: "Usate", n: usageCounts.used },
+                { id: "unused" as const, label: "Mai usate", n: usageCounts.unused },
+              ].map((tab) => {
                 const active = usageFilter === tab.id;
                 return (
                   <button
