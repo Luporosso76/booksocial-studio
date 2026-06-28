@@ -478,14 +478,12 @@ BookSocial Studio utilise un fournisseur de texte enfichable pour l'analyse et l
 
 ### Fournisseurs de texte
 
-Il existe deux familles de fournisseurs de texte.
+Le moteur de texte fonctionne via un outil CLI sous abonnement auquel vous vous connectez, ou un serveur Ollama local. Il n'y a pas de mode API HTTP au jeton pour le texte.
 
 | Famille | Fournisseurs | Authentification et configuration |
 | --- | --- | --- |
-| Abonnement via CLI | opencode, codex (ChatGPT), gemini (Google) | Aucune clé API n'est stockée dans l'application. Le panneau affiche l'état d'installation de la CLI, un bouton **Authentifier** (Authenticate) qui lance la connexion CLI et un bouton **Vérifier** (Verify) qui revérifie l'état. Il y a un champ facultatif pour le nom du modèle pour la CLI. |
-| Clé API | Points de terminaison OpenAI et compatibles OpenAI, Anthropic, Google, Ollama | Saisissez la clé API, définissez éventuellement une URL de base et choisissez le modèle dans une liste chargée via **Charger les modèles** (Load models), avec une solution de secours manuelle. Ollama est local et n'utilise pas de clé. |
-
-Pour les fournisseurs de clé API, les clés sont stockées de manière chiffrée dans `secrets.enc`. Une clé saisie une fois pour un fournisseur est réutilisée, par exemple pour les images du même fournisseur, et est affichée comme étant déjà définie.
+| Abonnement via CLI | opencode, codex (ChatGPT), claude (Anthropic), agy (Google Gemini / Antigravity) | Aucune clé API n'est stockée dans l'application. Le panneau affiche l'état d'installation de la CLI, un bouton **Authentifier** (Authenticate) qui lance la connexion CLI et un bouton **Vérifier** (Verify) qui revérifie l'état. Il y a un champ facultatif pour le nom du modèle pour la CLI. |
+| Local | Ollama | Serveur local compatible OpenAI. Définissez l'URL de base et le nom du modèle. Ollama n'utilise pas de clé. |
 
 Lorsqu'un nom de modèle spécifique est nécessaire, saisissez le modèle que vous avez choisi / le nom du modèle de votre fournisseur.
 
@@ -496,14 +494,16 @@ Lorsqu'un nom de modèle spécifique est nécessaire, saisissez le modèle que v
 | local | Utilise un moteur sur l'appareil. Voir [TESTED-ON.md](./TESTED-ON.md). |
 | auto | Utilise le mode local si disponible, sinon aucun. |
 | none | Désactive les images générées ; utilisez uniquement l'upload. |
-| OpenAI | Fournisseur d'images dans le cloud ; réutilise la clé de texte partagée. |
-| Google | Fournisseur d'images dans le cloud ; réutilise la clé de texte partagée. |
+| OpenAI | Fournisseur d'images dans le cloud ; utilise `OPENAI_API_KEY` (la clé de votre compte OpenAI, pour les images uniquement). |
+| Google | Fournisseur d'images dans le cloud ; utilise `GOOGLE_API_KEY` (la clé de votre compte Google, pour les images uniquement). |
 | Stability | Fournisseur d'images dans le cloud avec sa propre clé. |
 | Black Forest Labs (FLUX) | Fournisseur d'images dans le cloud avec sa propre clé. |
 | Replicate | Fournisseur d'images dans le cloud avec sa propre clé. |
 | fal.ai | Fournisseur d'images dans le cloud avec sa propre clé. |
 
 Le champ du modèle d'image est du texte libre. Saisissez le modèle que vous avez choisi / le nom du modèle de votre fournisseur. Aucun modèle d'image n'est prédéfini.
+
+Pour les fournisseurs d'images à clé API, les clés sont stockées de manière chiffrée dans `secrets.enc`.
 
 ### Mode d'image
 
@@ -518,7 +518,7 @@ Lorsque le contrôle qualité (QA) des images est activé, chaque image génér�
 
 ### Notes
 
-- Anthropic est disponible en tant que fournisseur de clé API (sans connexion par abonnement).
+- Anthropic est disponible pour le texte via la CLI `claude` (connexion par abonnement), et non comme fournisseur de texte à clé API.
 - L'authentification par abonnement CLI réside dans la CLI elle-même ; aucun jeton d'abonnement n'est stocké dans BookSocial Studio.
 - Pour la configuration spécifique au fournisseur, voir [PROVIDERS.md](./PROVIDERS.md).
 

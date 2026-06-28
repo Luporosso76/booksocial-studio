@@ -91,7 +91,7 @@ El sistema está diseñado para que añadir un proveedor de IA **no** afecte a q
 - Interfaz y fábrica en `server/src/content/engine.ts`:
   - `interface ContentEngine { name(): string; run(prompt: string): Promise<string>; }`
   - `function createEngine(): ContentEngine` — enruta basándose en `CONTENT_PROVIDER`.
-- Implementaciones HTTP (compatibles con OpenAI, Google Gemini, Anthropic) en `content/engineApi.ts`; los fallos lanzan `ContentError`.
+- Los motores de texto son los de **CLI** en `content/engine.ts` (`OpenCodeEngine`, `CodexEngine`, `ClaudeEngine`, `AgyEngine`) más **Ollama** mediante `content/engineApi.ts` (`OpenAICompatibleEngine` / `buildOllamaEngine`, un endpoint local compatible con OpenAI). `buildEngine` enruta basándose en `CONTENT_PROVIDER` y lanza `ContentError` ante un proveedor no compatible; los fallos de ejecución también lanzan `ContentError`.
 
 ### Imágenes — `ImageEngine`
 

@@ -95,8 +95,10 @@ pluggable engines, each an interface plus a central factory `switch`:
 - Interface and factory in `server/src/content/engine.ts`:
   - `interface ContentEngine { name(): string; run(prompt: string): Promise<string>; }`
   - `function createEngine(): ContentEngine` — routes on `CONTENT_PROVIDER`.
-- HTTP implementations (OpenAI-compatible, Google Gemini, Anthropic) in `content/engineApi.ts`;
-  failures throw `ContentError`.
+- Text engines are the **CLI** ones in `content/engine.ts` (`OpenCodeEngine`, `CodexEngine`,
+  `ClaudeEngine`, `AgyEngine`) plus **Ollama** via `content/engineApi.ts` (`OpenAICompatibleEngine` /
+  `buildOllamaEngine`, a local OpenAI-compatible endpoint). `buildEngine` routes on `CONTENT_PROVIDER`
+  and throws `ContentError` on an unsupported provider; run failures also throw `ContentError`.
 
 ### Images — `ImageEngine`
 

@@ -91,7 +91,7 @@ Das System ist so konzipiert, dass das Hinzufügen eines KI-Providers die aufruf
 - Interface und Factory in `server/src/content/engine.ts`:
   - `interface ContentEngine { name(): string; run(prompt: string): Promise<string>; }`
   - `function createEngine(): ContentEngine` — routet basierend auf `CONTENT_PROVIDER`.
-- HTTP-Implementierungen (OpenAI-kompatibel, Google Gemini, Anthropic) in `content/engineApi.ts`; Fehler werfen `ContentError`.
+- Die Text-Engines sind die **CLI**-Engines in `content/engine.ts` (`OpenCodeEngine`, `CodexEngine`, `ClaudeEngine`, `AgyEngine`) plus **Ollama** über `content/engineApi.ts` (`OpenAICompatibleEngine` / `buildOllamaEngine`, ein lokaler OpenAI-kompatibler Endpunkt). `buildEngine` routet basierend auf `CONTENT_PROVIDER` und wirft `ContentError` bei einem nicht unterstützten Provider; auch Ausführungsfehler werfen `ContentError`.
 
 ### Bilder — `ImageEngine`
 

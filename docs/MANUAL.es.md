@@ -477,14 +477,12 @@ BookSocial Studio utiliza un proveedor de texto conectable para el análisis y l
 
 ### Text Providers
 
-Hay dos familias de proveedores de texto.
+El motor de texto se ejecuta mediante una herramienta CLI con suscripción en la que inicias sesión, o un servidor Ollama local. No hay modo de API HTTP por token para texto.
 
 | Family | Providers | Authentication and configuration |
 | --- | --- | --- |
-| Subscription via CLI | opencode, codex (ChatGPT), gemini (Google) | No API key is stored in the app. The panel shows CLI install status, an **Authenticate** button that launches the CLI login, and a **Verify** button that re-checks status. There is an optional model-name field for the CLI. |
-| API key | OpenAI and OpenAI-compatible endpoints, Anthropic, Google, Ollama | Enter the API key, optionally set a base URL, and pick the model from a list loaded through **Load models**, with manual fallback. Ollama is local and uses no key. |
-
-Para los proveedores de clave API, las claves se almacenan encriptadas en `secrets.enc`. Una clave introducida una vez para un proveedor se reutiliza, por ejemplo para imágenes del mismo proveedor, y se muestra como ya configurada.
+| Subscription via CLI | opencode, codex (ChatGPT), claude (Anthropic), agy (Google Gemini / Antigravity) | No API key is stored in the app. The panel shows CLI install status, an **Authenticate** button that launches the CLI login, and a **Verify** button that re-checks status. There is an optional model-name field for the CLI. |
+| Local | Ollama | Local OpenAI-compatible server. Set the base URL and the model name. Ollama uses no key. |
 
 Cuando se necesita un nombre de modelo específico, introduce el modelo que elegiste / el nombre de modelo de tu proveedor.
 
@@ -495,14 +493,16 @@ Cuando se necesita un nombre de modelo específico, introduce el modelo que eleg
 | local | Uses an on-device engine. See [TESTED-ON.md](./TESTED-ON.md). |
 | auto | Uses local if available, otherwise none. |
 | none | Disables generated images; use upload-only. |
-| OpenAI | Cloud image provider; reuses the shared text key. |
-| Google | Cloud image provider; reuses the shared text key. |
+| OpenAI | Cloud image provider; uses `OPENAI_API_KEY` (your OpenAI account key, image-only). |
+| Google | Cloud image provider; uses `GOOGLE_API_KEY` (your Google account key, image-only). |
 | Stability | Cloud image provider with its own key. |
 | Black Forest Labs (FLUX) | Cloud image provider with its own key. |
 | Replicate | Cloud image provider with its own key. |
 | fal.ai | Cloud image provider with its own key. |
 
 El campo del modelo de imagen es de texto libre. Introduce el modelo que elegiste / el nombre de modelo de tu proveedor. No hay ningún modelo de imagen preestablecido.
+
+Para los proveedores de imágenes con clave API, las claves se almacenan encriptadas en `secrets.enc`.
 
 ### Image Mode
 
@@ -517,7 +517,7 @@ Cuando el QA de imagen está habilitado, cada imagen generada se valida y se reg
 
 ### Notes
 
-- Anthropic está disponible como proveedor de clave API (sin inicio de sesión por suscripción).
+- Anthropic está disponible para texto mediante la CLI `claude` (inicio de sesión por suscripción), no como proveedor de texto con clave API.
 - La autenticación de la CLI de suscripción reside en la propia CLI; no se almacena ningún token de suscripción en BookSocial Studio.
 - Para la configuración específica del proveedor, consulta [PROVIDERS.md](./PROVIDERS.md).
 

@@ -478,14 +478,12 @@ BookSocial Studio utilizza un provider di testo integrabile per l'analisi e la s
 
 ### Provider di testo
 
-Ci sono due famiglie di provider di testo.
+Il motore di testo funziona tramite uno strumento CLI con abbonamento a cui accedi, oppure un server Ollama locale. Non esiste una modalità API HTTP a token per il testo.
 
 | Famiglia | Provider | Autenticazione e configurazione |
 | --- | --- | --- |
-| Abbonamento via CLI | opencode, codex (ChatGPT), gemini (Google) | Nessuna chiave API viene memorizzata nell'app. Il pannello mostra lo stato di installazione della CLI, un pulsante **Authenticate** che lancia il login CLI, e un pulsante **Verify** che ricontrolla lo stato. C'è un campo opzionale per il nome del modello per la CLI. |
-| Chiave API | Endpoint OpenAI e compatibili con OpenAI, Anthropic, Google, Ollama | Inserisci la chiave API, opzionalmente imposta un URL di base, e scegli il modello da una lista caricata tramite **Load models**, con fallback manuale. Ollama è locale e non usa alcuna chiave. |
-
-Per i provider con chiave API, le chiavi vengono memorizzate crittografate in `secrets.enc`. Una chiave inserita una volta per un provider viene riutilizzata, ad esempio per le immagini dello stesso provider, ed è mostrata come già impostata.
+| Abbonamento via CLI | opencode, codex (ChatGPT), claude (Anthropic), agy (Google Gemini / Antigravity) | Nessuna chiave API viene memorizzata nell'app. Il pannello mostra lo stato di installazione della CLI, un pulsante **Authenticate** che lancia il login CLI, e un pulsante **Verify** che ricontrolla lo stato. C'è un campo opzionale per il nome del modello per la CLI. |
+| Locale | Ollama | Server locale compatibile con OpenAI. Imposta l'URL di base e il nome del modello. Ollama non usa alcuna chiave. |
 
 Quando è necessario il nome di un modello specifico, inserisci il modello che hai scelto / il nome del modello del tuo provider.
 
@@ -496,14 +494,16 @@ Quando è necessario il nome di un modello specifico, inserisci il modello che h
 | local | Usa un motore sul dispositivo. Vedi [TESTED-ON.md](./TESTED-ON.md). |
 | auto | Usa il locale se disponibile, altrimenti nessuno. |
 | none | Disabilita le immagini generate; usa la modalità solo caricamento. |
-| OpenAI | Provider di immagini in cloud; riutilizza la chiave di testo condivisa. |
-| Google | Provider di immagini in cloud; riutilizza la chiave di testo condivisa. |
+| OpenAI | Provider di immagini in cloud; usa `OPENAI_API_KEY` (la chiave del tuo account OpenAI, solo per immagini). |
+| Google | Provider di immagini in cloud; usa `GOOGLE_API_KEY` (la chiave del tuo account Google, solo per immagini). |
 | Stability | Provider di immagini in cloud con una chiave propria. |
 | Black Forest Labs (FLUX) | Provider di immagini in cloud con una chiave propria. |
 | Replicate | Provider di immagini in cloud con una chiave propria. |
 | fal.ai | Provider di immagini in cloud con una chiave propria. |
 
 Il campo del modello immagine è a testo libero. Inserisci il modello che hai scelto / il nome del modello del tuo provider. Nessun modello di immagine è preimpostato.
+
+Per i provider di immagini con chiave API, le chiavi vengono memorizzate crittografate in `secrets.enc`.
 
 ### Modalità immagine
 
@@ -518,7 +518,7 @@ Quando il QA delle immagini è abilitato, ogni immagine generata viene convalida
 
 ### Note
 
-- Anthropic è disponibile come provider con chiave API (nessun login in abbonamento).
+- Anthropic è disponibile per il testo tramite la CLI `claude` (login con abbonamento), non come provider di testo con chiave API.
 - L'autenticazione tramite abbonamento CLI risiede nella CLI stessa; nessun token di abbonamento viene memorizzato in BookSocial Studio.
 - Per la configurazione specifica dei provider, vedi [PROVIDERS.md](./PROVIDERS.md).
 

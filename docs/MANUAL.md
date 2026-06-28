@@ -478,14 +478,12 @@ BookSocial Studio uses a pluggable text provider for analysis and writing, and a
 
 ### Text Providers
 
-There are two text-provider families.
+The text engine runs through a subscription CLI tool you log into, or a local Ollama server. There is no per-token HTTP API mode for text.
 
 | Family | Providers | Authentication and configuration |
 | --- | --- | --- |
-| Subscription via CLI | opencode, codex (ChatGPT), gemini (Google) | No API key is stored in the app. The panel shows CLI install status, an **Authenticate** button that launches the CLI login, and a **Verify** button that re-checks status. There is an optional model-name field for the CLI. |
-| API key | OpenAI and OpenAI-compatible endpoints, Anthropic, Google, Ollama | Enter the API key, optionally set a base URL, and pick the model from a list loaded through **Load models**, with manual fallback. Ollama is local and uses no key. |
-
-For API-key providers, keys are stored encrypted in `secrets.enc`. A key entered once for a provider is reused, for example for images of the same provider, and is shown as already set.
+| Subscription via CLI | opencode, codex (ChatGPT), claude (Anthropic), agy (Google Gemini / Antigravity) | No API key is stored in the app. The panel shows CLI install status, an **Authenticate** button that launches the CLI login, and a **Verify** button that re-checks status. There is an optional model-name field for the CLI. |
+| Local | Ollama | Local OpenAI-compatible server. Set the base URL and the model name. Ollama uses no key. |
 
 When a specific model name is needed, enter the model you chose / your provider's model name.
 
@@ -496,14 +494,16 @@ When a specific model name is needed, enter the model you chose / your provider'
 | local | Uses an on-device engine. See [TESTED-ON.md](./TESTED-ON.md). |
 | auto | Uses local if available, otherwise none. |
 | none | Disables generated images; use upload-only. |
-| OpenAI | Cloud image provider; reuses the shared text key. |
-| Google | Cloud image provider; reuses the shared text key. |
+| OpenAI | Cloud image provider; uses `OPENAI_API_KEY` (your OpenAI account key, image-only). |
+| Google | Cloud image provider; uses `GOOGLE_API_KEY` (your Google account key, image-only). |
 | Stability | Cloud image provider with its own key. |
 | Black Forest Labs (FLUX) | Cloud image provider with its own key. |
 | Replicate | Cloud image provider with its own key. |
 | fal.ai | Cloud image provider with its own key. |
 
 The image model field is free text. Enter the model you chose / your provider's model name. No image model is preset.
+
+For API-key image providers, keys are stored encrypted in `secrets.enc`.
 
 ### Image Mode
 
@@ -518,7 +518,7 @@ When image QA is enabled, each generated image is validated and regenerated if i
 
 ### Notes
 
-- Anthropic is available as an API-key provider (no subscription login).
+- Anthropic is available for text through the `claude` CLI (subscription login), not as a text API-key provider.
 - Subscription CLI authentication lives in the CLI itself; no subscription token is stored in BookSocial Studio.
 - For provider-specific setup, see [PROVIDERS.md](./PROVIDERS.md).
 

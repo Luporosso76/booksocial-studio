@@ -55,8 +55,8 @@ cp server/.env.example server/.env   # edit later if needed
 # Build the frontend once
 cd web && npm ci && npm run build
 
-# Start the server (serves the API + the built frontend on :8770)
-cd ../server && npm ci && npm start
+# Build and start the server (serves the API + the built frontend on :8770)
+cd ../server && npm ci && npm run build && npm run start:prod
 ```
 
 Open **http://localhost:8770**.
@@ -72,21 +72,20 @@ For active development (hot reload) run `npm run dev` in `server/` and `web/` in
 ## 3. Choose and configure an AI text provider
 
 BookSocial Studio uses an AI **text engine** to analyse your book and write the posts. You pick one
-provider by setting `CONTENT_PROVIDER` in `server/.env`. There are three ways to pay/authenticate.
-Full reference: [`docs/PROVIDERS.md`](PROVIDERS.md).
+provider by setting `CONTENT_PROVIDER` in `server/.env`. The default is `none`. The text engine runs
+through a subscription **CLI tool** you log into, or a **local** Ollama server — there is no per-token
+HTTP API mode for text. Full reference: [`docs/PROVIDERS.md`](PROVIDERS.md).
 
-### Start with OpenAI (API key)
+### Use an existing subscription (CLI)
 
-Get a key from your OpenAI account, then in `server/.env`:
+If you already pay for ChatGPT, Claude or a Gemini plan, the app can drive the matching CLI tool
+(`opencode`, `codex`, `claude`, `agy`) which handles auth with your account — set `CONTENT_PROVIDER`
+accordingly, or log in from the in-app **Settings → AI** with the **Authenticate** button. See
+[`docs/PROVIDERS.md`](PROVIDERS.md).
 
 ```bash
-CONTENT_PROVIDER=openai
-OPENAI_API_KEY=sk-...
-OPENAI_MODEL=gpt-4o-mini
+CONTENT_PROVIDER=codex   # or opencode | claude | agy
 ```
-
-Any **OpenAI-compatible** endpoint (OpenRouter, Groq, Together, LM Studio, vLLM) works the same way —
-set `CONTENT_PROVIDER=openai-compatible` and point `OPENAI_BASE_URL` at it.
 
 ### Start with Ollama (local & free, no key)
 
@@ -98,15 +97,7 @@ OLLAMA_BASE_URL=http://localhost:11434/v1
 OLLAMA_MODEL=llama3.1
 ```
 
-### Use an existing subscription (CLI)
-
-If you already pay for ChatGPT or a Google AI plan, the app can drive the matching CLI tool
-(`opencode`, `codex`, `gemini`) which handles auth with your account — set `CONTENT_PROVIDER`
-accordingly, or log in from the in-app **Settings → AI** with the **Authenticate** button. See
-[`docs/PROVIDERS.md`](PROVIDERS.md).
-
-> You can also set provider keys later from the in-app **Settings** screen; keys you save there are
-> stored **encrypted** on your machine.
+> You can also pick the provider later from the in-app **Settings → AI** screen.
 
 Restart the server after editing `server/.env`.
 
@@ -116,8 +107,8 @@ Restart the server after editing `server/.env`.
 
 AI scene images are **optional**. The image engine is selected by `IMAGE_PROVIDER`:
 
-- **No GPU?** Use a cloud provider — `IMAGE_PROVIDER=openai` or `IMAGE_PROVIDER=google` (these reuse
-  the same `OPENAI_API_KEY` / `GOOGLE_API_KEY` as the text engine).
+- **No GPU?** Use a cloud provider — `IMAGE_PROVIDER=openai` or `IMAGE_PROVIDER=google` (these use
+  `OPENAI_API_KEY` / `GOOGLE_API_KEY`, your OpenAI / Google account key for images).
 - **No image provider at all?** Leave it on the default `auto` (or set `none`). The app runs in
   **upload-only** mode: you provide images, and everything else (text, scheduling, publishing) works.
 - **Have a local GPU?** Set `IMAGE_PROVIDER=local` (stable-diffusion.cpp / Z-Image). This is **not**
@@ -210,8 +201,9 @@ start fresh, stop the app and delete (or rename) the folder.
 
 ## Troubleshooting
 
-- **Server won't start, complains about a missing key** — the selected `CONTENT_PROVIDER` needs its
-  API key in `server/.env`. Add it (or switch to `ollama`) and restart.
+- **Server won't start / text-provider error** — make sure `CONTENT_PROVIDER` is one of `opencode`,
+  `codex`, `claude`, `agy` or `ollama`, and that the matching CLI is installed and authenticated (or
+  switch to `ollama`). Restart after editing.
 - **`better-sqlite3` errors after changing Node** — run `cd server && npm rebuild better-sqlite3`.
 - **No images generated** — that's expected in Docker / without a GPU. Use a cloud image provider or
   upload your own images. See [`docs/PROVIDERS.md`](PROVIDERS.md).

@@ -478,14 +478,12 @@ O BookSocial Studio usa um provedor de texto conectável para análise e redaç�
 
 ### Provedores de Texto
 
-Existem duas famílias de provedores de texto.
+O motor de texto funciona por meio de uma ferramenta CLI com assinatura na qual você faz login, ou um servidor Ollama local. Não há modo de API HTTP por token para texto.
 
 | Família | Provedores | Autenticação e configuração |
 | --- | --- | --- |
-| Assinatura via CLI | opencode, codex (ChatGPT), gemini (Google) | Nenhuma chave de API é armazenada no aplicativo. O painel exibe o status de instalação da CLI, um botão **Authenticate** que inicia o login da CLI e um botão **Verify** que verifica o status novamente. Há um campo opcional de nome do modelo para a CLI. |
-| Chave de API | OpenAI e endpoints compatíveis com a OpenAI, Anthropic, Google, Ollama | Insira a chave da API, opcionalmente defina uma URL base e escolha o modelo em uma lista carregada através de **Load models**, com substituição manual. O Ollama é local e não requer o uso de uma chave. |
-
-Para provedores de chave de API, as chaves são armazenadas criptografadas no arquivo `secrets.enc`. Uma chave digitada uma vez para um provedor é reutilizada, por exemplo, para imagens do mesmo provedor, e é exibida como já definida.
+| Assinatura via CLI | opencode, codex (ChatGPT), claude (Anthropic), agy (Google Gemini / Antigravity) | Nenhuma chave de API é armazenada no aplicativo. O painel exibe o status de instalação da CLI, um botão **Authenticate** que inicia o login da CLI e um botão **Verify** que verifica o status novamente. Há um campo opcional de nome do modelo para a CLI. |
+| Local | Ollama | Servidor local compatível com a OpenAI. Defina a URL base e o nome do modelo. O Ollama não requer o uso de uma chave. |
 
 Quando for necessário o nome de um modelo específico, insira o modelo que você escolheu / o nome do modelo do seu provedor.
 
@@ -496,14 +494,16 @@ Quando for necessário o nome de um modelo específico, insira o modelo que voc�
 | local | Usa um motor no dispositivo. Consulte [TESTED-ON.md](./TESTED-ON.md). |
 | auto | Usa a versão local, se disponível; caso contrário, nenhuma. |
 | none | Desativa imagens geradas; utilize apenas a opção de upload. |
-| OpenAI | Provedor de imagem na nuvem; reutiliza a chave de texto compartilhada. |
-| Google | Provedor de imagem na nuvem; reutiliza a chave de texto compartilhada. |
+| OpenAI | Provedor de imagem na nuvem; usa `OPENAI_API_KEY` (a chave da sua conta OpenAI, apenas para imagens). |
+| Google | Provedor de imagem na nuvem; usa `GOOGLE_API_KEY` (a chave da sua conta Google, apenas para imagens). |
 | Stability | Provedor de imagem na nuvem com chave própria. |
 | Black Forest Labs (FLUX) | Provedor de imagem na nuvem com chave própria. |
 | Replicate | Provedor de imagem na nuvem com chave própria. |
 | fal.ai | Provedor de imagem na nuvem com chave própria. |
 
 O campo de modelo de imagem é de texto livre. Digite o modelo que você escolheu / o nome do modelo do seu provedor. Não há nenhum modelo de imagem pré-definido.
+
+Para provedores de imagem com chave de API, as chaves são armazenadas criptografadas no arquivo `secrets.enc`.
 
 ### Modo de Imagem
 
@@ -518,7 +518,7 @@ Quando a QA de imagens está ativada, cada imagem gerada é validada e regenerad
 
 ### Notas
 
-- A Anthropic está disponível como um provedor de chave de API (sem login de assinatura).
+- A Anthropic está disponível para texto por meio da CLI `claude` (login de assinatura), não como provedor de texto com chave de API.
 - A autenticação da assinatura via CLI reside na própria CLI; nenhum token de assinatura é armazenado no BookSocial Studio.
 - Para a configuração específica do provedor, consulte [PROVIDERS.md](./PROVIDERS.md).
 

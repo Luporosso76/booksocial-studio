@@ -52,8 +52,8 @@ cp server/.env.example server/.env   # edit later if needed
 # Build the frontend once
 cd web && npm ci && npm run build
 
-# Start the server (serves the API + the built frontend on :8770)
-cd ../server && npm ci && npm start
+# Build and start the server (serves the API + the built frontend on :8770)
+cd ../server && npm ci && npm run build && npm run start:prod
 ```
 
 Apri **http://localhost:8770**.
@@ -67,19 +67,15 @@ Per lo sviluppo attivo (hot reload) esegui invece `npm run dev` in `server/` e `
 
 ## 3. Scegli e configura un text provider AI
 
-BookSocial Studio utilizza un **text engine** AI per analizzare il tuo libro e scrivere i post. Scegli un provider impostando `CONTENT_PROVIDER` in `server/.env`. Ci sono tre modi per pagare/autenticarsi. Riferimento completo: [`docs/PROVIDERS.md`](PROVIDERS.md).
+BookSocial Studio utilizza un **text engine** AI per analizzare il tuo libro e scrivere i post. Scegli un provider impostando `CONTENT_PROVIDER` in `server/.env`. Il valore predefinito è `none`. Il text engine funziona tramite uno strumento **CLI** con abbonamento a cui accedi, oppure un server **Ollama** locale — non esiste una modalità API HTTP a token per il testo. Riferimento completo: [`docs/PROVIDERS.md`](PROVIDERS.md).
 
-### Inizia con OpenAI (API key)
+### Usa un abbonamento esistente (CLI)
 
-Ottieni una chiave dal tuo account OpenAI, quindi in `server/.env`:
+Se paghi già per ChatGPT, Claude o un piano Gemini, l'app può pilotare il tool CLI corrispondente (`opencode`, `codex`, `claude`, `agy`) che gestisce l'autenticazione con il tuo account — imposta `CONTENT_PROVIDER` di conseguenza, oppure accedi da **Settings → AI** nell'app con il pulsante **Authenticate**. Vedi [`docs/PROVIDERS.md`](PROVIDERS.md).
 
 ```bash
-CONTENT_PROVIDER=openai
-OPENAI_API_KEY=sk-...
-OPENAI_MODEL=gpt-4o-mini
+CONTENT_PROVIDER=codex   # oppure opencode | claude | agy
 ```
-
-Qualsiasi endpoint **compatibile con OpenAI** (OpenRouter, Groq, Together, LM Studio, vLLM) funziona allo stesso modo — imposta `CONTENT_PROVIDER=openai-compatible` e puntaci `OPENAI_BASE_URL`.
 
 ### Inizia con Ollama (locale e gratuito, senza key)
 
@@ -91,11 +87,7 @@ OLLAMA_BASE_URL=http://localhost:11434/v1
 OLLAMA_MODEL=llama3.1
 ```
 
-### Usa un abbonamento esistente (CLI)
-
-Se paghi già per ChatGPT o un piano AI di Google, l'app può pilotare il tool CLI corrispondente (`opencode`, `codex`, `gemini`) che gestisce l'autenticazione con il tuo account — imposta `CONTENT_PROVIDER` di conseguenza, oppure accedi da **Settings → AI** nell'app con il pulsante **Authenticate**. Vedi [`docs/PROVIDERS.md`](PROVIDERS.md).
-
-> Puoi anche impostare le chiavi dei provider in seguito dalla schermata **Settings** nell'app; le chiavi salvate lì vengono archiviate **crittografate** sulla tua macchina.
+> Puoi anche scegliere il provider in seguito dalla schermata **Settings → AI** nell'app.
 
 Riavvia il server dopo aver modificato `server/.env`.
 
@@ -105,7 +97,7 @@ Riavvia il server dopo aver modificato `server/.env`.
 
 Le immagini AI delle scene sono **opzionali**. L'image engine è selezionato tramite `IMAGE_PROVIDER`:
 
-- **Nessuna GPU?** Usa un provider cloud — `IMAGE_PROVIDER=openai` o `IMAGE_PROVIDER=google` (questi riutilizzano la stessa `OPENAI_API_KEY` / `GOOGLE_API_KEY` del text engine).
+- **Nessuna GPU?** Usa un provider cloud — `IMAGE_PROVIDER=openai` o `IMAGE_PROVIDER=google` (questi usano `OPENAI_API_KEY` / `GOOGLE_API_KEY`, la chiave del tuo account OpenAI / Google per le immagini).
 - **Nessun provider di immagini?** Lascialo sul valore predefinito `auto` (o imposta `none`). L'app funziona in modalità **solo upload**: fornisci tu le immagini e tutto il resto (testo, programmazione, pubblicazione) funziona.
 - **Hai una GPU locale?** Imposta `IMAGE_PROVIDER=local` (stable-diffusion.cpp / Z-Image). Questo **non** è disponibile all'interno di Docker — usa un'installazione manuale.
 
@@ -189,7 +181,7 @@ I segreti (token di Facebook, chiavi API AI) sono conservati **crittografati** i
 
 ## Risoluzione dei problemi
 
-- **Il server non si avvia, lamenta una chiave mancante** — il `CONTENT_PROVIDER` selezionato ha bisogno della sua chiave API in `server/.env`. Aggiungila (o passa a `ollama`) e riavvia.
+- **Il server non si avvia / errore del text provider** — assicurati che `CONTENT_PROVIDER` sia uno tra `opencode`, `codex`, `claude`, `agy` o `ollama`, e che la CLI corrispondente sia installata e autenticata (oppure passa a `ollama`). Riavvia dopo la modifica.
 - **Errori `better-sqlite3` dopo aver cambiato Node** — esegui `cd server && npm rebuild better-sqlite3`.
 - **Nessuna immagine generata** — è normale in Docker / senza una GPU. Usa un provider di immagini cloud o carica le tue immagini. Vedi [`docs/PROVIDERS.md`](PROVIDERS.md).
 - **La connessione a Facebook fallisce** — ricontrolla i permessi del token (sezione 5.2) e che il System User abbia la Pagina assegnata.
