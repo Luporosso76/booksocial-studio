@@ -5,6 +5,28 @@ Alle wesentlichen Änderungen an diesem Projekt werden in dieser Datei dokumenti
 Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.4] - 2026-06-28
+
+### Hinzugefügt
+- **Eigene Outfits für Rückblenden und Träume**: Figuren erhalten nun eigene kanonische Outfits für Erinnerungs-/Rückblenden- und Traumszenen, über alle Renderings hinweg konsistent.
+- **Gezielte Outfits pro Figur**: Outfits werden nur für die Schauplätze der Kapitel erzeugt, in denen die Figur tatsächlich vorkommt, nicht für das ganze Buch.
+- **Upload-Validierung**: Buch-, Bild- und Audio-Uploads werden auf Größe, Endung, MIME-Typ und (bei Bildern) Magic Bytes geprüft; die Grenzwerte sind über Umgebungsvariablen konfigurierbar.
+- **Pfadsicherheit**: aus einem Datenbankpfad ausgelieferte Dateien werden strikt innerhalb des Datenverzeichnisses aufgelöst und blockieren absolute Pfade oder `../`-Traversal.
+- **Härtung der Anmeldung**: Ratenbegrenzung mit temporärer Sperre nach wiederholten Fehlversuchen, konfigurierbare Sitzungsdauer und Invalidierung aller Sitzungen bei Passwortänderung.
+- **Allgemeine API-Ratenbegrenzung** pro Client.
+- **Konfigurationsprüfung beim Start**: klare Fehlermeldung, wenn das Datenverzeichnis nicht beschreibbar ist, Warnungen, wenn ffmpeg fehlt oder kein Textanbieter konfiguriert ist.
+- **Kompiliertes Docker-Runtime**: der Container führt nun das kompilierte JavaScript (`node dist/index.js`) statt der TypeScript-Quellen aus.
+- **Dokumentation**: unterstützte Betriebsmodi (lokal / LAN / öffentlich) sowie Hinweise zu geheimem Schlüssel und Backups.
+
+### Geändert
+- **Text-KI-Anbieter**: Unterstützt werden nur Abo-CLIs (opencode, Codex, Claude, agy) und lokales Ollama. Die nicht unterstützten Text-API-Anbieter (OpenAI/Anthropic/Google) wurden aus Konfiguration, Einstellungs-UI und Dokumentation entfernt; die Auswahl eines veralteten Anbieters schlägt nun mit einem klaren Fehler fehl, statt still nichts zu tun.
+- **Sitzungs-Cookie**: das `Secure`-Attribut wird nur gesetzt, wenn die Verbindung tatsächlich HTTPS ist, damit die Anmeldung lokal/in der Entwicklung über HTTP funktioniert.
+- **Verschlüsselungsschlüssel**: es wird eine Warnung protokolliert, wenn der Schlüssel im Datenverzeichnis gespeichert ist; es wird empfohlen, `BOOKSOCIAL_SECRET_KEY` außerhalb des Datenvolumens zu setzen.
+- **Backend-Routen** in domänenspezifische Module umstrukturiert (keine Änderung an Endpunkten oder Verhalten).
+
+### Behoben
+- Anmeldesitzungen gehen über HTTP nicht mehr aufgrund des `Secure`-Cookie-Flags verloren.
+
 ## [0.5.3] - 2026-06-28
 
 ### Hinzugefügt

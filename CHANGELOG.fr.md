@@ -5,6 +5,28 @@ Toutes les modifications notables apportées à ce projet sont documentées dans
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 et ce projet respecte le [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.4] - 2026-06-28
+
+### Ajouté
+- **Tenues dédiées aux flashbacks et aux rêves** : les personnages reçoivent désormais des tenues canoniques distinctes pour les scènes de souvenir/flashback et de rêve, cohérentes d'un rendu à l'autre.
+- **Tenues ciblées par personnage** : les tenues ne sont générées que pour les décors des chapitres où le personnage apparaît réellement, et non pour tout le livre.
+- **Validation des téléversements** : les fichiers de livres, d'images et d'audio sont vérifiés (taille, extension, type MIME et, pour les images, magic bytes) ; les limites sont configurables par variables d'environnement.
+- **Sécurité des chemins** : les fichiers servis depuis un chemin de la base de données sont résolus strictement à l'intérieur du répertoire de données, bloquant les chemins absolus ou la traversée `../`.
+- **Renforcement de la connexion** : limitation du débit avec blocage temporaire après échecs répétés, durée de session configurable et invalidation de toutes les sessions au changement de mot de passe.
+- **Limitation générale du débit de l'API** par client.
+- **Vérification de la configuration au démarrage** : erreur claire si le répertoire de données n'est pas accessible en écriture, avertissements si ffmpeg est absent ou si aucun fournisseur de texte n'est configuré.
+- **Runtime Docker compilé** : le conteneur exécute désormais le JavaScript compilé (`node dist/index.js`) au lieu des sources TypeScript.
+- **Documentation** : modes d'utilisation pris en charge (local / LAN / public) et conseils sur la clé secrète et les sauvegardes.
+
+### Modifié
+- **Fournisseurs d'IA de texte** : seuls les CLI sur abonnement (opencode, Codex, Claude, agy) et Ollama local sont pris en charge. Les fournisseurs d'API de texte non pris en charge (OpenAI/Anthropic/Google) ont été retirés de la configuration, de l'interface des réglages et de la documentation ; en sélectionner un obsolète échoue désormais avec une erreur claire au lieu de ne rien faire silencieusement.
+- **Cookie de session** : l'attribut `Secure` n'est défini que lorsque la connexion est réellement en HTTPS, afin que la connexion fonctionne en HTTP en local/développement.
+- **Clé de chiffrement** : un avertissement est journalisé lorsque la clé est stockée dans le répertoire de données ; il est recommandé de définir `BOOKSOCIAL_SECRET_KEY` en dehors du volume de données.
+- **Routes du backend** réorganisées en modules par domaine (aucun changement d'endpoint ni de comportement).
+
+### Corrigé
+- Les sessions de connexion ne sont plus perdues en HTTP à cause de l'attribut `Secure` du cookie.
+
 ## [0.5.3] - 2026-06-28
 
 ### Ajouté

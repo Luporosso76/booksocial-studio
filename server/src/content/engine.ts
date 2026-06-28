@@ -189,19 +189,6 @@ function spawnCollect(
   });
 }
 
-// Provider non configurato: restituisce un messaggio d'errore chiaro all'utente.
-class UnconfiguredEngine implements ContentEngine {
-  name(): string {
-    return "non configurato";
-  }
-
-  async run(_prompt: string): Promise<string> {
-    throw new ContentError(
-      "Provider AI non configurato. Apri Impostazioni → AI e scegli un provider.",
-    );
-  }
-}
-
 // DEFAULT: opencode run -m <model> <prompt>  (clean answer on stdout).
 class OpenCodeEngine implements ContentEngine {
   constructor(
@@ -489,9 +476,14 @@ function buildEngine(
         mdl(cfg.opencodeModel),
         timeout,
       );
-    default:
-      // 'none', '' o provider non riconosciuto: motore NON configurato (errore chiaro a run()).
-      return new UnconfiguredEngine();
+    default: {
+      const chosen = provider && provider.trim() !== "" ? provider : "none";
+      throw new ContentError(
+        `Provider di testo non supportato: '${chosen}'. ` +
+          "Sono supportati solo opencode, codex, claude, agy e ollama. " +
+          "Riconfigura il provider in Impostazioni → AI.",
+      );
+    }
   }
 }
 

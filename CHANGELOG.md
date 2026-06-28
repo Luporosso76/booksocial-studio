@@ -5,6 +5,28 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.4] - 2026-06-28
+
+### Added
+- **Dedicated flashback & dream outfits**: characters now receive distinct canonical outfits for memory/flashback and dream scenes, kept consistent across renders.
+- **Per-character outfit scope**: outfits are generated only for the settings of the chapters where a character actually appears, instead of for the whole book.
+- **Upload validation**: book, image and audio uploads are checked for size, extension, MIME type and (for images) magic bytes; limits are configurable via environment variables.
+- **Path safety**: files served from a database path are resolved strictly inside the data directory, blocking absolute-path or `../` traversal escapes.
+- **Login hardening**: rate limiting with a temporary lockout after repeated failures, configurable session duration, and invalidation of all sessions on password change.
+- **General per-client API rate limit**.
+- **Startup configuration check**: a clear error if the data directory is not writable, and warnings if ffmpeg is missing or no text provider is configured.
+- **Compiled Docker runtime**: the container now runs the compiled JavaScript (`node dist/index.js`) instead of the TypeScript sources.
+- **Documentation**: supported usage modes (local / LAN / public) plus secret-key and backup guidance.
+
+### Changed
+- **Text AI providers**: only subscription CLIs (opencode, Codex, Claude, agy) and local Ollama are supported. The unsupported text API providers (OpenAI/Anthropic/Google) were removed from configuration, the settings UI and the docs; selecting a stale one now fails with a clear error instead of silently doing nothing.
+- **Session cookie**: the `Secure` attribute is set only when the connection is actually HTTPS, so login works over plain HTTP in local/dev.
+- **Encryption key**: a warning is logged when the key is stored inside the data directory; setting `BOOKSOCIAL_SECRET_KEY` outside the data volume is recommended.
+- **Backend routes** reorganised into per-domain modules (no endpoint or behaviour change).
+
+### Fixed
+- Login sessions are no longer dropped over HTTP because of the `Secure` cookie flag.
+
 ## [0.5.3] - 2026-06-28
 
 ### Added

@@ -5,7 +5,7 @@ import { createServer as createHttpsServer } from "node:https";
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
-import { appConfig } from "./config.js";
+import { appConfig, setHttpsEnabled, isHttpsEnabled } from "./config.js";
 import { runMigrations } from "./db/migrate.js";
 import { pool } from "./db/pool.js";
 import { createEngine } from "./content/engine.js";
@@ -23,6 +23,7 @@ import { RenderCleanup } from "./scheduler/renderCleanup.js";
 import * as keyring from "./secrets/keyring.js";
 import * as auth from "./services/authService.js";
 import { loadTls } from "./tls.js";
+import { validateStartupConfig } from "./configCheck.js";
 import { buildApi, type AppDeps } from "./routes.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -38,6 +39,7 @@ async function main(): Promise<void> {
   // Carica la config RUNTIME dei provider AI (DB + keyring) in cache PRIMA di createEngine(),
   // così engine e imageEngine leggono i valori salvati (con fallback env) senza riavvio.
   await aiSettings.load();
+  validateStartupConfig();
   const engine = createEngine();
   const content = new ContentService(engine);
   const director = new Director({ engine });
@@ -100,6 +102,12 @@ async function main(): Promise<void> {
 
   // 6) Listen: HTTPS se è disponibile materiale TLS (cert montato o self-signed), altrimenti HTTP.
   const tls = loadTls();
+  setHttpsEnabled(Boolean(tls));
+  if ((appConfig.host === "0.0.0.0" || appConfig.host === "::") && !isHttpsEnabled()) {
+    console.warn(
+      `[security] binding on ${appConfig.host} WITHOUT HTTPS: the service is reachable in cleartext on the network. Use HTTPS or bind to 127.0.0.1.`,
+    );
+  }
   if (tls) {
     serve(
       {

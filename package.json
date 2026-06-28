@@ -1,6 +1,6 @@
 {
   "name": "booksocial-studio",
-  "version": "0.5.3",
+  "version": "0.5.4",
   "private": true,
   "type": "module",
   "description": "BookSocial Studio — quality & release tooling (Prettier, ESLint) for server/ and web/.",

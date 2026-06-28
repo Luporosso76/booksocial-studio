@@ -18,14 +18,6 @@ import * as keyring from "../secrets/keyring.js";
 
 export interface TextCfg {
   provider: string;
-  openaiApiKey: string | null;
-  openaiBaseUrl: string;
-  openaiModel: string;
-  anthropicApiKey: string | null;
-  anthropicModel: string;
-  googleApiKey: string | null;
-  googleModel: string;
-  googleBaseUrl: string;
   ollamaBaseUrl: string;
   ollamaModel: string;
   opencodeModel: string;
@@ -91,11 +83,6 @@ export const DEFAULT_IMAGE_STYLE: ImageStyleCfg = {
 export interface EffectiveView {
   text: {
     provider: string;
-    openaiBaseUrl: string;
-    openaiModel: string;
-    anthropicModel: string;
-    googleModel: string;
-    googleBaseUrl: string;
     ollamaBaseUrl: string;
     ollamaModel: string;
     opencodeModel: string;
@@ -107,6 +94,8 @@ export interface EffectiveView {
   };
   image: {
     provider: string;
+    openaiBaseUrl: string;
+    googleBaseUrl: string;
     openaiImageModel: string;
     googleImageModel: string;
     stabilityImageModel: string;
@@ -120,7 +109,6 @@ export interface EffectiveView {
   };
   keys: {
     openai: boolean;
-    anthropic: boolean;
     google: boolean;
     stability: boolean;
     bfl: boolean;
@@ -140,11 +128,6 @@ export interface EffectiveView {
 export interface AiSettingsPatch {
   text?: {
     provider?: string;
-    openaiBaseUrl?: string;
-    openaiModel?: string;
-    anthropicModel?: string;
-    googleModel?: string;
-    googleBaseUrl?: string;
     ollamaBaseUrl?: string;
     ollamaModel?: string;
     opencodeModel?: string;
@@ -156,6 +139,8 @@ export interface AiSettingsPatch {
   };
   image?: {
     provider?: string;
+    openaiBaseUrl?: string;
+    googleBaseUrl?: string;
     openaiImageModel?: string;
     googleImageModel?: string;
     stabilityImageModel?: string;
@@ -169,7 +154,6 @@ export interface AiSettingsPatch {
   };
   keys?: {
     openai?: string | null;
-    anthropic?: string | null;
     google?: string | null;
     stability?: string | null;
     bfl?: string | null;
@@ -189,10 +173,7 @@ export interface AiSettingsPatch {
 // ---------------------------------------------------------------------------
 const DB_KEYS = {
   textProvider: "ai.text.provider",
-  openaiModel: "ai.text.openaiModel",
   openaiBaseUrl: "ai.text.openaiBaseUrl",
-  anthropicModel: "ai.text.anthropicModel",
-  googleModel: "ai.text.googleModel",
   googleBaseUrl: "ai.text.googleBaseUrl",
   ollamaBaseUrl: "ai.text.ollamaBaseUrl",
   ollamaModel: "ai.text.ollamaModel",
@@ -221,7 +202,6 @@ const DB_KEYS = {
 
 const KEY_KEYS = {
   openai: "ai.key.openai",
-  anthropic: "ai.key.anthropic",
   google: "ai.key.google",
   stability: "ai.key.stability",
   bfl: "ai.key.bfl",
@@ -340,14 +320,6 @@ export function getImageStyle(provider: string): ImageStyleCfg {
 export function getText(): TextCfg {
   return {
     provider: dbVal(DB_KEYS.textProvider, appConfig.contentProvider),
-    openaiApiKey: keyVal(KEY_KEYS.openai, appConfig.openaiApiKey),
-    openaiBaseUrl: dbVal(DB_KEYS.openaiBaseUrl, appConfig.openaiBaseUrl),
-    openaiModel: dbVal(DB_KEYS.openaiModel, appConfig.openaiModel),
-    anthropicApiKey: keyVal(KEY_KEYS.anthropic, appConfig.anthropicApiKey),
-    anthropicModel: dbVal(DB_KEYS.anthropicModel, appConfig.anthropicModel),
-    googleApiKey: keyVal(KEY_KEYS.google, appConfig.googleApiKey),
-    googleModel: dbVal(DB_KEYS.googleModel, appConfig.googleModel),
-    googleBaseUrl: dbVal(DB_KEYS.googleBaseUrl, appConfig.googleBaseUrl),
     ollamaBaseUrl: dbVal(DB_KEYS.ollamaBaseUrl, appConfig.ollamaBaseUrl),
     ollamaModel: dbVal(DB_KEYS.ollamaModel, appConfig.ollamaModel),
     opencodeModel: dbVal(DB_KEYS.opencodeModel, appConfig.opencodeModel),
@@ -405,11 +377,6 @@ export function effectiveView(): EffectiveView {
   return {
     text: {
       provider: t.provider,
-      openaiBaseUrl: t.openaiBaseUrl,
-      openaiModel: t.openaiModel,
-      anthropicModel: t.anthropicModel,
-      googleModel: t.googleModel,
-      googleBaseUrl: t.googleBaseUrl,
       ollamaBaseUrl: t.ollamaBaseUrl,
       ollamaModel: t.ollamaModel,
       opencodeModel: t.opencodeModel,
@@ -421,6 +388,8 @@ export function effectiveView(): EffectiveView {
     },
     image: {
       provider: i.provider,
+      openaiBaseUrl: i.openaiBaseUrl,
+      googleBaseUrl: i.googleBaseUrl,
       openaiImageModel: i.openaiImageModel,
       googleImageModel: i.googleImageModel,
       stabilityImageModel: i.stabilityImageModel,
@@ -433,9 +402,8 @@ export function effectiveView(): EffectiveView {
       fallbackModel: i.fallbackModel,
     },
     keys: {
-      openai: t.openaiApiKey != null && t.openaiApiKey !== "",
-      anthropic: t.anthropicApiKey != null && t.anthropicApiKey !== "",
-      google: t.googleApiKey != null && t.googleApiKey !== "",
+      openai: i.openaiApiKey != null && i.openaiApiKey !== "",
+      google: i.googleApiKey != null && i.googleApiKey !== "",
       stability: i.stabilityApiKey != null && i.stabilityApiKey !== "",
       bfl: i.bflApiKey != null && i.bflApiKey !== "",
       replicate: i.replicateApiKey != null && i.replicateApiKey !== "",
@@ -452,11 +420,6 @@ export function effectiveView(): EffectiveView {
 // Mappa campo-patch -> chiave app_setting per la sezione testo.
 const TEXT_FIELD_KEYS: Record<string, string> = {
   provider: DB_KEYS.textProvider,
-  openaiBaseUrl: DB_KEYS.openaiBaseUrl,
-  openaiModel: DB_KEYS.openaiModel,
-  anthropicModel: DB_KEYS.anthropicModel,
-  googleModel: DB_KEYS.googleModel,
-  googleBaseUrl: DB_KEYS.googleBaseUrl,
   ollamaBaseUrl: DB_KEYS.ollamaBaseUrl,
   ollamaModel: DB_KEYS.ollamaModel,
   opencodeModel: DB_KEYS.opencodeModel,
@@ -469,6 +432,8 @@ const TEXT_FIELD_KEYS: Record<string, string> = {
 
 const IMAGE_FIELD_KEYS: Record<string, string> = {
   provider: DB_KEYS.imageProvider,
+  openaiBaseUrl: DB_KEYS.openaiBaseUrl,
+  googleBaseUrl: DB_KEYS.googleBaseUrl,
   openaiImageModel: DB_KEYS.openaiImageModel,
   googleImageModel: DB_KEYS.googleImageModel,
   stabilityImageModel: DB_KEYS.stabilityImageModel,

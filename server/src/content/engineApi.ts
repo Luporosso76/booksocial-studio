@@ -79,107 +79,6 @@ export class OpenAICompatibleEngine implements ContentEngine {
   }
 }
 
-// POST https://api.anthropic.com/v1/messages  (x-api-key + anthropic-version).
-export class AnthropicEngine implements ContentEngine {
-  constructor(
-    private readonly apiKey: string,
-    private readonly model: string,
-    private readonly timeoutMs: number,
-    private readonly maxTokens: number = 4096,
-  ) {}
-
-  name(): string {
-    return "anthropic";
-  }
-
-  async run(prompt: string): Promise<string> {
-    const res = await fetchWithTimeout(
-      "https://api.anthropic.com/v1/messages",
-      {
-        method: "POST",
-        headers: {
-          "x-api-key": this.apiKey,
-          "anthropic-version": "2023-06-01",
-          "content-type": "application/json",
-        },
-        body: JSON.stringify({
-          model: this.model,
-          max_tokens: this.maxTokens,
-          messages: [{ role: "user", content: prompt }],
-        }),
-      },
-      this.timeoutMs,
-    );
-    const body = await res.text();
-    if (!res.ok) {
-      throw new ContentError(`Anthropic HTTP ${res.status}: ${body.trim()}`);
-    }
-    let data: { content?: { text?: string }[] };
-    try {
-      data = JSON.parse(body);
-    } catch {
-      throw new ContentError(`Anthropic: risposta non in JSON valido: ${body.trim()}`);
-    }
-    const answer = data.content?.[0]?.text?.trim();
-    if (!answer) {
-      throw new ContentError("Anthropic non ha prodotto alcuna risposta");
-    }
-    return answer;
-  }
-}
-
-/**
- * Google Gemini (Generative Language API).
- * POST `${baseURL}/models/${model}:generateContent?key=${apiKey}`.
- * Body `{ contents: [{ parts: [{ text: prompt }] }] }`; la risposta unisce i `.text` delle parts.
- */
-export class GoogleGeminiEngine implements ContentEngine {
-  constructor(
-    private readonly baseURL: string,
-    private readonly apiKey: string,
-    private readonly model: string,
-    private readonly timeoutMs: number,
-  ) {}
-
-  name(): string {
-    return "google";
-  }
-
-  async run(prompt: string): Promise<string> {
-    const url = `${this.baseURL}/models/${this.model}:generateContent?key=${encodeURIComponent(this.apiKey)}`;
-    const res = await fetchWithTimeout(
-      url,
-      {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-        }),
-      },
-      this.timeoutMs,
-    );
-    const body = await res.text();
-    if (!res.ok) {
-      throw new ContentError(`Google HTTP ${res.status}: ${body.trim()}`);
-    }
-    let data: { candidates?: { content?: { parts?: { text?: string }[] } }[] };
-    try {
-      data = JSON.parse(body);
-    } catch {
-      throw new ContentError(`Google: risposta non in JSON valido: ${body.trim()}`);
-    }
-    const parts = data.candidates?.[0]?.content?.parts ?? [];
-    const answer = parts
-      .map((p) => p.text ?? "")
-      .join("")
-      .trim();
-    if (!answer) {
-      throw new ContentError("Google non ha prodotto alcuna risposta");
-    }
-    return answer;
-  }
-}
-
 /**
  * Elenca i MODELLI di testo realmente disponibili per un provider, interrogando la sua API HTTP.
  * Best-effort: su errore/timeout ritorna [] (NON lancia), così la UI può degradare a input libero.
@@ -273,69 +172,12 @@ export async function listTextModels(input: {
   }
 }
 
-// Costruttori usati da createEngine(): falliscono con messaggio esplicito se manca la API key.
-// Ricevono la config EFFETTIVA (TextCfg = cache aiSettings ?? env): chiavi/model/baseUrl a runtime.
-export function buildOpenAIEngine(cfg: TextCfg): OpenAICompatibleEngine {
-  if (!cfg.openaiApiKey) {
-    throw new ContentError(
-      "CONTENT_PROVIDER=openai ma OPENAI_API_KEY non è impostata. Aggiungila al file .env.",
-    );
-  }
-  return new OpenAICompatibleEngine(
-    "openai",
-    cfg.openaiBaseUrl,
-    cfg.openaiApiKey,
-    cfg.openaiModel,
-    appConfig.engineTimeoutMs,
-  );
-}
-
-// OpenAI-compatible: OpenRouter/Groq/LMStudio/vLLM via OPENAI_BASE_URL + OPENAI_API_KEY + OPENAI_MODEL.
-export function buildOpenAICompatibleEngine(cfg: TextCfg): OpenAICompatibleEngine {
-  if (!cfg.openaiApiKey) {
-    throw new ContentError(
-      "CONTENT_PROVIDER=openai-compatible ma OPENAI_API_KEY non è impostata. Aggiungila al file .env.",
-    );
-  }
-  return new OpenAICompatibleEngine(
-    "openai-compatible",
-    cfg.openaiBaseUrl,
-    cfg.openaiApiKey,
-    cfg.openaiModel,
-    appConfig.engineTimeoutMs,
-  );
-}
-
-// Ollama locale: nessuna chiave (apiKey=null).
 export function buildOllamaEngine(cfg: TextCfg): OpenAICompatibleEngine {
   return new OpenAICompatibleEngine(
     "ollama",
     cfg.ollamaBaseUrl,
     null,
     cfg.ollamaModel,
-    appConfig.engineTimeoutMs,
-  );
-}
-
-export function buildAnthropicEngine(cfg: TextCfg): AnthropicEngine {
-  if (!cfg.anthropicApiKey) {
-    throw new ContentError(
-      "CONTENT_PROVIDER=anthropic ma ANTHROPIC_API_KEY non è impostata. Aggiungila al file .env.",
-    );
-  }
-  return new AnthropicEngine(cfg.anthropicApiKey, cfg.anthropicModel, appConfig.engineTimeoutMs);
-}
-
-export function buildGoogleGeminiEngine(cfg: TextCfg): GoogleGeminiEngine {
-  if (!cfg.googleApiKey) {
-    throw new ContentError(
-      "CONTENT_PROVIDER=google ma GOOGLE_API_KEY non è impostata. Aggiungila al file .env.",
-    );
-  }
-  return new GoogleGeminiEngine(
-    cfg.googleBaseUrl,
-    cfg.googleApiKey,
-    cfg.googleModel,
     appConfig.engineTimeoutMs,
   );
 }

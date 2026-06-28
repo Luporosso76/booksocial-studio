@@ -5,6 +5,28 @@ Tutte le modifiche rilevanti a questo progetto sono documentate in questo file.
 Il formato è basato su [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 e questo progetto aderisce al [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.4] - 2026-06-28
+
+### Aggiunto
+- **Outfit dedicati per flashback e sogni**: i personaggi ricevono ora abiti canonici distinti per le scene di ricordo/flashback e di sogno, coerenti tra una resa e l'altra.
+- **Outfit per-personaggio mirati**: gli abiti vengono generati solo per le ambientazioni dei capitoli in cui il personaggio compare davvero, non per l'intero libro.
+- **Validazione degli upload**: i caricamenti di libri, immagini e audio sono controllati per dimensione, estensione, tipo MIME e (per le immagini) magic bytes; i limiti sono configurabili da variabili d'ambiente.
+- **Sicurezza dei percorsi**: i file serviti a partire da un percorso del database vengono risolti rigorosamente dentro la cartella dati, bloccando percorsi assoluti o traversal con `../`.
+- **Login più robusto**: rate limit con blocco temporaneo dopo tentativi ripetuti, durata della sessione configurabile e invalidazione di tutte le sessioni al cambio password.
+- **Rate limit generale delle API** per client.
+- **Controllo della configurazione all'avvio**: errore chiaro se la cartella dati non è scrivibile, avvisi se manca ffmpeg o se non è configurato un provider di testo.
+- **Runtime Docker compilato**: il container esegue ora il JavaScript compilato (`node dist/index.js`) invece dei sorgenti TypeScript.
+- **Documentazione**: modalità d'uso supportate (locale / LAN / pubblico) e indicazioni su chiave segreta e backup.
+
+### Modificato
+- **Provider AI di testo**: sono supportati solo i CLI ad abbonamento (opencode, Codex, Claude, agy) e Ollama locale. I provider via API di testo non supportati (OpenAI/Anthropic/Google) sono stati rimossi da configurazione, interfaccia impostazioni e documentazione; selezionarne uno obsoleto ora fallisce con un errore chiaro invece di non fare nulla in silenzio.
+- **Cookie di sessione**: l'attributo `Secure` viene impostato solo quando la connessione è davvero HTTPS, così il login funziona anche su HTTP in locale/sviluppo.
+- **Chiave di cifratura**: viene registrato un avviso quando la chiave è salvata dentro la cartella dati; si consiglia di impostare `BOOKSOCIAL_SECRET_KEY` fuori dal volume dati.
+- **Rotte del backend** riorganizzate in moduli per dominio (nessuna modifica di endpoint o comportamento).
+
+### Corretto
+- Le sessioni di login non vengono più perse su HTTP a causa del flag `Secure` del cookie.
+
 ## [0.5.3] - 2026-06-28
 
 ### Aggiunto

@@ -18,17 +18,12 @@ function env(name: string, fallback?: string): string {
 export interface AppConfig {
   port: number;
   host: string;
-  contentProvider: string; // opencode | codex | gemini | openai | openai-compatible | ollama | anthropic | google
-  // Provider via API HTTP (opzionali): se selezionati ma senza chiave, createEngine() fallisce.
-  openaiApiKey: string | null;
-  openaiModel: string;
-  openaiBaseUrl: string;
+  contentProvider: string;
   ollamaBaseUrl: string;
   ollamaModel: string;
-  anthropicApiKey: string | null;
-  anthropicModel: string;
+  openaiApiKey: string | null;
+  openaiBaseUrl: string;
   googleApiKey: string | null;
-  googleModel: string;
   googleBaseUrl: string;
   // Generazione IMMAGINI: provider attivo (auto|local|openai|google|stability|bfl|replicate|fal|none)
   // e modelli/chiavi HTTP. openai/google riusano le stesse chiavi del testo (stesso account).
@@ -80,16 +75,11 @@ export const appConfig: AppConfig = {
   // Default NEUTRO: 'none' = nessun provider configurato → l'utente lo sceglie dall'onboarding /
   // Impostazioni (niente provider personale preimpostato nel repo pubblico).
   contentProvider: env("CONTENT_PROVIDER", "none").toLowerCase(),
-  openaiApiKey: process.env.OPENAI_API_KEY || null,
-  // Nessun modello hardcoded: l'utente lo sceglie dalla connessione (list-models) o lo digita.
-  openaiModel: env("OPENAI_MODEL", ""),
-  openaiBaseUrl: env("OPENAI_BASE_URL", "https://api.openai.com/v1"),
   ollamaBaseUrl: env("OLLAMA_BASE_URL", "http://localhost:11434/v1"),
   ollamaModel: env("OLLAMA_MODEL", ""),
-  anthropicApiKey: process.env.ANTHROPIC_API_KEY || null,
-  anthropicModel: env("ANTHROPIC_MODEL", ""),
+  openaiApiKey: process.env.OPENAI_API_KEY || null,
+  openaiBaseUrl: env("OPENAI_BASE_URL", "https://api.openai.com/v1"),
   googleApiKey: process.env.GOOGLE_API_KEY || null,
-  googleModel: env("GOOGLE_MODEL", ""),
   googleBaseUrl: env("GOOGLE_BASE_URL", "https://generativelanguage.googleapis.com/v1beta"),
   imageProvider: env("IMAGE_PROVIDER", "auto").toLowerCase(),
   // Modelli immagine: nessun default hardcoded (i nomi corretti dipendono dal provider/piano).
@@ -126,3 +116,11 @@ export const appConfig: AppConfig = {
   tlsKeyPath: process.env.TLS_KEY_PATH || null,
   tlsCn: env("TLS_CN", "localhost"),
 };
+
+let httpsEnabled = false;
+export function setHttpsEnabled(value: boolean): void {
+  httpsEnabled = value;
+}
+export function isHttpsEnabled(): boolean {
+  return httpsEnabled;
+}

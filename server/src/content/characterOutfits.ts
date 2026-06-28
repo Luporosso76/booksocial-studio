@@ -20,6 +20,8 @@ export interface OutfitsInput {
   // Ambientazioni/contesti ricorrenti del libro (da luoghi+ambienti delle schede capitolo): aiutano
   // a creare abiti per le scene reali e a scegliere keyword `when` che combaceranno con le schede.
   settings: string[];
+  flashbackSettings?: string[];
+  dreamSettings?: string[];
   // GROUNDING: passaggi reali del libro che nominano il personaggio (per cogliere i capi che il libro
   // gli fa indossare in certe scene). Opzionale.
   sourceText?: string | null;
@@ -31,7 +33,7 @@ export interface OutfitsInput {
   directives?: string | null;
 }
 
-const MAX_CTX = 5;
+const MAX_CTX = 8;
 
 export async function generateOutfits(
   engine: ContentEngine,
@@ -40,6 +42,24 @@ export async function generateOutfits(
   const settings =
     input.settings.length > 0 ? input.settings.slice(0, 24).join("; ") : "(not available)";
   const language = languageName(input.language);
+  const flashbackSettings = (input.flashbackSettings ?? [])
+    .map((s) => s.trim())
+    .filter((s) => s !== "")
+    .slice(0, 12)
+    .join("; ");
+  const dreamSettings = (input.dreamSettings ?? [])
+    .map((s) => s.trim())
+    .filter((s) => s !== "")
+    .slice(0, 12)
+    .join("; ");
+  const flashbackRule =
+    flashbackSettings === ""
+      ? ""
+      : `\n- FLASHBACK / MEMORY OUTFITS (DEDICATED, MANDATORY): this character appears in one or more MEMORY/PAST (flashback) scenes set in: ${flashbackSettings}. You MUST add to "contexts" one or more DEDICATED entries for these. For each: "when" = the SETTING words of that memory PLUS the words for "flashback, memory, past" written in ${language}; "outfit" = clothing coherent with THAT era/memory — a YOUNGER version of the character wearing the garments of that time/place — NOT today's clothes. Never leave a flashback dressed in the present-day default; this fixes the memory outfit so it stays consistent across renders.`;
+  const dreamRule =
+    dreamSettings === ""
+      ? ""
+      : `\n- DREAM OUTFITS (DEDICATED): this character appears in one or more DREAM scenes set in: ${dreamSettings}. Add to "contexts" one or more DEDICATED entries for these. For each: "when" = the SETTING words of that dream PLUS the word for "dream" written in ${language}; "outfit" = the concrete clothing of that dreamlike scene, so the dream look stays consistent across renders.`;
 
   const prompt = `Define a character's CANONICAL WARDROBE for CONSISTENT illustrations: the character must
 ALWAYS dress the same way in the same situation. Given the character, write a DEFAULT outfit plus a few
@@ -89,7 +109,7 @@ RULES:
 - "contexts": 0 to ${MAX_CTX} entries, ONLY for the recurring situations where this character plausibly
   appears. Each "when" is a few KEYWORDS taken FROM THE VOCABULARY of the SETTINGS below (so they will match
   the chapter scene cards), written in ${language} (e.g. "beach, sea, surf" or "meditation, yoga, mat"
-  or "office, work"). Each "outfit" is the CONCRETE clothing suited to that context, coherent with its climate.
+  or "office, work"). Each "outfit" is the CONCRETE clothing suited to that context, coherent with its climate.${flashbackRule}${dreamRule}
 - Realistic outfits, consistent with the character; no uniforms/costumes unless the role truly requires it
   (no gi/martial-arts outfit for a meditation scene). CLOTHING ONLY, no physical appearance.
 - LANGUAGE: write ALL string values (default, when, outfit, signature) in ${language}. Even though these
@@ -102,6 +122,8 @@ OCCUPATION: ${input.occupation?.trim() || "(unspecified)"}
 APPEARANCE (for consistency, do NOT describe it in the outfits): ${input.physical?.trim() || "(none)"}
 BOOK: ${input.bookTitle?.trim() || "(untitled)"} — country/setting: ${input.country?.trim() || "(not stated)"}
 RECURRING SETTINGS OF THE BOOK (use these words for the "when" keywords): ${settings}
+FLASHBACK/MEMORY SETTINGS where this character appears (need a dedicated past-era outfit): ${flashbackSettings || "(none)"}
+DREAM SETTINGS where this character appears (need a dedicated dream outfit): ${dreamSettings || "(none)"}
 === BOOK ART DIRECTION (authoritative on clothing for specific activities/scenes) ===
 ${input.directives?.trim() || "(none)"}
 === BOOK PASSAGES MENTIONING ${input.name.toUpperCase()} (garments worn, if cited) ===

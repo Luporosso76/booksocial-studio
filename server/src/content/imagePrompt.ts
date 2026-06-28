@@ -211,16 +211,19 @@ ${e}`;
 // Risolve l'ABITO da usare per un personaggio in questa scena: il primo abito-per-contesto le cui
 // keyword combaciano con l'haystack (scheda del capitolo), altrimenti l'abito di default, altrimenti
 // null (→ il modello veste secondo la logica generale). Così "stessa scena → stesso vestito".
-function resolveOutfit(outfits: CharacterOutfits | undefined, haystack: string): string | null {
-  if (!outfits) return null;
+function resolveOutfitMatch(
+  outfits: CharacterOutfits | undefined,
+  haystack: string,
+): { outfit: string | null; fromContext: boolean } {
+  if (!outfits) return { outfit: null, fromContext: false };
   for (const ctx of outfits.contexts) {
     const kws = ctx.when
       .split(/[,;]/)
       .map((s) => s.trim())
       .filter((s) => s.length > 0);
-    if (anyKeywordMatches(haystack, kws)) return ctx.outfit;
+    if (anyKeywordMatches(haystack, kws)) return { outfit: ctx.outfit, fromContext: true };
   }
-  return outfits.default ?? null;
+  return { outfit: outfits.default ?? null, fromContext: false };
 }
 
 // Blocco OGGETTI RICORRENTI + MONDO: inietta gli oggetti/veicoli canonici pertinenti alla scena
@@ -295,8 +298,9 @@ function castBlock(chars: SceneCharacter[], haystack: string, suppressOutfits = 
     const p = (c.physical ?? "").trim();
     const age = (c.age ?? "").trim();
     const eth = (c.ethnicity ?? "").trim();
-    const outfit = suppressOutfits ? null : resolveOutfit(c.outfits, haystack);
-    const sig = (c.outfits?.signature ?? "").trim();
+    const match = resolveOutfitMatch(c.outfits, haystack);
+    const outfit = suppressOutfits ? (match.fromContext ? match.outfit : null) : match.outfit;
+    const sig = suppressOutfits ? "" : (c.outfits?.signature ?? "").trim();
     const worn = [outfit ?? "", sig ? `ALWAYS ${sig}` : ""].filter(Boolean).join(", ");
     const outfitPart = worn ? `; wears: ${worn}` : "";
     const short = p.length > 300 ? `${p.slice(0, 300).trimEnd()}…` : p;
@@ -349,7 +353,7 @@ function flashbackBlock(fb: SceneFlashback | null | undefined): string {
             ? `about ${Math.round(fb.youngerYears)} years`
             : "clearly"
         } YOUNGER than the age stated in their description.`;
-  return `FLASHBACK / MEMORY OVERRIDE (this image only — it OVERRIDES the AGE rule and the WARDROBE CONSISTENCY rule above): this scene is a MEMORY set in the PAST. ${ageDirective} Keep each character's IDENTITY unmistakable: SAME hair colour, SAME eye colour, SAME face structure and proportions, clearly the same person at that age. Do NOT dress them in their canonical present-day outfit; instead dress them for the time and place of this memory${setting ? `: ${setting}` : ""}, in clothes that fit the activity and era.${note ? ` ${note}` : ""}`;
+  return `FLASHBACK / MEMORY OVERRIDE (this image only — it OVERRIDES the AGE rule and the WARDROBE CONSISTENCY rule above): this scene is a MEMORY set in the PAST. ${ageDirective} Keep each character's IDENTITY unmistakable: SAME hair colour, SAME eye colour, SAME face structure and proportions, clearly the same person at that age. Dress them for the time and place of this memory${setting ? `: ${setting}` : ""}: IF the CAST gives a specific period outfit for this character (a "wears:" note), use EXACTLY that; otherwise dress them coherently with the era and the activity — NOT in their canonical present-day outfit.${note ? ` ${note}` : ""}`;
 }
 
 // Blocco SOGNO: se la scena principale del capitolo è un sogno, l'intera immagine va resa come onirica

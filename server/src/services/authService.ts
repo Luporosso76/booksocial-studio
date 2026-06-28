@@ -1,11 +1,25 @@
 import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 import { query, execute } from "../db/pool.js";
 
-const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+const SESSION_TTL_DAYS =
+  Number(process.env.SESSION_TTL_DAYS) > 0 ? Number(process.env.SESSION_TTL_DAYS) : 30;
+const SESSION_TTL_MS = SESSION_TTL_DAYS * 24 * 60 * 60 * 1000;
 const DEFAULT_USERNAME = "admin";
 const DEFAULT_PASSWORD = "12345678";
 
 export const MIN_PASSWORD_LEN = 8;
+
+const LOGIN_MAX_ATTEMPTS =
+  Number(process.env.LOGIN_MAX_ATTEMPTS) > 0 ? Number(process.env.LOGIN_MAX_ATTEMPTS) : 5;
+const LOGIN_BLOCK_MS =
+  (Number(process.env.LOGIN_BLOCK_SECONDS) > 0 ? Number(process.env.LOGIN_BLOCK_SECONDS) : 900) *
+  1000;
+const loginGate = { fails: 0, blockedUntil: 0 };
+
+export type LoginResult =
+  | { ok: true; token: string; mustChange: boolean }
+  | { ok: false; reason: "invalid" }
+  | { ok: false; reason: "blocked"; retryAfterSec: number };
 
 function hashPassword(pw: string): string {
   const salt = randomBytes(16);
@@ -42,18 +56,36 @@ async function createSession(): Promise<string> {
   return token;
 }
 
-export async function login(
-  username: string,
-  password: string,
-): Promise<{ token: string; mustChange: boolean } | null> {
+export async function login(username: string, password: string): Promise<LoginResult> {
+  const now = Date.now();
+  if (loginGate.blockedUntil > now) {
+    return {
+      ok: false,
+      reason: "blocked",
+      retryAfterSec: Math.ceil((loginGate.blockedUntil - now) / 1000),
+    };
+  }
   const [row] = await query<{ username: string; password_hash: string; must_change: number }>(
     "SELECT username, password_hash, must_change FROM app_auth WHERE id=1",
   );
-  if (!row) return null;
-  if (row.username !== username) return null;
-  if (!verifyPassword(password, row.password_hash)) return null;
+  const valid = !!row && row.username === username && verifyPassword(password, row.password_hash);
+  if (!valid) {
+    loginGate.fails += 1;
+    if (loginGate.fails >= LOGIN_MAX_ATTEMPTS) {
+      loginGate.blockedUntil = now + LOGIN_BLOCK_MS;
+      loginGate.fails = 0;
+      console.warn(
+        `[auth] login failed: attempt limit reached, blocking for ${Math.round(LOGIN_BLOCK_MS / 1000)}s`,
+      );
+      return { ok: false, reason: "blocked", retryAfterSec: Math.ceil(LOGIN_BLOCK_MS / 1000) };
+    }
+    console.warn(`[auth] login failed (attempt ${loginGate.fails}/${LOGIN_MAX_ATTEMPTS})`);
+    return { ok: false, reason: "invalid" };
+  }
+  loginGate.fails = 0;
+  loginGate.blockedUntil = 0;
   const token = await createSession();
-  return { token, mustChange: Number(row.must_change) === 1 };
+  return { ok: true, token, mustChange: Number(row!.must_change) === 1 };
 }
 
 export async function isValidSession(token: string | null | undefined): Promise<boolean> {

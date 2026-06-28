@@ -1,4 +1,4 @@
-import { join, isAbsolute, relative, resolve, dirname } from "node:path";
+import { join, isAbsolute, relative, resolve, dirname, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { mkdirSync } from "node:fs";
 
@@ -54,6 +54,15 @@ export function musicDir(): string {
 // DB → assoluto. Se il path è già assoluto, lo ritorna invariato.
 export function resolveDataPath(p: string): string {
   return isAbsolute(p) ? p : join(dataDir(), p);
+}
+
+export function resolveInsideDataDir(inputPath: string): string {
+  const base = resolve(dataDir());
+  const resolved = resolve(resolveDataPath(inputPath));
+  if (resolved !== base && !resolved.startsWith(base + sep)) {
+    throw Object.assign(new Error("Path outside data directory"), { httpStatus: 400 });
+  }
+  return resolved;
 }
 
 // assoluto → relativo a dataDir (da salvare nel DB). Se il file è FUORI da dataDir non si può

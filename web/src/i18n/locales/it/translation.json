@@ -997,17 +997,10 @@
       "cliModelPlaceholder": "Nome del modello del CLI (lascia vuoto per il default)",
       "imageModelHint": "Inserisci il nome del modello del provider.",
       "imageModelPlaceholder": "Nome del modello del provider",
-      "textGroupCli": "Abbonamento (login)",
-      "textGroupApi": "API a consumo (key)",
       "keyAlreadySet": "Chiave {{provider}} già impostata.",
       "textProvider": {
         "opencode": "OpenCode (CLI)",
         "codex": "Codex (CLI)",
-        "gemini": "Gemini (CLI)",
-        "openai": "OpenAI",
-        "anthropic": "Anthropic",
-        "google": "Google",
-        "openai-compatible": "Compatibile OpenAI",
         "ollama": "Ollama",
         "agy": "Agy (CLI)",
         "claude": "Claude (CLI)"

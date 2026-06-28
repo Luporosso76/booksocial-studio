@@ -78,7 +78,7 @@ Das Benutzerhandbuch ist auch auf Italienisch, Spanisch, Französisch, Portugies
 ## Voraussetzungen
 
 - **Node.js 22 oder 24** (getestet auf beiden in der CI; `.nvmrc` pinnt 24). Native Module (`better-sqlite3`) werden für deine Node-Version erstellt — wenn du Node wechselst, führe `npm rebuild better-sqlite3` aus.
-- Eine **KI-Text-Engine** — wähle eine beliebige: einen **API-Schlüssel** (OpenAI, Anthropic, Google, oder jeder OpenAI-kompatible Endpunkt wie OpenRouter/Groq, plus lokales **Ollama**), oder eine **Abonnement-CLI**, bei der du dich mit einem **Authenticate**-Button anmeldest (`opencode`, Codex/ChatGPT, Gemini). Siehe [`docs/PROVIDERS.md`](docs/PROVIDERS.md).
+- Eine **KI-Text-Engine** — eine **Abonnement-CLI**, bei der du dich mit einem **Authenticate**-Button anmeldest (`opencode`, Codex/ChatGPT, Claude, Gemini/agy), oder ein lokaler **Ollama**-Server (kein Schlüssel). Siehe [`docs/PROVIDERS.md`](docs/PROVIDERS.md).
 - Eine **Meta (Facebook) Business App + Page** zum Veröffentlichen: Du fügst ein **System User Token** im Connection-Bildschirm ein (wird verschlüsselt in `secrets.enc` aufbewahrt). Siehe [`docs/SETUP.md`](docs/SETUP.md).
 - *Optional*: Eine **Image-Engine** für KI-Szenenbilder — lokale `sd-cli` (GPU), oder ein Cloud-Provider (OpenAI, Google Imagen, Stability, Black Forest Labs/FLUX, Replicate, fal.ai). Ohne diese läuft die App im **Upload-Only**-Modus (du stellst Bilder bereit). Siehe [`docs/PROVIDERS.md`](docs/PROVIDERS.md).
 
@@ -114,6 +114,44 @@ cd ../server && npm ci && npm start     # serves API + ../web/dist on :8770
 ## Sicherheitshinweis für Remote-Server
 
 BookSocial Studio ist als **Local-First, Single-User**-App konzipiert und bindet standardmäßig an `127.0.0.1`. Das gebündelte Docker Compose setzt `HOST=0.0.0.0` und mappt einen Port der Einfachheit halber — wenn du es auf einem VPS ausführst oder außerhalb von localhost exponierst, **aktiviere `AUTH_USER` und `AUTH_PASS`** und setze es hinter einen Reverse Proxy mit HTTPS. Exponiere die App nicht öffentlich ohne Authentifizierung: Sie kann auf lokale Projektdaten, KI-Provider-Schlüssel und Social-Publishing-Tokens zugreifen.
+
+## Unterstützte Betriebsmodi
+
+### Lokale Nutzung (Einzelperson)
+Starte den Server auf deinem lokalen Rechner (`HOST=127.0.0.1`, Standard) und greife nur von dieser Maschine darauf zu. HTTPS ist optional: Wenn kein TLS-Zertifikat bereitgestellt wird und `openssl` verfügbar ist, generiert der Server automatisch ein selbstsigniertes Zertifikat (der Common Name wird über `TLS_CN` gesetzt, Standard `localhost`); andernfalls fällt er auf einfaches HTTP zurück. Akzeptiere die Browserwarnung einmalig bei Verwendung eines selbstsignierten Zertifikats.
+
+### Heimnetz oder Büro-LAN
+Die Bereitstellung im lokalen Netzwerk ist möglich, wenn folgende Vorkehrungen getroffen werden:
+- Ändere die Standardzugangsdaten `admin` / `12345678` (die App erzwingt dies vor der ersten Nutzung).
+- Nutze **HTTPS** (selbstsigniertes Zertifikat oder eines einer internen CA).
+- Der Login ist durch **Rate-Limiting** geschützt: Nach `LOGIN_MAX_ATTEMPTS` aufeinanderfolgenden Fehlversuchen (Standard 5) wird das Konto für `LOGIN_BLOCK_SECONDS` Sekunden gesperrt (Standard 900). Die Sitzungsdauer ist über `SESSION_TTL_DAYS` konfigurierbar (Standard 30 Tage); alle Sitzungen werden bei Passwortänderung invalidiert. Das Session-Cookie trägt das `Secure`-Flag nur, wenn der Kanal HTTPS ist.
+- Hochgeladene Dateien werden auf Größe, Erweiterung, MIME-Typ und Magic Bytes geprüft (`MAX_BOOK_BYTES`, `MAX_IMAGE_BYTES`, `MAX_MUSIC_BYTES`).
+- Generiere einen `BOOKSOCIAL_SECRET_KEY` (siehe unten) und bewahre ihn **außerhalb** des Datenvolumens auf.
+
+### Öffentliches Internet (ohne zusätzliches Hardening nicht empfohlen)
+BookSocial Studio ist nicht für die direkte Exposition im Internet ausgelegt. Falls du es dennoch tust: Beende TLS an einem Reverse Proxy (nginx, Caddy…), erzwinge Rate Limits, führe regelmäßige Backups durch und setze einen starken externen `BOOKSOCIAL_SECRET_KEY`. **`0.0.0.0` ohne HTTPS zu binden legt den gesamten Datenverkehr im Klartext offen** — der Server protokolliert in diesem Fall eine Warnung.
+
+### Geheimer Schlüssel & Backups
+
+**Geheimer Schlüssel.** Secrets (Facebook-Tokens, KI-API-Schlüssel) werden verschlüsselt in `secrets.enc` im Datenverzeichnis gespeichert. Der AES-Schlüssel wird aus `BOOKSOCIAL_SECRET_KEY` gelesen, sofern gesetzt; andernfalls generiert der Server automatisch eine `secret.key`-Datei im Datenverzeichnis und protokolliert eine Warnung. Für jede Nutzung, die über eine rein lokale Maschine hinausgeht, generiere einen starken Schlüssel und bewahre ihn außerhalb des Datenvolumens auf:
+
+```bash
+openssl rand -hex 32
+```
+
+Speichere ihn in einem Passwort-Manager oder Secrets-Vault und übergib ihn als Umgebungsvariable (`BOOKSOCIAL_SECRET_KEY=<Wert>` in `server/.env` oder deiner Docker Compose-Umgebung). Geht der Schlüssel verloren, wird `secrets.enc` unlesbar — du musst alle Tokens und API-Schlüssel in den Einstellungen neu eingeben.
+
+**Backups.** Der gesamte Anwendungszustand liegt im Datenverzeichnis (`BOOKSOCIAL_DATA_DIR`). Backup = dieses Verzeichnis kopieren, einschließlich `secrets.enc`:
+
+```
+<data>/booksocial.sqlite   # alle App-Daten
+<data>/books/              # importierte Bücher
+<data>/media/              # Bilder und Videos
+<data>/music/              # Musiktracks
+<data>/secrets.enc         # verschlüsselte Secrets
+```
+
+Bewahre `BOOKSOCIAL_SECRET_KEY` an einem separaten, sicheren Ort auf. Ohne ihn kann `secrets.enc` nicht entschlüsselt werden.
 
 ## Konfiguration
 

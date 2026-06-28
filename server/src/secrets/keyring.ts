@@ -28,6 +28,8 @@ function keyFile(): string {
 
 // Resolve the 32-byte AES key: from BOOKSOCIAL_SECRET_KEY (hex or base64 or raw utf8 hashed),
 // else from <dataDir>/secret.key, auto-generating it (mode 0600) on first use.
+let warnedKeyInDataDir = false;
+
 function loadKey(): Buffer {
   const env = process.env.BOOKSOCIAL_SECRET_KEY;
   if (env && env.trim() !== "") {
@@ -42,6 +44,12 @@ function loadKey(): Buffer {
     return createHash("sha256").update(trimmed, "utf8").digest();
   }
 
+  if (!warnedKeyInDataDir) {
+    warnedKeyInDataDir = true;
+    console.warn(
+      "[security] encryption key stored inside the data directory (secret.key). For Docker/LAN/server deployments set BOOKSOCIAL_SECRET_KEY to a key kept OUTSIDE the data volume.",
+    );
+  }
   const kf = keyFile();
   if (existsSync(kf)) {
     const raw = readFileSync(kf);

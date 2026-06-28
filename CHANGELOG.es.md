@@ -5,6 +5,28 @@ Todos los cambios notables de este proyecto están documentados en este archivo.
 El formato se basa en [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 y este proyecto se adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.4] - 2026-06-28
+
+### Añadido
+- **Atuendos dedicados para flashbacks y sueños**: los personajes reciben ahora atuendos canónicos distintos para las escenas de recuerdo/flashback y de sueño, coherentes entre representaciones.
+- **Atuendos por personaje acotados**: los atuendos se generan solo para los escenarios de los capítulos en los que el personaje aparece realmente, no para todo el libro.
+- **Validación de subidas**: los archivos de libros, imágenes y audio se comprueban por tamaño, extensión, tipo MIME y (para imágenes) magic bytes; los límites son configurables mediante variables de entorno.
+- **Seguridad de rutas**: los archivos servidos desde una ruta de la base de datos se resuelven estrictamente dentro del directorio de datos, bloqueando rutas absolutas o recorridos `../`.
+- **Inicio de sesión reforzado**: límite de tasa con bloqueo temporal tras intentos repetidos, duración de sesión configurable e invalidación de todas las sesiones al cambiar la contraseña.
+- **Límite de tasa general de la API** por cliente.
+- **Comprobación de la configuración al arrancar**: error claro si el directorio de datos no admite escritura, advertencias si falta ffmpeg o si no hay proveedor de texto configurado.
+- **Runtime de Docker compilado**: el contenedor ejecuta ahora el JavaScript compilado (`node dist/index.js`) en lugar de las fuentes TypeScript.
+- **Documentación**: modos de uso admitidos (local / LAN / público) y orientación sobre la clave secreta y las copias de seguridad.
+
+### Cambiado
+- **Proveedores de IA de texto**: solo se admiten los CLI por suscripción (opencode, Codex, Claude, agy) y Ollama local. Los proveedores de API de texto no admitidos (OpenAI/Anthropic/Google) se eliminaron de la configuración, la interfaz de ajustes y la documentación; seleccionar uno obsoleto ahora falla con un error claro en lugar de no hacer nada en silencio.
+- **Cookie de sesión**: el atributo `Secure` se establece solo cuando la conexión es realmente HTTPS, de modo que el inicio de sesión funciona por HTTP en local/desarrollo.
+- **Clave de cifrado**: se registra una advertencia cuando la clave se almacena dentro del directorio de datos; se recomienda definir `BOOKSOCIAL_SECRET_KEY` fuera del volumen de datos.
+- **Rutas del backend** reorganizadas en módulos por dominio (sin cambios de endpoint ni de comportamiento).
+
+### Corregido
+- Las sesiones de inicio de sesión ya no se pierden por HTTP debido al atributo `Secure` de la cookie.
+
 ## [0.5.3] - 2026-06-28
 
 ### Añadido

@@ -1,6 +1,6 @@
 {
   "name": "booksocial-server",
-  "version": "0.5.3",
+  "version": "0.5.4",
   "private": true,
   "description": "BookSocial Studio backend (Node + TypeScript + Hono + SQLite).",
   "type": "module",
@@ -10,7 +10,10 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "start": "tsx src/index.ts",
-    "typecheck": "tsc --noEmit"
+    "build": "tsc -p tsconfig.json",
+    "start:prod": "node dist/index.js",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "@hono/node-server": "^1.13.7",
@@ -30,6 +33,7 @@
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^22.10.2",
     "tsx": "^4.19.2",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "vitest": "^4.1.9"
   }
 }

@@ -79,7 +79,7 @@ El manual de usuario también está disponible en italiano, español, francés, 
 ## Requisitos previos
 
 - **Node.js 22 o 24** (probado en ambos en CI; `.nvmrc` fija 24). Los módulos nativos (`better-sqlite3`) se compilan para tu versión de Node — si cambias de versión de Node, ejecuta `npm rebuild better-sqlite3`.
-- Un **motor de texto de IA** — elige cualquiera: un **API key** (OpenAI, Anthropic, Google, o cualquier endpoint compatible con OpenAI como OpenRouter/Groq, además de **Ollama** local), o un **CLI por suscripción** en el que inicies sesión con un botón **Authenticate** (`opencode`, Codex/ChatGPT, Gemini). Consulta [`docs/PROVIDERS.md`](docs/PROVIDERS.md).
+- Un **motor de texto de IA** — un **CLI por suscripción** en el que inicies sesión con un botón **Authenticate** (`opencode`, Codex/ChatGPT, Claude, Gemini/agy), o un servidor **Ollama** local (sin clave). Consulta [`docs/PROVIDERS.md`](docs/PROVIDERS.md).
 - Una **app de Meta (Facebook) Business + Página** para publicar: pegas un **System User token** en la pantalla de Conexión (se mantiene cifrado en `secrets.enc`). Consulta [`docs/SETUP.md`](docs/SETUP.md).
 - *Opcional*: un **motor de imagen** para las imágenes de escena por IA — `sd-cli` local (GPU), o un proveedor en la nube (OpenAI, Google Imagen, Stability, Black Forest Labs/FLUX, Replicate, fal.ai). Sin uno, la aplicación se ejecuta en modo **solo carga** (**upload-only**) (tú proporcionas las imágenes). Consulta [`docs/PROVIDERS.md`](docs/PROVIDERS.md).
 
@@ -115,6 +115,44 @@ cd ../server && npm ci && npm start     # serves API + ../web/dist on :8770
 ## Nota de seguridad para servidores remotos
 
 BookSocial Studio está diseñado como una aplicación **local-first, de un solo usuario** y se enlaza a `127.0.0.1` de forma predeterminada. El Docker Compose incluido establece `HOST=0.0.0.0` y mapea un puerto por conveniencia — si lo ejecutas en un VPS o lo expones fuera de localhost, **habilita `AUTH_USER` y `AUTH_PASS`** y colócalo detrás de un proxy inverso con HTTPS. No expongas la aplicación públicamente sin autenticación: puede acceder a los datos del proyecto local, las claves de proveedores de IA y los tokens de publicación en redes sociales.
+
+## Modos de uso admitidos
+
+### Uso personal local
+Ejecuta el servidor en tu máquina local (`HOST=127.0.0.1`, valor predeterminado) y accede a él solo desde esa máquina. HTTPS es opcional: si no se proporciona ningún certificado TLS y `openssl` está disponible, el servidor genera uno autofirmado (el Common Name se establece mediante `TLS_CN`, predeterminado `localhost`); de lo contrario vuelve a HTTP simple. Acepta el aviso del navegador la primera vez que uses un certificado autofirmado.
+
+### LAN doméstica o de oficina
+Exponer la aplicación en tu red local es posible tomando las siguientes precauciones:
+- Cambia las credenciales predeterminadas `admin` / `12345678` (la aplicación lo exige antes del primer uso).
+- Usa **HTTPS** (certificado autofirmado o emitido por una CA interna).
+- El inicio de sesión está protegido por **limitación de tasa**: tras `LOGIN_MAX_ATTEMPTS` intentos fallidos consecutivos (predeterminado 5) la cuenta queda bloqueada durante `LOGIN_BLOCK_SECONDS` segundos (predeterminado 900). La duración de la sesión se configura con `SESSION_TTL_DAYS` (predeterminado 30 días); todas las sesiones se invalidan al cambiar la contraseña. La cookie de sesión lleva el atributo `Secure` solo cuando el canal es HTTPS.
+- Los archivos subidos se validan por tamaño, extensión, tipo MIME y bytes mágicos (`MAX_BOOK_BYTES`, `MAX_IMAGE_BYTES`, `MAX_MUSIC_BYTES`).
+- Genera un `BOOKSOCIAL_SECRET_KEY` (ver más abajo) y mantenlo **fuera** del volumen de datos.
+
+### Internet público (no recomendado sin medidas adicionales)
+BookSocial Studio no está diseñado para exposición directa en Internet. Si lo haces de todas formas: termina TLS en un proxy inverso (nginx, Caddy…), aplica límites de tasa, realiza copias de seguridad periódicas y proporciona un `BOOKSOCIAL_SECRET_KEY` externo robusto. **Enlazar `0.0.0.0` sin HTTPS expone todo el tráfico en texto plano** — el servidor registra una advertencia en este caso.
+
+### Clave secreta y copias de seguridad
+
+**Clave secreta.** Los secretos (tokens de Facebook, claves de API de IA) se almacenan cifrados en `secrets.enc` dentro del directorio de datos. La clave AES se lee de `BOOKSOCIAL_SECRET_KEY` si está definida; de lo contrario el servidor genera automáticamente un archivo `secret.key` dentro del directorio de datos y registra una advertencia. Para cualquier uso más allá de una máquina puramente local, genera una clave robusta y mantenla fuera del volumen de datos:
+
+```bash
+openssl rand -hex 32
+```
+
+Guárdala en un gestor de contraseñas o almacén de secretos y pásala como variable de entorno (`BOOKSOCIAL_SECRET_KEY=<valor>` en `server/.env` o en el entorno de Docker Compose). Si se pierde la clave, `secrets.enc` quedará ilegible y tendrás que volver a introducir todos los tokens y claves de API en Ajustes.
+
+**Copias de seguridad.** Todo el estado de la aplicación reside en el directorio de datos (`BOOKSOCIAL_DATA_DIR`). Copia de seguridad = copiar ese directorio, incluido `secrets.enc`:
+
+```
+<data>/booksocial.sqlite   # todos los datos de la aplicación
+<data>/books/              # libros importados
+<data>/media/              # imágenes y vídeos
+<data>/music/              # pistas de música
+<data>/secrets.enc         # secretos cifrados
+```
+
+Mantén `BOOKSOCIAL_SECRET_KEY` en un lugar seguro y separado. Sin ella, `secrets.enc` no podrá descifrarse.
 
 ## Configuración
 

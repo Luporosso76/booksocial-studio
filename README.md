@@ -85,10 +85,7 @@ The user manual is also available in Italian, Spanish, French, Portuguese and Ge
 
 - **Node.js 22 or 24** (tested on both in CI; `.nvmrc` pins 24). Native modules (`better-sqlite3`) are
   built for your Node version — if you switch Node, run `npm rebuild better-sqlite3`.
-- An **AI text engine** — choose any: an **API key** (OpenAI, Anthropic, Google, or any
-  OpenAI‑compatible endpoint like OpenRouter/Groq, plus local **Ollama**), or a **subscription CLI**
-  you log into with an **Authenticate** button (`opencode`, Codex/ChatGPT, Gemini). See
-  [`docs/PROVIDERS.md`](docs/PROVIDERS.md).
+- An **AI text engine** — a **subscription CLI** you log into with an **Authenticate** button (`opencode`, Codex/ChatGPT, Claude, Gemini/agy), or a local **Ollama** server (no key). See [`docs/PROVIDERS.md`](docs/PROVIDERS.md).
 - A **Meta (Facebook) Business app + Page** to publish: you paste a **System User token** in the
   Connection screen (kept encrypted in `secrets.enc`). See [`docs/SETUP.md`](docs/SETUP.md).
 - *Optional*: an **image engine** for AI scene images — local `sd-cli` (GPU), or a cloud provider
@@ -163,6 +160,44 @@ services:
 Because the certificate is self-signed, browsers will show a warning the first time — accept it to
 continue. If no certificate is provided, the server self-generates one on startup (this requires
 `openssl`; the Common Name comes from `TLS_CN`); if it cannot, it falls back to plain HTTP.
+
+## Supported modes
+
+### Local personal use
+Run the server on your local machine (`HOST=127.0.0.1`, the default) and access it only from that machine. HTTPS is optional: if no TLS certificate is provided and `openssl` is available, the server auto-generates a self-signed one (Common Name from `TLS_CN`, default `localhost`); otherwise it falls back to plain HTTP. Accept the browser warning once when using a self-signed cert.
+
+### Home or office LAN
+Exposing the app on your local network is supported with the following precautions:
+- Change the default `admin` / `12345678` credentials (the app forces this before first use).
+- Run over **HTTPS** (self-signed cert or one from a local CA).
+- Login is protected by **rate-limiting**: after `LOGIN_MAX_ATTEMPTS` consecutive failures (default 5) the account is blocked for `LOGIN_BLOCK_SECONDS` seconds (default 900). Session duration is configurable via `SESSION_TTL_DAYS` (default 30); all sessions are invalidated on password change. The session cookie carries the `Secure` flag only when the channel is HTTPS.
+- Uploaded files are validated for size, extension, MIME type and magic bytes (`MAX_BOOK_BYTES`, `MAX_IMAGE_BYTES`, `MAX_MUSIC_BYTES`).
+- Generate a `BOOKSOCIAL_SECRET_KEY` (see below) and keep it **outside** the data volume.
+
+### Public Internet (not recommended without additional hardening)
+BookSocial Studio is not designed for direct public Internet exposure. If you choose to do so: terminate TLS at a reverse proxy (nginx, Caddy…), enforce rate limits, run regular backups, and provide a strong external `BOOKSOCIAL_SECRET_KEY`. **Binding `0.0.0.0` without HTTPS exposes all traffic in cleartext** — the server logs a warning in this case.
+
+### Secret key & backups
+
+**Secret key.** Secrets (Facebook tokens, AI API keys) are stored encrypted in `secrets.enc` inside the data directory. The AES encryption key is read from `BOOKSOCIAL_SECRET_KEY` if set; otherwise the server auto-generates a `secret.key` file inside the data directory and logs a warning. For anything beyond a purely local machine, generate a strong key and keep it outside the data volume:
+
+```bash
+openssl rand -hex 32
+```
+
+Store it in a password manager or secrets vault and pass it as an environment variable (`BOOKSOCIAL_SECRET_KEY=<value>` in `server/.env` or your Docker Compose environment). If the key is lost, `secrets.enc` becomes unreadable — you will need to re-enter all tokens and API keys in Settings.
+
+**Backups.** The entire application state lives in the data directory (`BOOKSOCIAL_DATA_DIR`). Back up = copy that directory, including `secrets.enc`:
+
+```
+<data>/booksocial.sqlite   # all app data
+<data>/books/              # imported books
+<data>/media/              # images and videos
+<data>/music/              # music tracks
+<data>/secrets.enc         # encrypted secrets
+```
+
+Keep `BOOKSOCIAL_SECRET_KEY` in a separate, secure location. Without it, `secrets.enc` cannot be decrypted.
 
 ## Configuration
 

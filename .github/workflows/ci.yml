@@ -26,11 +26,12 @@ jobs:
       - name: lint
         run: npm run lint
 
-      - name: server — install, typecheck
+      - name: server — install, typecheck, test
         working-directory: server
         run: |
           npm ci
           npx tsc --noEmit
+          npm test
 
       - name: web — install, build
         working-directory: web

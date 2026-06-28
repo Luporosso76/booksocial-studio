@@ -258,7 +258,6 @@ export interface AiSettings {
   // Stato "chiave configurata" (mai il valore). Solo boolean.
   keys: {
     openai: boolean;
-    anthropic: boolean;
     google: boolean;
     stability: boolean;
     bfl: boolean;
@@ -305,7 +304,6 @@ export interface AiSettingsPatch {
   image?: Partial<AiSettings["image"]>;
   keys?: {
     openai?: string | null;
-    anthropic?: string | null;
     google?: string | null;
     stability?: string | null;
     bfl?: string | null;

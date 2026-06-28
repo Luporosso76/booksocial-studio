@@ -126,6 +126,49 @@ export async function stepOutfits(
   const updated: string[] = [];
   for (const ch of cast) {
     const sourceText = collectCharacterPassages(chapters, ch.name);
+    const nm = ch.name.toLowerCase().trim();
+    const charSet = new Set<string>();
+    for (const c of chapters) {
+      const sc = c.scene;
+      if (!sc) continue;
+      const present = (sc.characters ?? []).some((n) => {
+        const x = (n ?? "").toLowerCase().trim();
+        return x !== "" && (x === nm || x.includes(nm) || nm.includes(x));
+      });
+      if (!present) continue;
+      for (const v of [sc.location, sc.environment, ...sc.mainObjects]) {
+        const t = (v ?? "").trim();
+        if (t) charSet.add(t);
+      }
+    }
+    const charSettings = charSet.size > 0 ? [...charSet] : settings;
+    const isPresent = (names: readonly (string | null)[] | undefined): boolean =>
+      (names ?? []).some((n) => {
+        const x = (n ?? "").toLowerCase().trim();
+        return x !== "" && (x === nm || x.includes(nm) || nm.includes(x));
+      });
+    const flashbackSet = new Set<string>();
+    const dreamSet = new Set<string>();
+    for (const c of chapters) {
+      const sc = c.scene;
+      if (!sc) continue;
+      if (sc.kind === "flashback" && isPresent(sc.characters)) {
+        const t = (sc.location ?? "").trim();
+        if (t) flashbackSet.add(t);
+      } else if (sc.kind === "dream" && isPresent(sc.characters)) {
+        const t = (sc.location ?? "").trim();
+        if (t) dreamSet.add(t);
+      }
+      for (const m of sc.altMoments ?? []) {
+        if (m.type === "flashback" && isPresent(m.characters)) {
+          const t = (m.location ?? "").trim();
+          if (t) flashbackSet.add(t);
+        } else if (m.type === "dream" && isPresent(m.characters)) {
+          const t = (m.location ?? "").trim();
+          if (t) dreamSet.add(t);
+        }
+      }
+    }
     const outfits = await generateOutfits(engine, {
       name: ch.name,
       role: ch.role,
@@ -134,7 +177,9 @@ export async function stepOutfits(
       physical: ch.physical,
       bookTitle: book.title,
       language: lang,
-      settings,
+      settings: charSettings,
+      flashbackSettings: [...flashbackSet],
+      dreamSettings: [...dreamSet],
       sourceText,
       country,
       directives,

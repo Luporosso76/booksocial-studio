@@ -213,17 +213,9 @@ const DEFAULT_STYLE: ImageStyleCfg = {
 };
 
 // Quale provider usa quale "famiglia" di chiave (per badge + invio chiavi).
-type KeyName = "openai" | "anthropic" | "google" | "stability" | "bfl" | "replicate" | "fal";
+type KeyName = "openai" | "google" | "stability" | "bfl" | "replicate" | "fal";
 
-const ALL_KEY_NAMES: KeyName[] = [
-  "openai",
-  "anthropic",
-  "google",
-  "stability",
-  "bfl",
-  "replicate",
-  "fal",
-];
+const ALL_KEY_NAMES: KeyName[] = ["openai", "google", "stability", "bfl", "replicate", "fal"];
 
 function ImageStyleBlock({
   title,
@@ -352,7 +344,6 @@ function AiProvidersCard({ section }: { section: "text" | "image" }) {
   // Input chiavi: '' = invariata. Tracciamo separatamente quali sono state "rimosse".
   const emptyKeyRecord = (): Record<KeyName, string> => ({
     openai: "",
-    anthropic: "",
     google: "",
     stability: "",
     bfl: "",
@@ -361,7 +352,6 @@ function AiProvidersCard({ section }: { section: "text" | "image" }) {
   });
   const emptyRemovedRecord = (): Record<KeyName, boolean> => ({
     openai: false,
-    anthropic: false,
     google: false,
     stability: false,
     bfl: false,

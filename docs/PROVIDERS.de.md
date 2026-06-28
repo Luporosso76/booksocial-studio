@@ -57,16 +57,15 @@ OLLAMA_MODEL=llama3.1
 | `auto` _(Standard)_ | lokal, falls verfügbar, sonst nur Upload   | —                                     | (fällt automatisch zurück)                                             |
 | `local`             | sd‑cli (stable‑diffusion.cpp)              | keine, lokale GPU                     | `SDCPP_*` (siehe unten)                                                |
 | `agy`               | Gemini-Bild-Agent (CLI)                    | Abo-Login                             | `AGY_BINARY`, `AGY_IMAGE_MODEL` (Standard `Gemini 3.5 Flash (Medium)`) |
-| `openai`            | OpenAI Images API                          | `OPENAI_API_KEY` (gemeinsam mit Text) | `OPENAI_IMAGE_MODEL` (z. B. `gpt-image-1`)                             |
-| `google`            | Google Imagen API                          | `GOOGLE_API_KEY` (gemeinsam mit Text) | `GOOGLE_IMAGE_MODEL` (z. B. `imagen-3.0-generate-002`)                 |
+| `openai`            | OpenAI Images API                          | `OPENAI_API_KEY`                      | `OPENAI_IMAGE_MODEL` (z. B. `gpt-image-1`)                             |
+| `google`            | Google Imagen API                          | `GOOGLE_API_KEY`                      | `GOOGLE_IMAGE_MODEL` (z. B. `imagen-3.0-generate-002`)                 |
 | `stability`         | Stability AI (Stable Image)                | `STABILITY_API_KEY`                   | `STABILITY_IMAGE_MODEL` (z. B. `core`, `sd3`, `ultra`)                 |
 | `bfl`               | Black Forest Labs (FLUX)                   | `BFL_API_KEY`                         | `BFL_IMAGE_MODEL` (z. B. `flux-dev`, `flux-pro-1.1`)                   |
 | `replicate`         | Replicate (beliebiges `owner/name`-Modell) | `REPLICATE_API_TOKEN`                 | `REPLICATE_IMAGE_MODEL` (z. B. `black-forest-labs/flux-schnell`)       |
 | `fal`               | fal.ai                                     | `FAL_API_KEY`                         | `FAL_IMAGE_MODEL` (z. B. `fal-ai/flux/schnell`)                        |
 | `none`              | nur Upload (keine Generierung)             | —                                     | —                                                                      |
 
-> **Schlüssel gelten pro Provider (Konto).** `openai`/`google`-Bilder **verwenden denselben Schlüssel wie die Text-
-> Engine** (`OPENAI_API_KEY` / `GOOGLE_API_KEY`). Die vier dedizierten Bild-Provider
+> **Schlüssel gelten pro Provider (Konto).** Die `openai`/`google`-Bild-Provider verwenden `OPENAI_API_KEY` / `GOOGLE_API_KEY` (der Schlüssel deines OpenAI-/Google-Kontos). Die vier dedizierten Bild-Provider
 > (`stability`, `bfl`, `replicate`, `fal`) sind nur für Bilder und benötigen jeweils ihren **eigenen** Schlüssel.
 
 Wenn keine Bild-Engine verfügbar ist, bleibt die App im Modus **nur Upload** vollständig nutzbar — du stellst
@@ -131,7 +130,7 @@ export interface ContentEngine {
 ```
 
 1. Implementiere es (HTTP über `fetch` oder eine CLI starten). Für HTTP-Provider folge
-   `server/src/content/engineApi.ts` (z. B. `OpenAICompatibleEngine`, `GoogleGeminiEngine`) — sie
+   `server/src/content/engineApi.ts` (z. B. `OpenAICompatibleEngine`) — sie
    behandeln das `AbortController`-Timeout (`appConfig.engineTimeoutMs`) und werfen bei Fehlern `ContentError`.
 2. Füge jede benötigte Konfiguration zu `server/src/config.ts` hinzu (aus Env lesen).
 3. Registriere sie in `createEngine()` (`server/src/content/engine.ts`):

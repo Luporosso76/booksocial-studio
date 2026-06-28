@@ -73,7 +73,7 @@ Il manuale utente è disponibile anche in italiano, spagnolo, francese, portoghe
 ## Prerequisites
 
 - **Node.js 22 o 24** (testato su entrambe in CI; `.nvmrc` usa 24). I moduli nativi (`better-sqlite3`) sono compilati per la tua versione di Node — se cambi Node, esegui `npm rebuild better-sqlite3`.
-- Un **motore di testo AI** — scegline uno qualsiasi: una **API key** (OpenAI, Anthropic, Google, o qualsiasi endpoint compatibile con OpenAI come OpenRouter/Groq, oltre a **Ollama** locale), oppure una **CLI in abbonamento** a cui accedi con un pulsante **Authenticate** (`opencode`, Codex/ChatGPT, Gemini). Vedi [`docs/PROVIDERS.md`](docs/PROVIDERS.md).
+- Un **motore di testo AI** — una **CLI in abbonamento** a cui accedi con un pulsante **Authenticate** (`opencode`, Codex/ChatGPT, Claude, Gemini/agy), oppure un server **Ollama** locale (nessuna chiave). Vedi [`docs/PROVIDERS.md`](docs/PROVIDERS.md).
 - Una **App Business Meta (Facebook) + Pagina** per pubblicare: incolli un **token Utente di sistema** nella schermata di Connessione (mantenuto crittografato in `secrets.enc`). Vedi [`docs/SETUP.md`](docs/SETUP.md).
 - *Opzionale*: un **motore di immagini** per le immagini di scena AI — locale `sd-cli` (GPU), o un cloud provider (OpenAI, Google Imagen, Stability, Black Forest Labs/FLUX, Replicate, fal.ai). Senza di esso, l'app funziona in modalità **solo caricamento** (tu fornisci le immagini). Vedi [`docs/PROVIDERS.md`](docs/PROVIDERS.md).
 
@@ -105,6 +105,44 @@ Produzione (processo singolo che serve il frontend compilato):
 cd web && npm ci && npm run build       # outputs web/dist
 cd ../server && npm ci && npm start     # serves API + ../web/dist on :8770
 ```
+
+## Modalità supportate
+
+### Uso locale personale
+Avvia il server sulla tua macchina locale (`HOST=127.0.0.1`, default) e accedivi solo da essa. HTTPS è opzionale: se non viene fornito alcun certificato TLS e `openssl` è disponibile, il server ne genera uno auto-firmato (il Common Name si imposta con `TLS_CN`, default `localhost`); altrimenti torna a HTTP semplice. Accetta l'avviso del browser alla prima connessione con il certificato auto-firmato.
+
+### LAN domestica o d'ufficio
+L'esposizione sulla rete locale è supportata purché si adottino le seguenti precauzioni:
+- Cambia le credenziali predefinite `admin` / `12345678` (l'app lo richiede prima del primo utilizzo).
+- Usa **HTTPS** (certificato auto-firmato o emesso da una CA interna).
+- Il login è protetto da **rate-limiting**: dopo `LOGIN_MAX_ATTEMPTS` tentativi falliti consecutivi (default 5) l'account viene bloccato per `LOGIN_BLOCK_SECONDS` secondi (default 900). La durata della sessione è configurabile con `SESSION_TTL_DAYS` (default 30 giorni); tutte le sessioni vengono invalidate al cambio password. Il cookie di sessione porta il flag `Secure` solo quando il canale è HTTPS.
+- I file caricati sono validati per dimensione, estensione, tipo MIME e magic byte (`MAX_BOOK_BYTES`, `MAX_IMAGE_BYTES`, `MAX_MUSIC_BYTES`).
+- Genera un `BOOKSOCIAL_SECRET_KEY` (vedi sotto) e tienilo **fuori** dal volume dati.
+
+### Esposizione su Internet (non raccomandata senza hardening aggiuntivo)
+BookSocial Studio non è progettato per l'esposizione diretta su Internet. Se lo fai comunque: termina TLS su un reverse proxy (nginx, Caddy…), applica rate limiting, esegui backup regolari e fornisci un `BOOKSOCIAL_SECRET_KEY` esterno robusto. **Fare il bind su `0.0.0.0` senza HTTPS espone tutto il traffico in chiaro** — il server registra un avviso in questo caso.
+
+### Chiave segreta e backup
+
+**Chiave segreta.** I segreti (token Facebook, chiavi API AI) sono archiviati cifrati in `secrets.enc` nella directory dati. La chiave AES è letta da `BOOKSOCIAL_SECRET_KEY` se impostata; altrimenti il server genera automaticamente un file `secret.key` nella directory dati e registra un avviso. Per qualsiasi utilizzo che va oltre la macchina locale, genera una chiave robusta e tienila fuori dal volume dati:
+
+```bash
+openssl rand -hex 32
+```
+
+Conservala in un password manager o vault e passala come variabile d'ambiente (`BOOKSOCIAL_SECRET_KEY=<valore>` in `server/.env` o nell'ambiente Docker Compose). Se la chiave viene persa, `secrets.enc` diventa illeggibile e dovrai reinserire tutti i token e le chiavi API nelle Impostazioni.
+
+**Backup.** Tutto lo stato dell'applicazione risiede nella directory dati (`BOOKSOCIAL_DATA_DIR`). Backup = copia quella directory, incluso `secrets.enc`:
+
+```
+<data>/booksocial.sqlite   # tutti i dati dell'app
+<data>/books/              # libri importati
+<data>/media/              # immagini e video
+<data>/music/              # tracce musicali
+<data>/secrets.enc         # segreti cifrati
+```
+
+Conserva `BOOKSOCIAL_SECRET_KEY` in un luogo separato e sicuro. Senza di essa, `secrets.enc` non può essere decifrato.
 
 ## Configuration
 

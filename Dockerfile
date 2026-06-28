@@ -10,16 +10,27 @@ RUN npm ci --no-audit --no-fund
 COPY web/ ./
 RUN npm run build
 
-# --- 2) runtime: backend + frontend buildato ---
-FROM node:24-slim AS runtime
-# Toolchain per i moduli nativi (better-sqlite3) + ffmpeg per i reel.
+# --- 2) build del backend (TypeScript -> dist) ---
+FROM node:24-slim AS serverbuild
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends python3 make g++ ffmpeg ca-certificates \
+  && apt-get install -y --no-install-recommends python3 make g++ \
   && rm -rf /var/lib/apt/lists/*
 WORKDIR /app/server
 COPY server/package*.json ./
 RUN npm ci --no-audit --no-fund
 COPY server/ ./
+RUN npm run build
+
+# --- 3) runtime: solo dipendenze di produzione + JS compilato + frontend buildato ---
+FROM node:24-slim AS runtime
+# Toolchain per i moduli nativi (better-sqlite3, dipendenza di PRODUZIONE) + ffmpeg per i reel.
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends python3 make g++ ffmpeg ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
+WORKDIR /app/server
+COPY server/package*.json ./
+RUN npm ci --omit=dev --no-audit --no-fund
+COPY --from=serverbuild /app/server/dist ./dist
 # Il server serve ../web/dist come statico in produzione.
 COPY --from=webbuild /app/web/dist /app/web/dist
 
@@ -31,4 +42,4 @@ ENV BOOKSOCIAL_DATA_DIR=/data
 VOLUME ["/data"]
 EXPOSE 8770
 
-CMD ["npm", "start"]
+CMD ["node", "dist/index.js"]
