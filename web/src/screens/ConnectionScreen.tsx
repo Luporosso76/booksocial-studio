@@ -152,7 +152,12 @@ export function ConnectionScreen() {
                 <KeyRound className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-content-faint" />
                 <Input
                   type={showToken ? "text" : "password"}
-                  autoComplete="off"
+                  name="fb-access-token"
+                  autoComplete="new-password"
+                  data-1p-ignore="true"
+                  data-lpignore="true"
+                  data-form-type="other"
+                  spellCheck={false}
                   placeholder="EAAB..."
                   value={token}
                   onChange={(e) => setToken(e.target.value)}

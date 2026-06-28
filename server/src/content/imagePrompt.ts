@@ -105,6 +105,7 @@ export interface SceneDescriptionInput {
   // La scena principale del capitolo è (tutta) un SOGNO → resa onirica (vedi dreamBlock). Assente/false
   // = scena reale. Indipendente da flashback (un sogno non ringiovanisce di per sé).
   dream?: boolean;
+  imageProfile?: string | null;
 }
 
 // PHYSICS & REALISM (A1): regole HARD-CODED universali, valide per OGNI immagine di OGNI libro
@@ -397,6 +398,14 @@ export async function buildSceneDescription(
   const extras = extrasBlock(input.visualExtras, haystack);
   const directives = directivesBlock(input.visualDirectives);
   const extraDirection = extraInstructionsBlock(input.extraInstructions);
+  const imageProfile = (input.imageProfile ?? "").trim();
+  const imageModelBlock =
+    imageProfile === ""
+      ? ""
+      : `TARGET IMAGE MODEL — write this prompt SPECIFICALLY for the image model described here, in the
+form and length IT interprets best, and make it as PRECISE as this model can actually use (adapt format,
+ordering and emphasis to it; do not waste detail the model cannot render, and front-load the detail it
+can): ${imageProfile}\n`;
 
   const prompt = `You write IMAGE PROMPTS for an AI image model that wants a DETAILED, flowing
 NATURAL-LANGUAGE description (full sentences), NOT a list of comma-separated tags. From the book passage,
@@ -406,12 +415,19 @@ PLACE with NO person; about 120–170 words when ONE OR MORE named characters ar
 need more words to keep each one distinct). The budget is a guide, NOT a hard cap: NEVER drop a
 character's ethnicity, age, hair, the exact pose, a mandatory signature item, a single object's
 signature colour, or the activity's required equipment, posture/stance and clothing, just to fit the
-budget — exceed the budget instead. The image is a BACKGROUND behind a quote (text will be placed
+budget — exceed the budget instead.
+THE BOOK ART DIRECTION RULES ARE THE SUBJECT, NOT CLUTTER: when those rules below describe the focal
+subject's specific EQUIPMENT, POSTURE/STANCE or technique in detail, that detail IS the focal subject —
+TRANSCRIBE every such detail they state in FULL into the paragraph, exactly as written, without
+summarising, generalising or dropping any of it, and without reducing it to a single verb. Write as MANY
+words as that needs — exceed the budget. The "uncluttered / evocative" guidance below applies ONLY to the
+BACKGROUND and secondary elements, NEVER to the detail the BOOK ART DIRECTION requires for the focal
+subject. The image is a BACKGROUND behind a quote (text will be placed
 on top), so it must be emotional, cinematic and UNCLUTTERED. Favour mood over busy literal narration —
 but you MAY depict the chapter's KEY MOMENT or central ACTION when that action is what the chapter turns
 on (a person doing the pivotal activity of the scene): an event in the MIDDLE of the book is NOT a spoiler,
 so do not shy away from it; just keep it evocative, not a cluttered literal illustration.
-SUBJECT (CRUCIAL): identify the SINGLE most ICONIC, concrete, VISUAL focal point of the passage and make
+${imageModelBlock}SUBJECT (CRUCIAL): identify the SINGLE most ICONIC, concrete, VISUAL focal point of the passage and make
 IT the clear focal subject — an animal, a striking object, a vehicle, a building, a memorable place, OR
 the central ACTION/moment itself when the chapter hinges on an event. The focal subject MUST be present
 and recognizable — do NOT replace it with a generic mood or an empty landscape. Name it explicitly. The
@@ -455,27 +471,23 @@ DECIDES who (if anyone) appears AND from what angle — FOLLOW IT: if it asks fo
 present in this passage, you MUST feature that character; fall back to the iconic subject/place ALONE
 with no person ONLY if NO named character from the CAST appears anywhere in this chapter.
 CLOTHING (VARY it — never default to one fixed outfit): dress every person for the SETTING and ACTIVITY
-of THIS passage, consistent within the scene. By the sea / swimming / on the beach of a warm seaside town
-→ swimwear, or a lycra rash-guard and boardshorts when surfing or windsurfing, or a light t-shirt and
-shorts. In a city, at work, a formal or public moment, indoors in the evening, or a cold place → longer
-clothes: shirt and trousers, a jacket or coat. Meditation, yoga, reiki, prayer, exercising or sitting on a
-practice/yoga mat, sleeping or resting at home → name CONCRETE modern casual clothes (e.g. a plain t-shirt
-with soft joggers or leggings), comfortable and NOT formal wear; and NEVER a martial-arts GI, a karate/
-judo/taekwondo uniform, a belt (obi), a dojo robe, a kimono or a monk's robe — a person on a practice/yoga
-mat is an ORDINARY modern person in everyday clothes, not a martial artist or a monk. Do NOT use the vague
-phrase "practice clothes": always name the actual modern garments. The CAST notes may mention a HABITUAL garment
-(e.g. "often wears red shirts", "elegant suits", a signature hat) — treat it as a FAINT identity hint,
-NOT a mandatory costume: use it only where the scene genuinely fits, otherwise dress the character for
-what they are actually DOING here.
+of THIS passage, consistent within the scene. By the sea / on the beach of a warm seaside town → swimwear,
+or a lycra rash-guard and boardshorts when surfing or windsurfing, or a light t-shirt and shorts. In a
+city, at work, a formal or public moment, indoors in the evening, or a cold place → longer clothes: shirt
+and trousers, a jacket or coat. Meditation, yoga, prayer, exercising, sitting on a practice/yoga mat,
+sleeping or resting at home → NAME concrete modern casual garments (e.g. a plain t-shirt with soft joggers
+or leggings), never the vague phrase "practice clothes" and NEVER a martial-arts GI, a karate/judo/taekwondo
+uniform, a belt (obi), a dojo robe, a kimono or a monk's robe — an ORDINARY modern person, not a martial
+artist or a monk.
 WARDROBE CONSISTENCY: when a character in the CAST below has a "wears:" outfit noted next to them, dress
-THAT character EXACTLY in that outfit — it is their canonical look for this scene and must stay IDENTICAL
-every time the same scene/context recurs. This overrides the general clothing guidance above for that
-character. Characters WITHOUT a noted outfit follow the general CLOTHING rules.
-SIGNATURE ITEM (MANDATORY, never omit): when a character's "wears:" note contains an item marked "ALWAYS …"
-(e.g. "ALWAYS a straw hat", "ALWAYS round glasses", "ALWAYS a red cap"), that item is a PERMANENT identity
-marker the book gives them — they MUST be shown wearing it in EVERY scene, on top of whatever other clothing
-the scene calls for, regardless of place, weather or activity. Never drop it, never swap it for something
-else: if the note says straw hat, the straw hat is on their head in this image too.
+THAT character EXACTLY in it — their canonical look, IDENTICAL every time the same scene/context recurs;
+this overrides the general clothing guidance above for that character, while characters WITHOUT a noted
+outfit follow the general rule. An item in that note marked "ALWAYS …" (e.g. "ALWAYS a straw hat", "ALWAYS
+round glasses") is a PERMANENT identity marker: show it in EVERY scene, on top of whatever else the scene
+calls for, regardless of place, weather or activity — never drop or swap it. A garment merely mentioned in
+the CAST notes as HABITUAL (e.g. "often wears red shirts", "elegant suits", a signature hat) is only a FAINT
+identity hint, NOT a mandatory costume — use it where the scene genuinely fits, otherwise dress the character
+for what they are actually DOING here.
 NATURAL POSE: people look relaxed and believable, always anatomically correct and in balance. For a CALM,
 everyday or static moment the body is UPRIGHT and well-balanced — head level, shoulders even, spine
 straight, weight settled naturally on the feet, with only slight lifelike motion (a hand doing something,
@@ -530,7 +542,9 @@ ORDER (write the paragraph in THIS sequence — it is how the image model reads 
 1) the SHOT / framing (take it from the COMPOSITION DIRECTIVE: e.g. wide shot, close-up, three-quarter
    view, from behind); 2) the main SUBJECT (the iconic element), and if a person is present describe them
    by physical appearance ALWAYS including their ethnicity/skin tone and age (plus build and hair); 3) what
-   they are DOING and their pose, binding each action to the correct person; 4) their CLOTHING; 5) the SETTING and
+   they are DOING and their pose, binding each action to the correct person — and when the BOOK ART
+   DIRECTION specifies the subject's equipment, posture or technique, spell out IN FULL every detail they
+   state, exactly as written, without abbreviating; 4) their CLOTHING; 5) the SETTING and
    where each element sits (grounding, horizon); 6) the LIGHTING — time of day and quality of light, be
    specific (this model responds strongly to light); 7) the overall MOOD.
 Write FLOWING SENTENCES in that order, not a tag list. Do NOT add style/medium words ("illustration",

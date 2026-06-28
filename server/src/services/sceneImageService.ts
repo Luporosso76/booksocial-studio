@@ -16,6 +16,7 @@ import {
   imageGenAvailable,
   type SceneAspect,
 } from "../media/imageGen.js";
+import { imagePromptProfile } from "../media/imageEngine.js";
 import { verifySceneImage } from "../content/visionCheck.js";
 import { appConfig } from "../config.js";
 import type { ChapterSceneService } from "./chapterSceneService.js";
@@ -27,6 +28,35 @@ function namesMatch(a: string, b: string): boolean {
   const y = b.toLowerCase().trim();
   if (x === "" || y === "") return false;
   return x === y || x.includes(y) || y.includes(x);
+}
+
+const PHYSICS_TOKEN_STOP = new Set([
+  "del", "della", "delle", "dei", "degli", "con", "una", "uno", "per", "alla", "dal",
+]);
+function physicsTokens(s: string): string[] {
+  return s
+    .toLowerCase()
+    .split(/[^a-zà-ù0-9]+/i)
+    .filter((t) => t.length >= 4 && !PHYSICS_TOKEN_STOP.has(t));
+}
+function mentionsWord(text: string, word: string): boolean {
+  return new RegExp(`(^|[^a-zà-ù0-9])${word}([^a-zà-ù0-9]|$)`, "i").test(text);
+}
+function pruneChapterPhysics(
+  rules: readonly string[],
+  allObjectNames: readonly string[],
+  selectedObjectNames: readonly string[],
+): string[] {
+  const selectedToks = new Set(selectedObjectNames.flatMap(physicsTokens));
+  const droppedToks = allObjectNames
+    .filter((n) => !selectedObjectNames.some((s) => namesMatch(n, s)))
+    .flatMap(physicsTokens)
+    .filter((t) => !selectedToks.has(t));
+  if (droppedToks.length === 0) return rules.slice();
+  return rules.filter((rule) => {
+    if (!droppedToks.some((t) => mentionsWord(rule, t))) return true;
+    return [...selectedToks].some((t) => mentionsWord(rule, t));
+  });
 }
 
 // LIVELLO 1: sceglie i personaggi ELEGGIBILI per il capitolo, così il prompt non riceve l'intero
@@ -260,6 +290,11 @@ export class SceneImageService {
             mainObjects: sel.objects.length > 0 ? sel.objects : card.mainObjects,
             secondaryObjects: [],
             characters: sel.characters.length > 0 ? sel.characters : card.characters,
+            physicsRules: pruneChapterPhysics(
+              card.physicsRules ?? [],
+              (book?.visualProps?.props ?? []).map((p) => p.name),
+              sel.objects,
+            ),
           };
         }
         twoPassExcerpt = sel.brief || excerpt.text;
@@ -280,6 +315,7 @@ export class SceneImageService {
       bookTitle: book?.title ?? null,
       angle,
       sceneCard: twoPassCard,
+      imageProfile: imagePromptProfile(),
       visualDomains: book?.visualDomains ?? [],
       // Nel prompt va la traduzione EN (il modello rende meglio in inglese); fallback all'originale.
       visualDirectives: book?.visualDirectivesEn ?? book?.visualDirectives ?? null,

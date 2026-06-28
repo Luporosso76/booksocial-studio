@@ -1132,3 +1132,40 @@ export function createImageEngine(): ImageEngine {
   }
   return new FallbackImageEngine(primary, cfg.provider, fb, cfg.fallbackModel);
 }
+
+export function imagePromptProfile(): string {
+  const cfg = aiSettings.getImage();
+  const p = cfg.provider;
+  const model =
+    p === "openai"
+      ? cfg.openaiImageModel
+      : p === "google"
+        ? cfg.googleImageModel
+        : p === "stability"
+          ? cfg.stabilityImageModel
+          : p === "bfl"
+            ? cfg.bflImageModel
+            : p === "replicate"
+              ? cfg.replicateImageModel
+              : p === "fal"
+                ? cfg.falImageModel
+                : p === "agy"
+                  ? cfg.agyImageModel
+                  : "";
+  const tag = model && model.trim() !== "" ? `${p} (${model})` : p;
+  switch (p) {
+    case "local":
+    case "auto":
+      return `${tag} = Z-Image Turbo via stable-diffusion.cpp. Its text encoder is a SMALL LLM and it runs in FEW denoising steps, so it reads NATURAL-LANGUAGE sentences (not tag lists) and ANCHORS hard on the FIRST sentence, losing detail buried late. Lead the FIRST sentence with the main subject as the anchor and its most important shape and posture; then add the OTHER required people and elements concisely after it — do NOT drop any character or canonical element the scene requires, just order them after the anchor. State each visual fact ONCE, concretely, with no repeated adjectives and no contradictions. It renders overall composition, posture, light and colour well but CANNOT resolve very fine mechanical geometry, exact counts or precise angles — so spend the words on the few most identity-defining details and place them EARLY.`;
+    case "openai":
+      return `${tag} = a large instruction-following image model. It understands rich, ordered natural-language descriptions and explicit spatial relations (left/right, behind, attached-to, above) and counts well — you may write longer, precise prose and name exact relations; it follows them more faithfully than a small diffusion model.`;
+    case "google":
+      return `${tag} = Google Imagen. It handles detailed natural-language and spatial relations well; write clear subject-first descriptive prose with explicit composition, relations and lighting.`;
+    case "stability":
+      return `${tag} = a Stable-Diffusion-family model. It prefers a COMPACT, front-loaded style over long prose: lead with subject plus medium plus the key concrete descriptors, most important first; favour concrete nouns and strong adjectives over long subordinate clauses; never bury the subject.`;
+    case "bfl":
+      return `${tag} = a FLUX model. It reads natural language of medium length; write a clear subject-first description with concrete spatial detail and avoid overly long tails.`;
+    default:
+      return `${tag}: write a clear, subject-first natural-language description of ONE coherent scene; state each visual fact once, concretely, most important detail first.`;
+  }
+}
