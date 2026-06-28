@@ -11,7 +11,7 @@ y este proyecto se adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.
 - **Estilo de imagen por proveedor**: elige el estilo visual de las imágenes generadas (novela gráfica, pictórico, fotorrealista, acuarela, concept art y más) con intensidad de estilización y viveza de color ajustables, configurables de forma independiente para cada proveedor de imágenes — y por separado para el proveedor principal y su proveedor de reserva, de modo que cada uno renderice con su propio estilo.
 
 ### Cambiado
-- **Los prompts de imagen conservan toda la dirección artística**: el generador de prompts ahora transcribe por completo las reglas visuales del libro (equipo, postura, técnica) en lugar de resumirlas, y escribe el prompt en la forma que el modelo de imagen activo interpreta mejor.
+- **Los prompts de imagen conservan toda la dirección artística**: el generador de prompts ahora transcribe por completo las reglas visuales del libro (equipo, postura, técnica) en lugar de resumirlas.
 - **Física por escena**: las reglas de realismo de un capítulo ahora se aplican solo a los objetos realmente presentes en la escena, de modo que las reglas sobre objetos ausentes ya no se filtran en la imagen.
 - Indicaciones de vestuario del prompt consolidadas para mayor coherencia.
 

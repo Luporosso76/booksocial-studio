@@ -17,7 +17,6 @@ import {
   imageGenAvailable,
   type SceneAspect,
 } from "../media/imageGen.js";
-import { imagePromptProfile } from "../media/imageEngine.js";
 import { verifySceneImage } from "../content/visionCheck.js";
 import { appConfig } from "../config.js";
 import type { ChapterSceneService } from "./chapterSceneService.js";
@@ -327,7 +326,6 @@ export class SceneImageService {
       bookTitle: book?.title ?? null,
       angle,
       sceneCard: twoPassCard,
-      imageProfile: imagePromptProfile(),
       visualDomains: book?.visualDomains ?? [],
       // Nel prompt va la traduzione EN (il modello rende meglio in inglese); fallback all'originale.
       visualDirectives: book?.visualDirectivesEn ?? book?.visualDirectives ?? null,

@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Per-provider image style**: pick the visual style of generated images (graphic novel, painterly, photorealistic, watercolour, concept art and more) with adjustable stylization strength and colour vividness, set independently per image provider — and separately for the primary provider and its fallback, so each renders in its own style.
 
 ### Changed
-- **Image prompts keep the full art-direction**: the prompt writer now transcribes the book's visual rules in full (equipment, posture, technique) instead of summarising them, and writes the prompt in the form the active image model reads best.
+- **Image prompts keep the full art-direction**: the prompt writer now transcribes the book's visual rules in full (equipment, posture, technique) instead of summarising them.
 - **Per-scene physics**: a chapter's realism rules now apply only to the objects actually present in the scene, so rules about absent objects no longer leak into the image.
 - Clothing guidance in the prompt consolidated for consistency.
 

@@ -11,7 +11,7 @@ e questo progetto aderisce al [Semantic Versioning](https://semver.org/spec/v2.0
 - **Stile immagine per-provider**: scegli lo stile visivo delle immagini generate (graphic novel, pittorico, fotorealistico, acquerello, concept art e altri) con intensità di stilizzazione e vivacità del colore regolabili, impostabili in modo indipendente per ogni provider immagine — e separatamente per il provider principale e il suo fallback, così ognuno rende nel proprio stile.
 
 ### Modificato
-- **I prompt immagine mantengono tutta l'art-direction**: il prompt ora trascrive per intero le regole visive del libro (attrezzatura, postura, tecnica) invece di riassumerle, e scrive il prompt nella forma che il modello immagine attivo interpreta meglio.
+- **I prompt immagine mantengono tutta l'art-direction**: il prompt ora trascrive per intero le regole visive del libro (attrezzatura, postura, tecnica) invece di riassumerle.
 - **Fisica per-scena**: le regole di realismo del capitolo ora si applicano solo agli oggetti realmente presenti nella scena, così le regole su oggetti assenti non finiscono più nell'immagine.
 - Indicazioni sull'abbigliamento nel prompt consolidate per coerenza.
 

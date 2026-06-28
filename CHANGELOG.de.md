@@ -11,7 +11,7 @@ und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/spec/v
 - **Bildstil pro Anbieter**: Wähle den visuellen Stil der generierten Bilder (Graphic Novel, malerisch, fotorealistisch, Aquarell, Concept Art und mehr) mit einstellbarer Stilisierungsstärke und Farbintensität, unabhängig für jeden Bildanbieter festlegbar — und getrennt für den primären Anbieter und seinen Fallback, sodass jeder in seinem eigenen Stil rendert.
 
 ### Geändert
-- **Bild-Prompts behalten die vollständige Art-Direction**: Der Prompt-Generator überträgt die visuellen Regeln des Buches jetzt vollständig (Ausrüstung, Haltung, Technik), statt sie zusammenzufassen, und schreibt den Prompt in der Form, die das aktive Bildmodell am besten versteht.
+- **Bild-Prompts behalten die vollständige Art-Direction**: Der Prompt-Generator überträgt die visuellen Regeln des Buches jetzt vollständig (Ausrüstung, Haltung, Technik), statt sie zusammenzufassen.
 - **Physik pro Szene**: Die Realismusregeln eines Kapitels gelten jetzt nur noch für die tatsächlich in der Szene vorhandenen Objekte, sodass Regeln zu abwesenden Objekten nicht mehr ins Bild gelangen.
 - Kleidungshinweise im Prompt für Konsistenz zusammengeführt.
 
