@@ -5,6 +5,18 @@ Tutte le modifiche rilevanti a questo progetto sono documentate in questo file.
 Il formato è basato su [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 e questo progetto aderisce al [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.5] - 2026-06-28
+
+### Aggiunto
+- **Path relativo stretto in scrittura**: quando un percorso file viene salvato nel database ora è memorizzato in modo strettamente relativo alla cartella dati tramite `toDataRelativeStrict()`, rifiutando qualsiasi percorso fuori da essa (complementa `resolveInsideDataDir` lato lettura).
+- **Validazione contenuto audio**: gli upload audio vengono ora controllati per magic bytes (OGG, FLAC, WAV, MP3/ID3, MP4/M4A, AAC), come per le immagini — un'estensione/MIME audio con contenuto non-audio viene rifiutata.
+- **Test backend ampliati**: registry provider del motore testo (provider supportati vs non), auth/sessione (login, lockout, invalidazione sessioni), migrazioni DB (creazione, idempotenza, versione schema), più i casi path-strict e audio.
+
+### Modificato
+- **Config provider allineata**: `server/.env.example` non elenca più provider API di testo non supportati (OpenAI/Anthropic/Google/OpenAI-compatible) per il motore testo — solo CLI (opencode/Codex/Claude/agy) + Ollama — e usa `CONTENT_PROVIDER=none` come default. Le chiavi OpenAI/Google restano documentate solo tra i provider immagine.
+- **Default Docker allineato**: `docker-compose.yml` ora usa `CONTENT_PROVIDER=none` come default (era `opencode`), coerente con README e runtime.
+- **Doc di produzione col runtime compilato**: le istruzioni manuali di produzione (in tutte e 5 le lingue) ora compilano ed eseguono `node dist/index.js` (`npm run build` + `npm run start:prod`) invece di `npm start` (tsx), coerentemente con l'immagine Docker.
+
 ## [0.5.4] - 2026-06-28
 
 ### Aggiunto

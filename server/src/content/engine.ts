@@ -447,7 +447,7 @@ export function isRateLimitError(e: unknown): boolean {
  * I BINARI dei CLI restano da `appConfig` (env); i MODELLI e il provider da `aiSettings.getText()`.
  * Il `provider` può essere forzato (per il fallback su rate-limit) riusando gli stessi modelli `cfg`.
  */
-function buildEngine(
+export function buildEngine(
   cfg: aiSettings.TextCfg,
   provider: string,
   modelOverride?: string,

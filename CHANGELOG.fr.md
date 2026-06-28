@@ -5,6 +5,18 @@ Toutes les modifications notables apportées à ce projet sont documentées dans
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 et ce projet respecte le [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.5] - 2026-06-28
+
+### Ajouté
+- **Chemin relatif strict à l'écriture** : lorsqu'un chemin de fichier est enregistré en base, il est désormais stocké strictement relatif au répertoire de données via `toDataRelativeStrict()`, rejetant tout chemin en dehors (complète `resolveInsideDataDir` côté lecture).
+- **Validation du contenu audio** : les fichiers audio téléversés sont désormais vérifiés par magic bytes (OGG, FLAC, WAV, MP3/ID3, MP4/M4A, AAC), comme pour les images — une extension/MIME audio dont le contenu n'est pas audio est rejetée.
+- **Tests backend étendus** : registre des fournisseurs du moteur texte (pris en charge vs non), auth/session (connexion, blocage, invalidation des sessions), migrations BD (création, idempotence, version du schéma), plus les cas path-strict et audio.
+
+### Modifié
+- **Config des fournisseurs alignée** : `server/.env.example` ne liste plus de fournisseurs API texte non pris en charge (OpenAI/Anthropic/Google/OpenAI-compatible) pour le moteur texte — uniquement CLI (opencode/Codex/Claude/agy) + Ollama — et utilise `CONTENT_PROVIDER=none` par défaut. Les clés OpenAI/Google ne sont documentées que sous les fournisseurs d'images.
+- **Défaut Docker aligné** : `docker-compose.yml` utilise désormais `CONTENT_PROVIDER=none` par défaut (au lieu de `opencode`), en cohérence avec le README et le runtime.
+- **Docs de production avec le runtime compilé** : les instructions manuelles de production (dans les 5 langues) compilent et exécutent désormais `node dist/index.js` (`npm run build` + `npm run start:prod`) au lieu de `npm start` (tsx), comme l'image Docker.
+
 ## [0.5.4] - 2026-06-28
 
 ### Ajouté

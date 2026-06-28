@@ -72,3 +72,14 @@ export function toDataRelative(abs: string): string {
   const rel = relative(dataDir(), abs);
   return rel === "" || rel.startsWith("..") || isAbsolute(rel) ? abs : rel;
 }
+
+// Variante STRICT per la SCRITTURA su DB: garantisce che il path cada dentro dataDir e ritorna
+// sempre il relativo; se è fuori (assoluto estraneo, traversal) lancia invece di salvare un assoluto.
+export function toDataRelativeStrict(inputPath: string): string {
+  const base = resolve(dataDir());
+  const absolute = resolve(resolveDataPath(inputPath));
+  if (absolute !== base && !absolute.startsWith(base + sep)) {
+    throw Object.assign(new Error("Path outside data directory"), { httpStatus: 400 });
+  }
+  return relative(base, absolute);
+}

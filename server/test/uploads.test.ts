@@ -39,8 +39,15 @@ describe("validateUpload", () => {
     ).rejects.toThrow();
   });
 
-  it("accepts an audio file", async () => {
-    const { ext } = await validateUpload(file([1, 2, 3, 4], "song.mp3", "audio/mpeg"), "audio");
+  it("accepts a valid audio file (ID3 magic)", async () => {
+    const id3 = [0x49, 0x44, 0x33, 0x03, 0, 0, 0, 0, 0, 0, 0, 0];
+    const { ext } = await validateUpload(file(id3, "song.mp3", "audio/mpeg"), "audio");
     expect(ext).toBe("mp3");
+  });
+
+  it("rejects audio whose content is not audio (magic mismatch)", async () => {
+    await expect(
+      validateUpload(file([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], "fake.mp3", "audio/mpeg"), "audio"),
+    ).rejects.toThrow();
   });
 });

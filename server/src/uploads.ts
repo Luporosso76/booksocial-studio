@@ -67,6 +67,18 @@ function imageMagicOk(buf: Buffer, ext: string): boolean {
   return false;
 }
 
+function audioMagicOk(buf: Buffer): boolean {
+  if (buf.length < 12) return false;
+  const head4 = buf.subarray(0, 4).toString("ascii");
+  if (head4 === "OggS") return true;
+  if (head4 === "fLaC") return true;
+  if (head4 === "RIFF" && buf.subarray(8, 12).toString("ascii") === "WAVE") return true;
+  if (buf.subarray(0, 3).toString("ascii") === "ID3") return true;
+  if (buf.subarray(4, 8).toString("ascii") === "ftyp") return true;
+  if (buf[0] === 0xff && (buf[1]! & 0xe0) === 0xe0) return true;
+  return false;
+}
+
 export async function validateUpload(
   file: File,
   kind: UploadKind,
@@ -93,6 +105,9 @@ export async function validateUpload(
   }
   if (kind === "image" && !imageMagicOk(buffer, ext)) {
     fail("File content does not match a valid image (magic bytes).");
+  }
+  if (kind === "audio" && !audioMagicOk(buffer)) {
+    fail("File content does not match a known audio format (magic bytes).");
   }
   return { buffer, ext };
 }

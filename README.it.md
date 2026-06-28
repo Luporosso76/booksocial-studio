@@ -102,9 +102,12 @@ cd web && npm ci && npm run dev         # Vite dev server, proxied to the API
 Produzione (processo singolo che serve il frontend compilato):
 
 ```bash
-cd web && npm ci && npm run build       # outputs web/dist
-cd ../server && npm ci && npm start     # serves API + ../web/dist on :8770
+cd web && npm ci && npm run build           # genera web/dist
+cd ../server && npm ci && npm run build      # compila TypeScript in server/dist
+npm run start:prod                          # node dist/index.js, serve API + ../web/dist su :8770
 ```
+
+> In produzione gira il server **compilato** (`node dist/index.js`, come l'immagine Docker), non `tsx` sui sorgenti. `npm start` resta l'entry point di sviluppo (tsx).
 
 ## Modalità supportate
 

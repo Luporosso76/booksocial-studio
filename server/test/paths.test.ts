@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll } from "vitest";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { resolveInsideDataDir } from "../src/paths.js";
+import { resolveInsideDataDir, toDataRelativeStrict } from "../src/paths.js";
 
 let dataDirPath: string;
 beforeAll(() => {
@@ -22,5 +22,19 @@ describe("resolveInsideDataDir", () => {
 
   it("blocks ../ traversal escaping the data dir", () => {
     expect(() => resolveInsideDataDir("../../../../etc/passwd")).toThrow();
+  });
+});
+
+describe("toDataRelativeStrict", () => {
+  it("returns a path relative to the data dir for a file inside it", () => {
+    expect(toDataRelativeStrict("media/x.png")).toBe("media/x.png");
+  });
+
+  it("throws for an absolute path outside the data dir", () => {
+    expect(() => toDataRelativeStrict("/etc/passwd")).toThrow();
+  });
+
+  it("throws for ../ traversal outside the data dir", () => {
+    expect(() => toDataRelativeStrict("../../../../etc/passwd")).toThrow();
   });
 });

@@ -14,7 +14,10 @@ services:
       - PORT=8770
       - HOST=0.0.0.0
       # Motore AI per la generazione testi/canone (vedi server/.env.example):
-      - CONTENT_PROVIDER=${CONTENT_PROVIDER:-opencode}
+      # Default 'none': l'utente sceglie il provider dalla UI. NB: i provider testo sono CLI locali
+      # (opencode/codex/claude/agy) e NON sono presenti dentro il container → vanno usati con un
+      # deployment che li mette a disposizione, oppure usa Ollama.
+      - CONTENT_PROVIDER=${CONTENT_PROVIDER:-none}
     # Carica eventuali altre variabili da server/.env se presente.
     env_file:
       - path: ./server/.env

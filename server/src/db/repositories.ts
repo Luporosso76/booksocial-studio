@@ -1,5 +1,5 @@
 import { execute, query, withTransaction, type Row } from "./pool.js";
-import { resolveDataPath, toDataRelative } from "../paths.js";
+import { resolveDataPath, toDataRelative, toDataRelativeStrict } from "../paths.js";
 import { stripMdEscapes } from "../textEscapes.js";
 import {
   CURRENT_PROMPT_VERSION,
@@ -545,7 +545,7 @@ export const books = {
         b.title,
         b.author,
         b.language,
-        toDataRelative(b.sourcePath),
+        toDataRelativeStrict(b.sourcePath),
         b.contentHash,
         b.chapterCount,
         b.charCount,
@@ -1061,7 +1061,7 @@ export const media = {
         m.bookId,
         m.chapterId,
         m.scope,
-        toDataRelative(m.path),
+        toDataRelativeStrict(m.path),
         m.caption,
         m.genPrompt,
         m.chapterIdx,
@@ -1103,7 +1103,7 @@ export const media = {
     m: { path: string; genPrompt: string; addedAt: number },
   ): Promise<void> {
     await execute("UPDATE media_asset SET path=?, gen_prompt=?, added_at=? WHERE id=?", [
-      toDataRelative(m.path),
+      toDataRelativeStrict(m.path),
       m.genPrompt,
       m.addedAt,
       id,
@@ -1276,7 +1276,7 @@ export const posts = {
         p.hashtags,
         p.mediaType,
         p.link,
-        p.mediaPath == null ? null : toDataRelative(p.mediaPath),
+        p.mediaPath == null ? null : toDataRelativeStrict(p.mediaPath),
         p.scheduledAt,
         p.status,
         p.fbPostId,
@@ -1358,7 +1358,7 @@ export const posts = {
         p.scheduledAt,
         p.message,
         p.hashtags,
-        p.mediaPath == null ? null : toDataRelative(p.mediaPath),
+        p.mediaPath == null ? null : toDataRelativeStrict(p.mediaPath),
         p.mediaType,
         p.musicId,
         p.contentFormat,
@@ -1496,7 +1496,7 @@ export const renderJobs = {
       "UPDATE render_job SET status=?, output_path=?, error=?, updated_at=? WHERE id=?",
       [
         status,
-        fields.outputPath == null ? null : toDataRelative(fields.outputPath),
+        fields.outputPath == null ? null : toDataRelativeStrict(fields.outputPath),
         fields.error ?? null,
         Date.now(),
         id,
@@ -1540,7 +1540,7 @@ export const music = {
   async insert(m: Omit<MusicTrack, "id">): Promise<MusicTrack> {
     const r = await execute(
       "INSERT INTO music_track(book_id, title, path, duration_sec, mood, added_at) VALUES (?,?,?,?,?,?)",
-      [m.bookId, m.title, toDataRelative(m.path), m.durationSec, m.mood, m.addedAt],
+      [m.bookId, m.title, toDataRelativeStrict(m.path), m.durationSec, m.mood, m.addedAt],
     );
     const created = await this.get(r.insertId);
     if (!created) throw new Error("insert music: row missing");

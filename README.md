@@ -117,9 +117,12 @@ cd web && npm ci && npm run dev         # Vite dev server, proxied to the API
 Production (single process serving the built frontend):
 
 ```bash
-cd web && npm ci && npm run build       # outputs web/dist
-cd ../server && npm ci && npm start     # serves API + ../web/dist on :8770
+cd web && npm ci && npm run build           # outputs web/dist
+cd ../server && npm ci && npm run build      # compiles TypeScript to server/dist
+npm run start:prod                          # runs node dist/index.js, serves API + ../web/dist on :8770
 ```
+
+> Production runs the **compiled** server (`node dist/index.js`, same as the Docker image), not `tsx` on the sources. `npm start` remains the dev/tsx entry point.
 
 ## Security note for remote servers
 
