@@ -5,6 +5,12 @@ Toutes les modifications notables apportées à ce projet sont documentées dans
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 et ce projet respecte le [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.2] - 2026-06-28
+
+### Modifié
+- **Génération d'images — utilisation plus intelligente de la bible visuelle** : l'invite de la scène est désormais construite en DEUX étapes. D'abord, le modèle choisit quel unique moment du chapitre illustrer, en nommant le sujet et seulement les personnages et objets réellement présents dans ce moment. Ensuite, l'invite finale de l'image est rédigée en utilisant UNIQUEMENT le canon de cette scène. Auparavant, chaque personnage, objet et directive de tout le chapitre était déversé dans une seule invite, si bien que des personnes et des objets sans rapport se glissaient dans l'image, les personnages étaient dupliqués ou fondus, et les détails clés étaient dilués. Le flux en deux étapes garde chaque scène nette : les bonnes personnes, le bon équipement, la bonne pose — et des images distinctes au fil d'un chapitre.
+- **Les poses sportives et d'action** sont désormais rendues avec leur pleine posture dynamique au lieu d'être forcées à la verticale.
+
 ## [0.4.0] - 2026-06-26
 
 ### Ajouté

@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.2] - 2026-06-28
+
+### Changed
+- **Image generation — smarter use of the visual bible**: the scene prompt is now built in TWO steps. First, the model picks which single moment of the chapter to illustrate, naming the subject and only the characters and objects actually present in that moment. Then the final image prompt is written using ONLY that scene's canon. Before, every character, object and directive of the whole chapter was poured into one prompt, so unrelated people and objects leaked into the image, characters were duplicated or blended, and the key details were diluted. The two-step flow keeps each scene focused: the right people, the right gear, the right pose — and distinct images across a chapter.
+- **Sport and action poses** are now rendered with their full dynamic stance instead of being forced upright.
+
 ## [0.5.1] - 2026-06-27
 
 ### Added

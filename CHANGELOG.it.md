@@ -5,6 +5,12 @@ Tutte le modifiche rilevanti a questo progetto sono documentate in questo file.
 Il formato è basato su [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 e questo progetto aderisce al [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.2] - 2026-06-28
+
+### Modificato
+- **Generazione immagini — uso più intelligente della bibbia visiva**: il prompt della scena ora viene costruito in DUE passaggi. Prima il modello sceglie quale singolo momento del capitolo illustrare, indicando il soggetto e soltanto i personaggi e gli oggetti realmente presenti in quel momento. Poi il prompt finale dell'immagine viene scritto usando SOLO la canon di quella scena. Prima ogni personaggio, oggetto e direttiva dell'intero capitolo veniva riversato in un unico prompt, così persone e oggetti estranei finivano nell'immagine, i personaggi venivano duplicati o fusi e i dettagli chiave si diluivano. Il flusso a due passaggi mantiene ogni scena a fuoco: le persone giuste, l'attrezzatura giusta, la posa giusta — e immagini distinte lungo un capitolo.
+- **Le pose sportive e d'azione** ora vengono rese con la loro piena postura dinamica invece di essere forzate in verticale.
+
 ## [0.4.0] - 2026-06-26
 
 ### Aggiunto

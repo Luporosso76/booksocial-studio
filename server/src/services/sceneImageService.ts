@@ -3,7 +3,12 @@ import { join } from "node:path";
 import { mediaDir } from "../paths.js";
 import { books, characters, media, settings } from "../db/repositories.js";
 import type { ContentEngine } from "../content/engine.js";
-import { buildSceneDescription, type SceneFlashback } from "../content/imagePrompt.js";
+import {
+  buildSceneDescription,
+  selectChapterScenes,
+  type SceneFlashback,
+  type SceneSelection,
+} from "../content/imagePrompt.js";
 import * as aiSettings from "../content/aiSettings.js";
 import {
   buildScenePrompt,
@@ -210,11 +215,61 @@ export class SceneImageService {
     // Composition directive: se sono richiesti dei personaggi, ANTEPONI una direttiva che li featura in
     // modo prominente (mai col nome, niente ritratto in posa né sguardo in camera), eventualmente
     // integrando l'angle già passato dal chiamante.
-    const angle = this.composeAngle(opts?.angle ?? null, wanted);
+    let angle = this.composeAngle(opts?.angle ?? null, wanted);
+    let twoPassChars = eligible;
+    let twoPassCard: ChapterScene | null = card;
+    let twoPassProps = book?.visualProps;
+    let twoPassExcerpt = excerpt?.text ?? null;
+    const defaultWaking =
+      !opts?.flashback &&
+      !opts?.forceFlashback &&
+      (opts?.moment == null || opts.moment < 0) &&
+      !opts?.randomMoment &&
+      card?.kind !== "flashback" &&
+      card?.kind !== "dream";
+    if (defaultWaking && excerpt && features.length === 0) {
+      const sels = await selectChapterScenes(
+        this.deps.engine,
+        {
+          chapterTitle: excerpt.title,
+          chapterExcerpt: excerpt.text,
+          bookTitle: book?.title ?? null,
+          sceneCard: card,
+          castNames: eligible.map((c) => ({ name: c.name, role: c.role })),
+          objectNames: (book?.visualProps?.props ?? []).map((p) => p.name),
+          directiveNames: [],
+        },
+        1,
+      );
+      const sel = sels?.[0];
+      if (sel) {
+        const chosen = eligible.filter((c) => sel.characters.some((nm) => namesMatch(c.name, nm)));
+        twoPassChars = sel.characters.length === 0 ? [] : chosen.length > 0 ? chosen : eligible;
+        if (book?.visualProps) {
+          twoPassProps = {
+            ...book.visualProps,
+            props: book.visualProps.props.filter((p) =>
+              sel.objects.some((nm) => namesMatch(p.name, nm)),
+            ),
+          };
+        }
+        if (card) {
+          twoPassCard = {
+            ...card,
+            keyMoment: sel.brief || card.keyMoment,
+            mainObjects: sel.objects.length > 0 ? sel.objects : card.mainObjects,
+            secondaryObjects: [],
+            characters: sel.characters.length > 0 ? sel.characters : card.characters,
+          };
+        }
+        twoPassExcerpt = sel.brief || excerpt.text;
+        if (sel.framing) angle = [angle, sel.framing].filter((s) => s && s.trim() !== "").join("; ");
+      }
+    }
     const scene = await buildSceneDescription(this.deps.engine, {
-      chapterExcerpt: excerpt?.text ?? null,
+      chapterExcerpt: twoPassExcerpt,
       chapterTitle: excerpt?.title ?? null,
-      characters: eligible.map((c) => ({
+      characters: twoPassChars.map((c) => ({
         name: c.name,
         physical: c.physical,
         age: c.age,
@@ -224,11 +279,11 @@ export class SceneImageService {
       })),
       bookTitle: book?.title ?? null,
       angle,
-      sceneCard: card,
+      sceneCard: twoPassCard,
       visualDomains: book?.visualDomains ?? [],
       // Nel prompt va la traduzione EN (il modello rende meglio in inglese); fallback all'originale.
       visualDirectives: book?.visualDirectivesEn ?? book?.visualDirectives ?? null,
-      visualProps: book?.visualProps,
+      visualProps: twoPassProps,
       visualExtras: book?.visualExtras,
       extraInstructions: [aiSettings.getPromptExtras().image, book?.imageExtraInstructions]
         .map((s) => (s ?? "").trim())
@@ -323,6 +378,37 @@ export class SceneImageService {
     });
     if (!scene) return null;
     return buildScenePrompt(scene.description);
+  }
+
+  async selectScenesForChapter(
+    bookId: number,
+    chapterIndex: number,
+    count: number,
+  ): Promise<SceneSelection[] | null> {
+    const [excerpt, book, allChars] = await Promise.all([
+      this.safeExcerpt(bookId, new Set<number>(), chapterIndex, null),
+      books.get(bookId),
+      characters.byBook(bookId),
+    ]);
+    if (!excerpt) return null;
+    const card = await this.deps.chapterScenes.getOrBuild(bookId, excerpt.chapterIndex);
+    const eligible = pickCastForChapter(allChars, excerpt.chapterIndex, card, []);
+    const objectNames = (book?.visualProps?.props ?? [])
+      .map((p) => p.name)
+      .filter((n) => n.trim() !== "");
+    return selectChapterScenes(
+      this.deps.engine,
+      {
+        chapterTitle: excerpt.title,
+        chapterExcerpt: excerpt.text,
+        bookTitle: book?.title ?? null,
+        sceneCard: card,
+        castNames: eligible.map((c) => ({ name: c.name, role: c.role })),
+        objectNames,
+        directiveNames: [],
+      },
+      count,
+    );
   }
 
   // Genera e salva una immagine di scena. Ritorna null se il motore non è disponibile o fallisce.

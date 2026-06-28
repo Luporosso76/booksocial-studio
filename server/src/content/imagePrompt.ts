@@ -476,14 +476,14 @@ SIGNATURE ITEM (MANDATORY, never omit): when a character's "wears:" note contain
 marker the book gives them — they MUST be shown wearing it in EVERY scene, on top of whatever other clothing
 the scene calls for, regardless of place, weather or activity. Never drop it, never swap it for something
 else: if the note says straw hat, the straw hat is on their head in this image too.
-NATURAL POSE: people look relaxed and at ease in a believable, anatomically correct posture — neither a
-stiff mannequin at attention NOR contorted, twisted, off-balance or theatrically dramatic. Keep the body
-UPRIGHT and well-balanced by default: head level (not cocked or tilted), shoulders even, spine straight,
-weight settled naturally on the feet. Allow gentle, lifelike motion suited to the moment — a hand doing
-something, a calm gesture, an easy step, sitting, holding an object — but ONLY a slight, natural amount.
-Do NOT exaggerate: avoid leaning torsos, tilted bodies, dramatic crouches, strained twists or forced
-"action" poses UNLESS the scene genuinely involves that movement (e.g. actually surfing or running).
-A calm standing person stands straight and relaxed, not leaning or angled.
+NATURAL POSE: people look relaxed and believable, always anatomically correct and in balance. For a CALM,
+everyday or static moment the body is UPRIGHT and well-balanced — head level, shoulders even, spine
+straight, weight settled naturally on the feet, with only slight lifelike motion (a hand doing something,
+a calm gesture, an easy step, sitting, holding an object). For an ACTIVE or SPORTING moment — and ALWAYS
+when the BOOK ART DIRECTION describes the posture for an activity (windsurfing, surfing, running,
+swimming, dancing or any sport) — render that FULL dynamic posture EXACTLY as those rules specify,
+including a strongly leaned-out, extended, crouched or angled body: the activity posture in the BOOK ART
+DIRECTION takes PRIORITY here over the calm-upright default. Keep it athletic and anatomically correct.
 KEEP IT SIMPLE: one clear setting, few elements (diffusion models ruin busy scenes); leave calm space
 for the text. Use the book's overall theme/title as mood guidance: ${input.bookTitle ?? "(book)"}.
 RULES: NO style words (do NOT write "graphic novel", "illustration", "comic", "art"); NO quotes.
@@ -629,6 +629,137 @@ ${passage || input.bookTitle || ""}`;
     return fallbackScene(input);
   } catch (e) {
     if (e instanceof ContentError) return fallbackScene(input);
+    throw e;
+  }
+}
+
+export interface SceneSelection {
+  subject: string;
+  brief: string;
+  framing?: string;
+  characters: string[];
+  objects: string[];
+  mood?: string;
+  momentType: "waking" | "dream" | "flashback" | "memory";
+}
+
+export interface SceneSelectionInput {
+  chapterTitle?: string | null;
+  chapterExcerpt: string | null;
+  bookTitle?: string | null;
+  sceneCard?: ChapterScene | null;
+  castNames: { name: string; role?: string | null }[];
+  objectNames?: string[];
+  directiveNames?: string[];
+}
+
+function parseJsonArray(raw: string): unknown[] | null {
+  let s = (raw ?? "").trim();
+  s = s
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/```\s*$/i, "")
+    .trim();
+  const start = s.indexOf("[");
+  const end = s.lastIndexOf("]");
+  if (start < 0 || end <= start) return null;
+  try {
+    const parsed = JSON.parse(s.slice(start, end + 1));
+    return Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function selectionCardSummary(card: ChapterScene | null | undefined): string {
+  if (!card) return "(none)";
+  const lines: string[] = [];
+  if (card.keyMoment && card.keyMoment.trim() !== "")
+    lines.push(`- key moment: ${card.keyMoment.trim()}`);
+  if (card.location) lines.push(`- location: ${card.location}`);
+  if (card.environment) lines.push(`- environment: ${card.environment}`);
+  if (card.mainObjects.length > 0)
+    lines.push(`- main subjects pool: ${card.mainObjects.join(", ")}`);
+  if (card.secondaryObjects.length > 0)
+    lines.push(`- secondary objects pool: ${card.secondaryObjects.join(", ")}`);
+  if (card.characters.length > 0)
+    lines.push(`- characters pool: ${card.characters.join(", ")}`);
+  for (const m of card.altMoments ?? []) {
+    if (m.keyMoment && m.keyMoment.trim() !== "")
+      lines.push(`- alternate ${m.type} moment: ${m.keyMoment.trim()}`);
+  }
+  return lines.length > 0 ? lines.join("\n") : "(none)";
+}
+
+export async function selectChapterScenes(
+  engine: ContentEngine,
+  input: SceneSelectionInput,
+  count: number,
+): Promise<SceneSelection[] | null> {
+  const n = Math.max(1, Math.min(Math.floor(count) || 1, 12));
+  const passage = (input.chapterExcerpt ?? "").trim().slice(0, 20000);
+  const cast =
+    input.castNames.map((c) => `- ${c.name}${c.role ? ` (${c.role})` : ""}`).join("\n") || "(none)";
+  const objects = (input.objectNames ?? []).length > 0 ? (input.objectNames ?? []).join(", ") : "(none)";
+  const directives =
+    (input.directiveNames ?? []).length > 0 ? (input.directiveNames ?? []).join(", ") : "(none)";
+
+  const prompt = `You SELECT which scenes to illustrate for ONE chapter of a book, then hand each one to an image-prompt writer. A chapter holds several moments; choose the ${n} that make the STRONGEST, most distinct background images.
+Return EXACTLY ${n} scene(s), each a DISTINCT moment with a DIFFERENT subject — never two near-identical scenes.
+For EACH scene return a JSON object with these keys:
+- "subject": the single most iconic, concrete VISUAL subject of that moment (an object, animal, vehicle, place, or a person doing the pivotal action).
+- "brief": 2 to 3 sentences describing ONLY that moment — what happens, who is there, their action and pose, the setting and the mood. It MUST be self-contained: the image writer sees ONLY this brief, not the chapter.
+- "framing": a short shot suggestion (e.g. wide over-the-shoulder, close-up, from behind, low angle).
+- "characters": an array of names copied EXACTLY from the CAST list below, of the people PHYSICALLY PRESENT in this moment. Keep it to 0, 1 or 2. Use [] for a scene with no person.
+- "objects": an array of names copied EXACTLY from the OBJECTS list below, of items that GENUINELY belong in this moment. Usually 0 to 2. Use [] if none apply.
+- "mood": one or two mood words.
+- "momentType": one of waking, dream, flashback, memory.
+Output ONLY a JSON array of ${n} object(s). No prose, no explanation, no code fence.
+
+CHAPTER TITLE: ${input.chapterTitle?.trim() || "(none)"}
+BOOK: ${input.bookTitle ?? "(book)"}
+SCENE CARD (grounding pool for the WHOLE chapter — pick the ${n} best moments from it):
+${selectionCardSummary(input.sceneCard)}
+CAST (names + role; copy names EXACTLY, render only those truly in the chosen moment):
+${cast}
+OBJECTS (recurring canonical items; copy names EXACTLY; pick only those truly present in the moment):
+${objects}
+DIRECTIVES available (themes that may apply to a moment): ${directives}
+FULL CHAPTER TEXT:
+${passage || input.bookTitle || ""}`;
+
+  try {
+    const raw = await engine.run(prompt);
+    const arr = parseJsonArray(raw ?? "");
+    if (!arr) return null;
+    const toStrArr = (v: unknown): string[] =>
+      Array.isArray(v)
+        ? v.filter((x): x is string => typeof x === "string").map((x) => x.trim()).filter(Boolean)
+        : [];
+    const out: SceneSelection[] = [];
+    for (const it of arr) {
+      if (!it || typeof it !== "object") continue;
+      const o = it as Record<string, unknown>;
+      const subject = typeof o.subject === "string" ? o.subject.trim() : "";
+      const brief = typeof o.brief === "string" ? o.brief.trim() : "";
+      if (subject === "" && brief === "") continue;
+      const mt = typeof o.momentType === "string" ? o.momentType.trim().toLowerCase() : "waking";
+      out.push({
+        subject,
+        brief,
+        ...(typeof o.framing === "string" && o.framing.trim() !== ""
+          ? { framing: o.framing.trim() }
+          : {}),
+        characters: toStrArr(o.characters),
+        objects: toStrArr(o.objects),
+        ...(typeof o.mood === "string" && o.mood.trim() !== "" ? { mood: o.mood.trim() } : {}),
+        momentType: (["waking", "dream", "flashback", "memory"].includes(mt)
+          ? mt
+          : "waking") as SceneSelection["momentType"],
+      });
+    }
+    return out.length > 0 ? out : null;
+  } catch (e) {
+    if (e instanceof ContentError) return null;
     throw e;
   }
 }

@@ -5,6 +5,12 @@ Alle wesentlichen Änderungen an diesem Projekt werden in dieser Datei dokumenti
 Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.2] - 2026-06-28
+
+### Geändert
+- **Bildgenerierung — intelligentere Nutzung der visuellen Bibel**: Der Szenen-Prompt wird jetzt in ZWEI Schritten erstellt. Zuerst wählt das Modell, welchen einzelnen Moment des Kapitels es illustriert, und benennt das Motiv sowie nur die Figuren und Objekte, die in diesem Moment tatsächlich vorhanden sind. Dann wird der finale Bild-Prompt ausschließlich mit dem Kanon dieser Szene geschrieben. Zuvor wurde jede Figur, jedes Objekt und jede Vorgabe des gesamten Kapitels in einen einzigen Prompt gegossen, sodass unbeteiligte Personen und Objekte ins Bild gerieten, Figuren verdoppelt oder vermischt wurden und die wichtigen Details verwässerten. Der zweistufige Ablauf hält jede Szene fokussiert: die richtigen Personen, die richtige Ausrüstung, die richtige Pose — und unterschiedliche Bilder über ein Kapitel hinweg.
+- **Sport- und Action-Posen** werden jetzt mit ihrer vollen dynamischen Haltung dargestellt, statt aufrecht erzwungen zu werden.
+
 ## [0.4.0] - 2026-06-26
 
 ### Hinzugefügt
