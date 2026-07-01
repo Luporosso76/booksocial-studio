@@ -5,6 +5,28 @@ Tutte le modifiche rilevanti a questo progetto sono documentate in questo file.
 Il formato è basato su [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 e questo progetto aderisce al [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2026-07-01
+
+### Aggiunto
+- **Provider immagini Gemini (Nano Banana)**: nuovo provider immagini `gemini` che usa l'API Google `:generateContent`, con chiave API dedicata, elenco modelli recuperato dal vivo dal provider e stile immagine per-provider.
+- **Prompt immagine model-aware**: l'AI di testo ora scrive il prompt immagine specificamente per il modello bersaglio — prompt strutturato a sezioni per Gemini, un unico paragrafo compatto e positivo per il motore locale Z-Image, oppure il paragrafo predefinito — migliorando la resa su ogni motore.
+- **Generatore immagine libero**: endpoint di generazione immagini indipendenti dal libro (genera / stato / file / annulla).
+- **Elenchi modelli dal vivo**: per i provider immagine Gemini e OpenAI l'elenco modelli viene recuperato dall'API del provider (con un fallback minimo offline) invece che da una lista cablata.
+- **Stile immagine per-provider**: medium/intensità/vividezza (e per il locale steps/cfg) sono configurati per provider, con stili primario e di fallback indipendenti.
+- **Copertura aspetto multilingua**: la deduplicazione dei tratti canonici del personaggio ora funziona per libri in italiano, inglese, francese, spagnolo e tedesco.
+
+### Cambiato
+- **Codice prompt indipendente dal libro**: ogni contenuto visivo specifico di libro o dominio è stato rimosso dal sorgente; direttive visive, aspetto dei personaggi, abbigliamento ed equipaggiamento risiedono ora solo nel database e sono l'unica fonte usata per costruire i prompt immagine. Rimossi il seed cablato delle direttive visive e il vecchio sistema `VISUAL_DOMAINS`.
+- **Provider immagini `google` → `gemini`**: rimossi il vecchio motore Imagen (`:predict`) e il campo morto `googleImageModel`.
+- **Prompt Z-Image**: compatti, solo-positivi (per evitare artefatti da negazione a guidance bassa) e con soggetto, posa ed equipaggiamento in testa, per una resa locale migliore.
+- **Traduzione dei prompt**: i prompt immagine vengono ora tradotti in inglese rilevando automaticamente la lingua sorgente (qualsiasi lingua → inglese).
+
+### Corretto
+- **Profilo prompt Gemini** instradato per famiglia di modello (flash/pro) invece che per versione esatta.
+- **Timeout** sulla richiesta dell'elenco modelli Gemini.
+- **Fallback visibile** (non più silenzioso) quando la traduzione del prompt immagine non è disponibile.
+- Robustezza minore: parsing numerico di `dashboardHidden`; pulizia della mappa dei job del generatore libero.
+
 ## [0.5.5] - 2026-06-28
 
 ### Aggiunto

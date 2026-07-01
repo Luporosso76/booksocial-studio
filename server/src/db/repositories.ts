@@ -17,18 +17,17 @@ import {
   type DrivingSide,
   type MinorCharacter,
   type BookVisualExtras,
-  type VisualDirective,
   type BookLink,
   type BookProfile,
-  type ChapterMarketingCard,
-  type ChapterMarketingCardData,
   type ContentUsage,
   type FacebookPage,
+  type ChapterMarketingCard,
+  type ChapterMarketingCardData,
   type FormatAspect,
   type GenerationRecord,
   type MediaAsset,
-  type MediaType,
   type MediaUsage,
+  type MediaType,
   type MusicTrack,
   type MusicUsage,
   type RenderJob,
@@ -40,10 +39,9 @@ import {
   type WeeklyPlan,
   type TextMode,
   type VisualContent,
+  type VisualDirective,
   type VisualKindChoice,
 } from "../domain.js";
-
-// ---------- mappers ----------
 
 function mapBook(r: Row): Book {
   return {
@@ -155,20 +153,24 @@ function parseChapterScene(raw: unknown): ChapterScene | null {
     mainObjects: strArr(o.mainObjects),
     secondaryObjects: strArr(o.secondaryObjects),
     characters: strArr(o.characters),
+
     pov: str(o.pov),
-    // Schede senza physicsRules → [].
+
     physicsRules: strArr(o.physicsRules),
-    // Schede vecchie senza keyMoment → null.
+
     keyMoment: str(o.keyMoment),
+
     kind: o.kind === "dream" || o.kind === "flashback" ? o.kind : "waking",
     youngerYears:
       Number.isFinite(Number(o.youngerYears)) && Number(o.youngerYears) > 0
         ? Number(o.youngerYears)
         : null,
     characterAges: parseAges(o.characterAges),
+
     altMoments: parseAltMoments(o.altMoments),
     source: o.source === "USER" ? "USER" : "AI",
     model: str(o.model),
+
     promptVersion: Number.isFinite(Number(o.promptVersion)) ? Number(o.promptVersion) : undefined,
     sourceHash:
       typeof o.sourceHash === "string" && o.sourceHash.trim() !== "" ? o.sourceHash : undefined,
@@ -189,7 +191,6 @@ function mapChapter(r: Row): BookChapter {
   };
 }
 
-// Serializza/parsa book.visual_props_json (oggetti ricorrenti + lato guida). Tolleranti.
 function serializeVisualProps(v: BookVisualProps | null | undefined): string | null {
   if (!v) return null;
   const props = (v.props ?? []).filter((p) => p.name.trim() !== "" && p.description.trim() !== "");
@@ -234,8 +235,6 @@ function parseVisualProps(raw: string | null): BookVisualProps {
   }
 }
 
-// Serializza/parsa book.visual_extras_json (personaggi minori/incidentali canonici). Tolleranti:
-// tiene solo le voci con label/appearance non vuoti; null se non resta nessun minore.
 function serializeVisualExtras(v: BookVisualExtras | null | undefined): string | null {
   if (!v) return null;
   const minors = (v.minors ?? []).filter(
@@ -307,7 +306,6 @@ function mapCharacter(r: Row): BookCharacter {
   };
 }
 
-// Serializza CharacterOutfits in JSON per la colonna outfits_json; null se completamente vuoto.
 function serializeOutfits(o: CharacterOutfits | null | undefined): string | null {
   if (!o) return null;
   const def = (o.default ?? "").trim();
@@ -321,7 +319,6 @@ function serializeOutfits(o: CharacterOutfits | null | undefined): string | null
   });
 }
 
-// Parsa book_character.outfits_json in CharacterOutfits, tollerante (default vuoto se assente/rotto).
 function parseOutfits(raw: string | null): CharacterOutfits {
   if (!raw || raw.trim() === "") return { default: null, contexts: [], signature: null };
   try {
@@ -419,8 +416,6 @@ function mapMedia(r: Row): MediaAsset {
   };
 }
 
-// Verdetto del QA visivo dalla colonna qa_json: tollerante — null se assente/rotto; coerce
-// alla forma { ok, issues:[] } (issues sempre array di stringhe) altrimenti.
 function parseQa(raw: unknown): SceneQa | null {
   if (typeof raw !== "string" || raw.trim() === "") return null;
   try {
@@ -489,7 +484,6 @@ function mapMusic(r: Row): MusicTrack {
 }
 
 function mapUsage(r: Row): ContentUsage {
-  // image_ids e' un array JSON serializzato; riparsealo in number[].
   let imageIds: number[] = [];
   if (typeof r.image_ids === "string" && r.image_ids.trim() !== "") {
     try {
@@ -517,8 +511,6 @@ function mapUsage(r: Row): ContentUsage {
     createdAt: Number(r.created_at),
   };
 }
-
-// ---------- books ----------
 
 export const books = {
   async all(): Promise<Book[]> {
@@ -592,27 +584,6 @@ export const books = {
     await execute("UPDATE book SET base_hashtags=? WHERE id=?", [hashtags, id]);
   },
 
-  // Configurazione visiva per-libro: moduli-dominio attivi (CSV) + direttive d'arte (originale IT in
-  // `visual_directives`, traduzione EN in `visual_directives_en`). L'EN è quella iniettata nel prompt.
-  async setVisualConfig(
-    id: number,
-    domains: string[],
-    directives: string | null,
-    directivesEn: string | null,
-  ): Promise<void> {
-    const csv = domains
-      .map((d) => d.trim())
-      .filter((d) => d.length > 0)
-      .join(",");
-    const dir = (directives ?? "").trim();
-    const dirEn = (directivesEn ?? "").trim();
-    await execute(
-      "UPDATE book SET visual_domains=?, visual_directives=?, visual_directives_en=?, updated_at=? WHERE id=?",
-      [csv, dir === "" ? null : dir, dirEn === "" ? null : dirEn, Date.now(), id],
-    );
-  },
-
-  // Oggetti/veicoli ricorrenti + mondo.
   async setVisualProps(id: number, props: BookVisualProps): Promise<void> {
     await execute("UPDATE book SET visual_props_json=?, updated_at=? WHERE id=?", [
       serializeVisualProps(props),
@@ -621,7 +592,6 @@ export const books = {
     ]);
   },
 
-  // Personaggi minori/incidentali canonici.
   async setVisualExtras(id: number, extras: BookVisualExtras): Promise<void> {
     await execute("UPDATE book SET visual_extras_json=?, updated_at=? WHERE id=?", [
       serializeVisualExtras(extras),
@@ -630,7 +600,6 @@ export const books = {
     ]);
   },
 
-  // Stringa vuota → null (nessun extra per-libro: vale solo l'eventuale extra globale).
   async setExtraInstructions(
     id: number,
     textExtra: string | null,
@@ -655,8 +624,6 @@ export const books = {
   ): Promise<void> {
     await execute("DELETE FROM book_chapter WHERE book_id=?", [bookId]);
     for (const ch of chapters) {
-      // Auto-esclusione: i capitoli cortissimi (< 200 char, tipico frontespizio) nascono
-      // esclusi dalla generazione immagini; l'utente può poi includerli/escluderli a mano.
       await execute(
         "INSERT INTO book_chapter(book_id, idx, title, text, char_count, excluded) VALUES (?,?,?,?,?,?)",
         [bookId, ch.index, ch.title, ch.text, ch.charCount, ch.charCount < 200 ? 1 : 0],
@@ -664,8 +631,6 @@ export const books = {
     }
   },
 
-  // Esclude/include un capitolo dalla generazione immagini. Ritorna false se il capitolo
-  // non esiste (così il route può rispondere 404).
   async setChapterExcluded(bookId: number, idx: number, excluded: boolean): Promise<boolean> {
     const r = await execute("UPDATE book_chapter SET excluded=? WHERE book_id=? AND idx=?", [
       excluded ? 1 : 0,
@@ -675,13 +640,11 @@ export const books = {
     return r.affectedRows > 0;
   },
 
-  // Singolo capitolo per indice (con scheda visiva, se presente).
   async chapter(bookId: number, idx: number): Promise<BookChapter | null> {
     const rows = await query("SELECT * FROM book_chapter WHERE book_id=? AND idx=?", [bookId, idx]);
     return rows.length ? mapChapter(rows[0]) : null;
   },
 
-  // Salva (in cache) la scheda visiva del capitolo. Il JSON è già nella forma di ChapterScene.
   async setChapterScene(chapterId: number, scene: ChapterScene): Promise<void> {
     await execute("UPDATE book_chapter SET scene_json=? WHERE id=?", [
       JSON.stringify(scene),
@@ -689,8 +652,6 @@ export const books = {
     ]);
   },
 
-  // Azzera TUTTE le schede visive del libro: usato dalla "Rigenera analisi" così vengono
-  // ricostruite da zero (on-demand). NON tocca link né immagini.
   async clearChapterScenes(bookId: number): Promise<void> {
     await execute("UPDATE book_chapter SET scene_json=NULL WHERE book_id=?", [bookId]);
   },
@@ -744,8 +705,6 @@ export const books = {
     );
   },
 };
-
-// ---------- characters ----------
 
 export const characters = {
   async byBook(bookId: number): Promise<BookCharacter[]> {
@@ -814,9 +773,6 @@ export const characters = {
     await execute("DELETE FROM book_character WHERE id=?", [id]);
   },
 
-  // Sostituisce SOLO i personaggi estratti dall'AI: cancella le righe source='AI'
-  // del libro e inserisce la nuova lista. Le righe source='USER' (editate a mano)
-  // restano intatte. sort_order parte da 0 in ordine di lista.
   async replaceAi(
     bookId: number,
     list: {
@@ -865,9 +821,6 @@ export const characters = {
     return max + 1;
   },
 
-  // Aggiorna mentions/chapters (dati del pre-pass NLP) per i personaggi del libro
-  // il cui nome combacia (case-insensitive). chapters e' salvato come CSV di indici.
-  // Match su qualunque source (AI o USER): la metrica NLP e' indipendente.
   async updateMentions(
     bookId: number,
     rows: { name: string; mentions: number; chapters: number[] }[],
@@ -880,16 +833,11 @@ export const characters = {
     }
   },
 
-  // Sovrascrive SOLO la lista capitoli (book_character.chapters) di un personaggio, identificato
-  // per id. Indici ordinati crescente e salvati come CSV (stessa codifica di updateMentions).
-  // Usato dal ricalcolo completo della presenza (recomputeCharacterChapters): NON tocca mentions.
   async setChapters(characterId: number, chapters: number[]): Promise<void> {
     const csv = [...chapters].sort((a, b) => a - b).join(",");
     await execute("UPDATE book_character SET chapters=? WHERE id=?", [csv, characterId]);
   },
 
-  // Bulk in transazione: imposta i capitoli di più personaggi in un colpo solo (una sola
-  // commit). Riusa la stessa codifica CSV di setChapters. Vuoto = no-op.
   async setChaptersBulk(rows: { characterId: number; chapters: number[] }[]): Promise<void> {
     if (rows.length === 0) return;
     await withTransaction(async (conn) => {
@@ -901,8 +849,6 @@ export const characters = {
   },
 };
 
-// ---------- quotes (pre-pass NLP) ----------
-
 export const quotes = {
   async byBook(bookId: number): Promise<BookQuote[]> {
     const rows = await query("SELECT * FROM book_quote WHERE book_id=? ORDER BY score DESC, id", [
@@ -911,10 +857,6 @@ export const quotes = {
     return rows.map(mapQuote);
   },
 
-  // Citazioni del SOLO capitolo indicato (per indice idx, non chapter_id): JOIN su
-  // book_chapter cosi' il regista attinge alla frase del capitolo del post invece che a
-  // tutto il libro (evita di ripescare sempre la stessa preferita). Stessa forma/ordinamento
-  // (score DESC) di byBook. Lista vuota se il capitolo non ha citazioni → fallback a byBook.
   async byChapter(bookId: number, chapterIndex: number): Promise<BookQuote[]> {
     const rows = await query(
       `SELECT q.* FROM book_quote q
@@ -926,8 +868,6 @@ export const quotes = {
     return rows.map(mapQuote);
   },
 
-  // Sostituisce TUTTE le citazioni del libro con la nuova lista (il pre-pass e'
-  // deterministico sui capitoli correnti). chapterId puo' essere null.
   async replaceForBook(
     bookId: number,
     rows: {
@@ -943,7 +883,7 @@ export const quotes = {
     for (const q of rows) {
       await execute(
         "INSERT INTO book_quote(book_id, chapter_id, text, kind, speaker, score, created_at) VALUES (?,?,?,?,?,?,?)",
-        // Toglie gli escape Markdown (\\- \\' ecc.) ereditati dal testo del libro: i quote sono verbatim.
+
         [
           bookId,
           q.chapterId,
@@ -957,8 +897,6 @@ export const quotes = {
     }
   },
 };
-
-// ---------- pages ----------
 
 export const pages = {
   async all(): Promise<FacebookPage[]> {
@@ -994,8 +932,6 @@ export const pages = {
   },
 };
 
-// ---------- links ----------
-
 export const links = {
   async byBook(bookId: number): Promise<BookLink[]> {
     const rows = await query("SELECT * FROM book_link WHERE book_id=? ORDER BY id", [bookId]);
@@ -1028,16 +964,12 @@ export const links = {
   },
 };
 
-// ---------- media ----------
-
 export const media = {
   async byBook(bookId: number): Promise<MediaAsset[]> {
     const rows = await query("SELECT * FROM media_asset WHERE book_id=? ORDER BY id", [bookId]);
     return rows.map(mapMedia);
   },
 
-  // Solo le immagini CARICATE dall'utente (scope <> 'GENERATED'): esclude i visual
-  // generati per i post, che NON vanno né mostrati nella libreria né riusati come sfondo.
   async uploadsByBook(bookId: number): Promise<MediaAsset[]> {
     const rows = await query(
       "SELECT * FROM media_asset WHERE book_id=? AND scope<>'GENERATED' ORDER BY id",
@@ -1046,8 +978,32 @@ export const media = {
     return rows.map(mapMedia);
   },
 
-  // Rimuove la riga media_asset che punta a un certo file (cleanup quando si elimina
-  // la bozza che possiede quel visual generato).
+  async usageByBook(bookId: number): Promise<Map<number, MediaUsage>> {
+    const rows = await query<{ media_id: number; visual_kind: string; n: number }>(
+      `SELECT je.value AS media_id, cu.visual_kind AS visual_kind, COUNT(*) AS n
+         FROM content_usage cu, json_each(cu.image_ids) je
+        WHERE cu.book_id = ? AND cu.image_ids IS NOT NULL AND cu.image_ids NOT IN ('', '[]')
+        GROUP BY je.value, cu.visual_kind`,
+      [bookId],
+    );
+    const map = new Map<number, MediaUsage>();
+    for (const r of rows) {
+      const id = Number(r.media_id);
+      if (!Number.isFinite(id)) continue;
+      let u = map.get(id);
+      if (!u) {
+        u = { total: 0, reel: 0, story: 0, post: 0 };
+        map.set(id, u);
+      }
+      const n = Number(r.n) || 0;
+      u.total += n;
+      if (r.visual_kind === "reel") u.reel += n;
+      else if (r.visual_kind === "story") u.story += n;
+      else if (r.visual_kind === "card") u.post += n;
+    }
+    return map;
+  },
+
   async deleteByPath(path: string): Promise<void> {
     await execute("DELETE FROM media_asset WHERE path=?", [toDataRelative(path)]);
   },
@@ -1083,9 +1039,6 @@ export const media = {
     await execute("DELETE FROM media_asset WHERE id=?", [id]);
   },
 
-  // Aggiorna la CATALOGAZIONE (tag + capitolo) di un'immagine, editata dall'utente: dà più
-  // informazioni alla selezione per pertinenza (vale anche per gli upload, che altrimenti non
-  // hanno né tag né capitolo). tags vuoto -> NULL.
   async updateCatalog(
     id: number,
     data: { tags: string[]; chapterIdx: number | null },
@@ -1097,11 +1050,20 @@ export const media = {
     ]);
   },
 
-  // Aggiorna path/prompt/added_at dopo una RIGENERAZIONE singola (l'id resta lo stesso).
   async updateAfterRegen(
     id: number,
-    m: { path: string; genPrompt: string; addedAt: number },
+    m: { path: string; genPrompt: string; addedAt: number; tags?: string[] },
   ): Promise<void> {
+    if (m.tags) {
+      await execute("UPDATE media_asset SET path=?, gen_prompt=?, tags=?, added_at=? WHERE id=?", [
+        toDataRelativeStrict(m.path),
+        m.genPrompt,
+        m.tags.length > 0 ? m.tags.join(",") : null,
+        m.addedAt,
+        id,
+      ]);
+      return;
+    }
     await execute("UPDATE media_asset SET path=?, gen_prompt=?, added_at=? WHERE id=?", [
       toDataRelativeStrict(m.path),
       m.genPrompt,
@@ -1110,42 +1072,13 @@ export const media = {
     ]);
   },
 
-  // Salva il verdetto del QUALITY CHECK visivo — best-effort: null se la QA non è disponibile.
   async setQa(id: number, qa: SceneQa | null): Promise<void> {
     await execute("UPDATE media_asset SET qa_json=? WHERE id=?", [
       qa ? JSON.stringify(qa) : null,
       id,
     ]);
   },
-
-  async usageByBook(bookId: number): Promise<Map<number, MediaUsage>> {
-    const rows = await query<{ media_id: number; visual_kind: string; n: number }>(
-      `SELECT je.value AS media_id, cu.visual_kind AS visual_kind, COUNT(*) AS n
-         FROM content_usage cu, json_each(cu.image_ids) je
-        WHERE cu.book_id = ? AND cu.image_ids IS NOT NULL AND cu.image_ids NOT IN ('', '[]')
-        GROUP BY je.value, cu.visual_kind`,
-      [bookId],
-    );
-    const map = new Map<number, MediaUsage>();
-    for (const r of rows) {
-      const id = Number(r.media_id);
-      if (!Number.isFinite(id)) continue;
-      let u = map.get(id);
-      if (!u) {
-        u = { total: 0, reel: 0, story: 0, post: 0 };
-        map.set(id, u);
-      }
-      const n = Number(r.n) || 0;
-      u.total += n;
-      if (r.visual_kind === "reel") u.reel += n;
-      else if (r.visual_kind === "story") u.story += n;
-      else if (r.visual_kind === "card") u.post += n;
-    }
-    return map;
-  },
 };
-
-// ---------- impostazioni globali (key-value) ----------
 
 export const settings = {
   async get(key: string): Promise<string | null> {
@@ -1160,8 +1093,6 @@ export const settings = {
     );
   },
 };
-
-// ---------- slots ----------
 
 export const slots = {
   async byPage(pageId: string): Promise<PostingSlot[]> {
@@ -1185,8 +1116,6 @@ export const slots = {
     await execute("DELETE FROM posting_slot WHERE id=?", [id]);
   },
 };
-
-// ---------- weekly plan (quote settimanali per pagina) ----------
 
 export const weeklyPlan = {
   async get(pageId: string): Promise<WeeklyPlan | null> {
@@ -1214,8 +1143,6 @@ export const weeklyPlan = {
   },
 };
 
-// ---------- generations ----------
-
 export const generations = {
   async insert(g: Omit<GenerationRecord, "id">): Promise<number> {
     const r = await execute(
@@ -1227,8 +1154,6 @@ export const generations = {
   },
 };
 
-// ---------- posts ----------
-
 export const posts = {
   async byPage(pageId: string, limit = 100): Promise<ScheduledPost[]> {
     const rows = await query(
@@ -1238,7 +1163,6 @@ export const posts = {
     return rows.map(mapPost);
   },
 
-  // Tutti i post SCHEDULED di ogni pagina, ordinati per data crescente (calendario Dashboard).
   async scheduledAll(limit = 500): Promise<ScheduledPost[]> {
     const rows = await query(
       "SELECT * FROM scheduled_post WHERE status='SCHEDULED' ORDER BY scheduled_at ASC LIMIT ?",
@@ -1250,15 +1174,6 @@ export const posts = {
   async get(id: number): Promise<ScheduledPost | null> {
     const rows = await query("SELECT * FROM scheduled_post WHERE id=?", [id]);
     return rows.length ? mapPost(rows[0]) : null;
-  },
-
-  // Nasconde (o ri-mostra) un post dalle viste Dashboard. NON elimina la riga né tocca FB/IG.
-  async setDashboardHidden(id: number, hidden: boolean): Promise<void> {
-    await execute("UPDATE scheduled_post SET dashboard_hidden=?, updated_at=? WHERE id=?", [
-      hidden ? 1 : 0,
-      Date.now(),
-      id,
-    ]);
   },
 
   async insert(p: Omit<ScheduledPost, "id">): Promise<ScheduledPost> {
@@ -1301,7 +1216,14 @@ export const posts = {
     await execute("DELETE FROM scheduled_post WHERE id=?", [id]);
   },
 
-  // Aggiorna SOLO la traccia musicale scelta per la bozza (visual reel/storia).
+  async setDashboardHidden(id: number, hidden: boolean): Promise<void> {
+    await execute("UPDATE scheduled_post SET dashboard_hidden=?, updated_at=? WHERE id=?", [
+      hidden ? 1 : 0,
+      Date.now(),
+      id,
+    ]);
+  },
+
   async setMusic(id: number, musicId: number | null): Promise<void> {
     await execute("UPDATE scheduled_post SET music_id=?, updated_at=? WHERE id=?", [
       musicId,
@@ -1326,8 +1248,6 @@ export const posts = {
   },
 
   async findDue(now: number, limit: number): Promise<ScheduledPost[]> {
-    // Solo i SCHEDULED gestiti dal job interno (reel/storie/fallback): quelli programmati
-    // NATIVAMENTE su Facebook hanno già un fb_post_id e li pubblica FB, non noi.
     const rows = await query(
       "SELECT * FROM scheduled_post WHERE status='SCHEDULED' AND scheduled_at <= ? AND (fb_post_id IS NULL OR fb_post_id='') ORDER BY scheduled_at LIMIT ?",
       [now, limit],
@@ -1335,14 +1255,29 @@ export const posts = {
     return rows.map(mapPost);
   },
 
-  // Atomic claim SCHEDULED -> PUBLISHING; true only if this caller won the race.
-  // Esclude i post con fb_post_id (programmati su Facebook): non vanno ripubblicati dal job.
   async claimForPublishing(postId: number, now: number): Promise<boolean> {
     const r = await execute(
       "UPDATE scheduled_post SET status='PUBLISHING', updated_at=? WHERE id=? AND status='SCHEDULED' AND scheduled_at <= ? AND (fb_post_id IS NULL OR fb_post_id='')",
       [now, postId, now],
     );
     return r.affectedRows === 1;
+  },
+
+  async nativeScheduledDue(now: number): Promise<ScheduledPost[]> {
+    const rows = await query(
+      `SELECT * FROM scheduled_post
+       WHERE status='SCHEDULED' AND fb_post_id IS NOT NULL AND fb_post_id != '' AND scheduled_at <= ?`,
+      [now],
+    );
+    return rows.map(mapPost);
+  },
+
+  async markNativePublished(id: number, now: number): Promise<void> {
+    await execute(
+      `UPDATE scheduled_post SET status='PUBLISHED',
+              published_at_actual=COALESCE(published_at_actual, scheduled_at), updated_at=? WHERE id=?`,
+      [now, id],
+    );
   },
 
   async update(p: ScheduledPost): Promise<void> {
@@ -1369,7 +1304,6 @@ export const posts = {
     );
   },
 
-  // Job IG gemello di un item Facebook (linked_post_id), se già creato. Evita doppioni.
   async findByLinkedPostId(linkedPostId: number): Promise<ScheduledPost | null> {
     const rows = await query(
       "SELECT * FROM scheduled_post WHERE platform='instagram' AND linked_post_id=? LIMIT 1",
@@ -1378,32 +1312,6 @@ export const posts = {
     return rows.length ? mapPost(rows[0]) : null;
   },
 
-  // Riallinea i post programmati NATIVAMENTE su Facebook (hanno già un fb_post_id) la cui data
-  // è passata: FB li ha pubblicati ma lo stato locale resta SCHEDULED per sempre. Li marchiamo
-  // PUBLISHED (lo scheduler non li ripubblica) così non appaiono come "programmati nel passato".
-  // Post programmati NATIVAMENTE su Facebook (con fb_post_id) la cui data è passata ma lo stato
-  // locale è ancora SCHEDULED. Candidati al reconcile: lo scheduler verifica UNO A UNO su Graph se
-  // FB li ha davvero pubblicati prima di marcarli PUBLISHED (evita falsi positivi).
-  async nativeScheduledDue(now: number): Promise<ScheduledPost[]> {
-    const rows = await query(
-      `SELECT * FROM scheduled_post
-       WHERE status='SCHEDULED' AND fb_post_id IS NOT NULL AND fb_post_id != '' AND scheduled_at <= ?`,
-      [now],
-    );
-    return rows.map(mapPost);
-  },
-
-  // Marca un post come PUBLISHED conservando l'orario di pubblicazione (o ripiegando sullo scheduled).
-  async markNativePublished(id: number, now: number): Promise<void> {
-    await execute(
-      `UPDATE scheduled_post SET status='PUBLISHED',
-              published_at_actual=COALESCE(published_at_actual, scheduled_at), updated_at=? WHERE id=?`,
-      [now, id],
-    );
-  },
-
-  // Crash recovery: only re-schedule PUBLISHING posts WITHOUT an fb_post_id.
-  // Those with an fb_post_id are ambiguous and must NOT be blindly republished.
   async recoverStalePublishing(now: number): Promise<number> {
     const r = await execute(
       "UPDATE scheduled_post SET status='SCHEDULED', updated_at=? WHERE status='PUBLISHING' AND (fb_post_id IS NULL OR fb_post_id='')",
@@ -1412,8 +1320,6 @@ export const posts = {
     return r.affectedRows;
   },
 };
-
-// ---------- insights ----------
 
 export interface InsightSnapshot {
   metric: string;
@@ -1448,8 +1354,6 @@ export const insights = {
   },
 };
 
-// ---------- render jobs (coda in-process) ----------
-
 export const renderJobs = {
   async insert(j: {
     postId: number | null;
@@ -1473,7 +1377,6 @@ export const renderJobs = {
     return rows.length ? mapRenderJob(rows[0]) : null;
   },
 
-  // Job attivi (queued|rendering) per l'indicatore globale.
   async active(): Promise<RenderJob[]> {
     const rows = await query(
       "SELECT * FROM render_job WHERE status IN ('queued','rendering') ORDER BY id",
@@ -1481,7 +1384,6 @@ export const renderJobs = {
     return rows.map(mapRenderJob);
   },
 
-  // Prossimo job in coda (FIFO) da processare.
   async nextQueued(): Promise<RenderJob | null> {
     const rows = await query("SELECT * FROM render_job WHERE status='queued' ORDER BY id LIMIT 1");
     return rows.length ? mapRenderJob(rows[0]) : null;
@@ -1504,8 +1406,6 @@ export const renderJobs = {
     );
   },
 
-  // Recupero crash: i job rimasti 'rendering' all'avvio vanno marcati 'failed'
-  // (la coda in-process non sopravvive a un riavvio).
   async failStaleRendering(): Promise<number> {
     const r = await execute(
       "UPDATE render_job SET status='failed', error='Interrotto da riavvio del server', updated_at=? WHERE status='rendering'",
@@ -1515,40 +1415,18 @@ export const renderJobs = {
   },
 };
 
-// ---------- music (libreria globale) ----------
-
 export const music = {
   async all(): Promise<MusicTrack[]> {
     const rows = await query("SELECT * FROM music_track ORDER BY added_at DESC, id DESC");
     return rows.map(mapMusic);
   },
 
-  // Tracce di un libro (musica per-libro) + eventuali tracce globali (book_id NULL).
   async byBook(bookId: number): Promise<MusicTrack[]> {
     const rows = await query(
       "SELECT * FROM music_track WHERE book_id=? OR book_id IS NULL ORDER BY mood, id",
       [bookId],
     );
     return rows.map(mapMusic);
-  },
-
-  async get(id: number): Promise<MusicTrack | null> {
-    const rows = await query("SELECT * FROM music_track WHERE id=?", [id]);
-    return rows.length ? mapMusic(rows[0]) : null;
-  },
-
-  async insert(m: Omit<MusicTrack, "id">): Promise<MusicTrack> {
-    const r = await execute(
-      "INSERT INTO music_track(book_id, title, path, duration_sec, mood, added_at) VALUES (?,?,?,?,?,?)",
-      [m.bookId, m.title, toDataRelativeStrict(m.path), m.durationSec, m.mood, m.addedAt],
-    );
-    const created = await this.get(r.insertId);
-    if (!created) throw new Error("insert music: row missing");
-    return created;
-  },
-
-  async delete(id: number): Promise<void> {
-    await execute("DELETE FROM music_track WHERE id=?", [id]);
   },
 
   async usageAll(): Promise<Map<number, MusicUsage>> {
@@ -1575,16 +1453,33 @@ export const music = {
     }
     return map;
   },
-};
 
-// ---------- content usage (registro d'uso del motore di varietà) ----------
+  async get(id: number): Promise<MusicTrack | null> {
+    const rows = await query("SELECT * FROM music_track WHERE id=?", [id]);
+    return rows.length ? mapMusic(rows[0]) : null;
+  },
+
+  async insert(m: Omit<MusicTrack, "id">): Promise<MusicTrack> {
+    const r = await execute(
+      "INSERT INTO music_track(book_id, title, path, duration_sec, mood, added_at) VALUES (?,?,?,?,?,?)",
+      [m.bookId, m.title, toDataRelativeStrict(m.path), m.durationSec, m.mood, m.addedAt],
+    );
+    const created = await this.get(r.insertId);
+    if (!created) throw new Error("insert music: row missing");
+    return created;
+  },
+
+  async delete(id: number): Promise<void> {
+    await execute("DELETE FROM music_track WHERE id=?", [id]);
+  },
+};
 
 export interface UsageStats {
   totalContents: number;
   byVisualKind: Record<string, number>;
   byTextMode: Record<string, number>;
   byAspect: Record<string, number>;
-  // Id immagini usati di recente (piu' usati prima) e quelli meno usati.
+
   recentImageIds: number[];
   leastUsedImageIds: number[];
   recentQuoteKeys: string[];
@@ -1616,8 +1511,6 @@ export const contentUsage = {
     return mapUsage(rows[0]);
   },
 
-  // Ultimo uso registrato per una specifica bozza (post_id): usato per recuperare il capitolo
-  // di origine del post quando si ri-renderizza il visual (la selezione immagini per pertinenza).
   async latestByPost(postId: number): Promise<ContentUsage | null> {
     const rows = await query(
       "SELECT * FROM content_usage WHERE post_id=? ORDER BY created_at DESC, id DESC LIMIT 1",
@@ -1626,14 +1519,10 @@ export const contentUsage = {
     return rows.length ? mapUsage(rows[0]) : null;
   },
 
-  // Cancella lo storico d'uso di una bozza: il suo materiale (frasi/immagini/capitolo/musica)
-  // torna subito disponibile per la rotazione invece di restare consumato.
   async deleteByPost(postId: number): Promise<void> {
     await execute("DELETE FROM content_usage WHERE post_id=?", [postId]);
   },
 
-  // Conteggi d'uso degli ANGOLI (marketing card) per UN capitolo: quante volte ogni angolo è già
-  // stato usato per quel (pagina, libro, capitolo). Guida la rotazione LRU dell'idea ranker.
   async marketingAngleCounts(
     pageId: string,
     bookId: number,
@@ -1650,9 +1539,14 @@ export const contentUsage = {
     return m;
   },
 
-  // Conteggi d'uso (rotazione LRU) su tutto lo storico pagina+libro: quante volte ogni
-  // citazione/immagine/capitolo/traccia è già stata usata, così il motore sceglie sempre il meno
-  // usato e i programmi consecutivi ciclano tutto il materiale prima di ripeterlo.
+  async recentByPage(pageId: string, limit: number): Promise<ContentUsage[]> {
+    const rows = await query(
+      "SELECT * FROM content_usage WHERE page_id=? ORDER BY created_at DESC, id DESC LIMIT ?",
+      [pageId, limit],
+    );
+    return rows.map(mapUsage);
+  },
+
   async usageCounts(
     pageId: string,
     bookId: number,
@@ -1687,25 +1581,12 @@ export const contentUsage = {
           const ids = JSON.parse(r.image_ids) as unknown;
           if (Array.isArray(ids))
             for (const id of ids) if (typeof id === "number") bump(images, id);
-        } catch {
-          /* riga malformata: ignora */
-        }
+        } catch {}
       }
     }
     return { quotes, images, chapters, music };
   },
 
-  // Storico recente per pagina (createdAt DESC), usato dal motore di varietà.
-  async recentByPage(pageId: string, limit: number): Promise<ContentUsage[]> {
-    const rows = await query(
-      "SELECT * FROM content_usage WHERE page_id=? ORDER BY created_at DESC, id DESC LIMIT ?",
-      [pageId, limit],
-    );
-    return rows.map(mapUsage);
-  },
-
-  // Statistiche aggregate per pagina: conteggi per dimensione + immagini/citazioni
-  // piu' e meno usate. Calcolate in JS sull'intero storico della pagina.
   async statsByPage(pageId: string): Promise<UsageStats> {
     const all = (
       await query("SELECT * FROM content_usage WHERE page_id=? ORDER BY created_at DESC, id DESC", [
@@ -1751,7 +1632,6 @@ function mapMarketingCard(r: Row): ChapterMarketingCard {
   try {
     data = JSON.parse(r.card_json as string) as ChapterMarketingCardData;
   } catch {
-    // Riga corrotta: card vuota tollerante (il chiamante può rigenerare).
     data = {
       spoilerLevel: "low",
       nonSpoilerSummary: "",
@@ -1799,7 +1679,6 @@ export const marketingCards = {
     return rows.length ? Number(rows[0].n) : 0;
   },
 
-  // Inserisce o aggiorna (UNIQUE book_id+chapter_index) la scheda marketing del capitolo.
   async upsert(c: {
     bookId: number;
     chapterIndex: number;

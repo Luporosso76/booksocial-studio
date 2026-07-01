@@ -5,6 +5,28 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2026-07-01
+
+### Added
+- **Gemini image provider (Nano Banana)**: a new `gemini` image provider using the Google `:generateContent` API, with a dedicated API key, live model listing fetched from the provider, and per-provider image style.
+- **Model-aware image prompts**: the text AI now writes the image prompt specifically for the target image model — a structured sectioned prompt for Gemini, one compact positive paragraph for the local Z-Image engine, or the default paragraph — improving fidelity on each engine.
+- **Free-image generator**: book-independent image generation endpoints (generate / status / file / cancel).
+- **Live model lists**: for the Gemini and OpenAI image providers the model list is fetched from the provider API (with a minimal offline fallback) instead of a hardcoded list.
+- **Per-provider image style**: medium/intensity/vividness (and local steps/cfg) are configured per provider, with independent primary and fallback styles.
+- **Multilingual appearance coverage**: the canonical character-trait de-duplication now works for books in Italian, English, French, Spanish and German.
+
+### Changed
+- **Book-agnostic prompt code**: all book- and domain-specific visual content has been removed from the source; visual directives, character appearance, clothing and equipment now live solely in the database and are the only source used to build image prompts. The hardcoded visual-directive seed and the old `VISUAL_DOMAINS` system were removed.
+- **Image provider `google` → `gemini`**: the old Imagen (`:predict`) engine and the dead `googleImageModel` field were removed.
+- **Z-Image prompts**: compact, positive-only (avoiding negation artifacts at low guidance) and front-loaded on subject, pose and equipment for better local rendering.
+- **Prompt translation**: image prompts are now translated to English auto-detecting the source language (any language → English).
+
+### Fixed
+- **Gemini prompt profile** routed by model family (flash/pro) instead of an exact version match.
+- **Timeout** on the Gemini model-list request.
+- **Visible fallback** (no longer silent) when image-prompt translation is unavailable.
+- Minor robustness: `dashboardHidden` numeric parsing; pruning of the free-image job map.
+
 ## [0.5.5] - 2026-06-28
 
 ### Added

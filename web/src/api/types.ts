@@ -185,6 +185,14 @@ export interface MediaRegenStatusGlobal {
   startedAt: number;
 }
 
+export interface FreeImageStatus {
+  status: "generating" | "ready" | "failed";
+  prompt: string;
+  error: string | null;
+  waiting?: boolean;
+  url: string | null;
+}
+
 // Esito dell'avvio della generazione (POST /books/:id/generate-images).
 export interface GenerateImagesResult {
   started: true;
@@ -214,7 +222,7 @@ export type AiImageProvider =
   | "agy"
   | "codex"
   | "openai"
-  | "google"
+  | "gemini"
   | "stability"
   | "bfl"
   | "replicate"
@@ -243,7 +251,7 @@ export interface AiSettings {
     openaiBaseUrl: string;
     googleBaseUrl: string;
     openaiImageModel: string;
-    googleImageModel: string;
+    geminiImageModel: string;
     stabilityImageModel: string;
     bflImageModel: string;
     replicateImageModel: string;
@@ -258,7 +266,7 @@ export interface AiSettings {
   // Stato "chiave configurata" (mai il valore). Solo boolean.
   keys: {
     openai: boolean;
-    google: boolean;
+    gemini: boolean;
     stability: boolean;
     bfl: boolean;
     replicate: boolean;
@@ -304,7 +312,7 @@ export interface AiSettingsPatch {
   image?: Partial<AiSettings["image"]>;
   keys?: {
     openai?: string | null;
-    google?: string | null;
+    gemini?: string | null;
     stability?: string | null;
     bfl?: string | null;
     replicate?: string | null;

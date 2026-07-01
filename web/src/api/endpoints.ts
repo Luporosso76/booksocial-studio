@@ -25,6 +25,7 @@ import type {
   AiSettingsPatch,
   CliStatus,
   FacebookPage,
+  FreeImageStatus,
   GenerateImagesResult,
   GeneratePeriod,
   GenerateVisualResult,
@@ -59,7 +60,6 @@ import type {
   UpdatePageSettingsResult,
   UsageStats,
   VisualDirective,
-  VisualDomainInfo,
   VisualRequest,
   WeeklyPlan,
   WeekGenStatus,
@@ -134,9 +134,6 @@ export const generateBookProps = (bookId: string) =>
   apiPost<Book>(`/books/${bookId}/generate-props`, {});
 export const generateBookMinors = (bookId: string) =>
   apiPost<Book>(`/books/${bookId}/generate-minors`, {});
-
-export const getVisualDomains = (signal?: AbortSignal) =>
-  apiGet<{ domains: VisualDomainInfo[] }>(`/visual-domains`, signal);
 
 export const listVisualDirectives = (bookId: string, signal?: AbortSignal) =>
   apiGet<{ directives: VisualDirective[] }>(`/books/${bookId}/visual-directives`, signal);
@@ -324,6 +321,23 @@ export const cancelBookImages = (bookId: string) =>
 export const cancelSceneQueueBatch = (bookId: string, batchId: string) =>
   apiPost<{ cancelled: boolean }>(`/books/${bookId}/generate-images/queue/${batchId}/cancel`);
 
+export const generateFreeImage = (body: {
+  prompt: string;
+  aspect: SceneAspect;
+  style?: string;
+  steps?: number;
+  seed?: number;
+  translate?: boolean;
+}) => apiPost<{ jobId: string }>("/generate-image", body);
+
+export const getFreeImage = (jobId: string, signal?: AbortSignal) =>
+  apiGet<FreeImageStatus>(`/generate-image/${jobId}`, signal);
+
+export const cancelFreeImage = (jobId: string) =>
+  apiPost<{ cancelled: boolean }>(`/generate-image/${jobId}/cancel`);
+
+export const freeImageFileUrl = (jobId: string) => `/api/generate-image/${jobId}/file`;
+
 // --- Impostazioni: modalità immagini dei contenuti ---
 export const getAiImageMode = (signal?: AbortSignal) =>
   apiGet<AiImageModeState>("/settings/ai-image-mode", signal);
@@ -343,7 +357,7 @@ export const setQaCheck = (enabled: boolean) =>
 export const getAiSettings = (signal?: AbortSignal) => apiGet<AiSettings>("/settings/ai", signal);
 
 // Il PUT accetta sottoinsiemi; le chiavi vanno inviate SOLO se digitate (string) o rimosse (null).
-export const updateAiSettings = (body: AiSettingsPatch) => apiPut<AiSettings>("/settings/ai", body);
+export const saveAiSettings = (body: AiSettingsPatch) => apiPut<AiSettings>("/settings/ai", body);
 
 // Esito del test connessione provider. HTTP 200 sempre: l'esito vero è in `ok`.
 export interface AiTestResult {
@@ -376,7 +390,7 @@ export const removeAiModel = (provider: string, model: string) =>
   apiPost<AiModelsResponse>("/settings/ai/models/remove", { provider, model });
 
 // Stato del CLI di un provider agentico (opencode|codex|claude|agy): installato + versione.
-export const getCliStatus = (tool: string, signal?: AbortSignal) =>
+export const aiCliStatus = (tool: string, signal?: AbortSignal) =>
   apiGet<CliStatus>(`/settings/ai/cli-status?tool=${encodeURIComponent(tool)}`, signal);
 
 // --- Capitoli (testo completo) ---

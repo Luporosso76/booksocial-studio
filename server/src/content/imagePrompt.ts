@@ -1,18 +1,15 @@
 import type { ContentEngine } from "./engine.js";
 import { ContentError } from "./engine.js";
+import { translateImagePromptToEnglishPreserveStructure } from "./translate.js";
 import type {
   ChapterScene,
   CharacterOutfits,
   BookVisualProps,
   BookVisualExtras,
+  VisualDirective,
 } from "../domain.js";
-import { selectDomainBlocks, anyKeywordMatches } from "./imageDomains.js";
+import { anyKeywordMatches } from "./imageDomains.js";
 
-// Rivede un prompt-immagine ESISTENTE applicando le MODIFICHE chieste dall'utente in italiano.
-// Usato dalla rigenerazione: l'utente scrive cosa cambiare ("togli la persona", "cielo al tramonto",
-// "porta rossa più accesa") e l'IA fonde vecchio prompt + modifiche in un nuovo prompt INGLESE,
-// mantenendo stile/struttura e i divieti (no testo). Ritorna null se il modello fallisce (→ il
-// chiamante ripiega sul vecchio prompt).
 export async function reviseScenePrompt(
   engine: ContentEngine,
   input: { oldPrompt: string; changes: string },
@@ -26,8 +23,9 @@ of CHANGE REQUESTS written in Italian by the user. Apply the requested changes t
 ONLY the revised prompt as a single English block — no preamble, no quotes, no explanation, no markdown.
 RULES:
 - Keep the same overall STYLE and STRUCTURE of the prompt.
-- PRESERVE the final style/medium sentence and the "no text / no letters / no signs / no speech bubbles /
-  no watermark" constraints; it stays ONE single full-bleed illustration.
+- PRESERVE the final style/medium sentence and the no-text intent, but express it POSITIVELY (e.g. "any
+  signs, screens or papers appear blank and unlettered"); do NOT add "no …"/"not …" clauses. It stays ONE
+  single full-bleed illustration.
 - Describe any person ONLY by physical appearance, NEVER by name.
 - Apply the user's changes FAITHFULLY: add, remove or alter elements exactly as asked; if they ask to
   remove something, remove it; if they ask to change a colour/light/mood/subject, change it.
@@ -55,63 +53,47 @@ REVISED PROMPT (English only):`;
   }
 }
 
-// Costruisce la descrizione SOGGETTO+SCENA (in inglese, una riga) per l'immagine di scena,
-// a partire da un estratto del capitolo e dai personaggi reali (col loro aspetto fisico).
-// NON include parole di stile ("graphic novel" ecc.): quelle le aggiunge imageGen.buildScenePrompt.
-// Best-effort: se il modello non risponde, ritorna un fallback semplice (o null).
-
 export interface SceneCharacter {
   name: string;
   physical?: string | null;
   age?: string | null;
   ethnicity?: string | null;
-  role?: string | null; // serve a distinguere il protagonista dai personaggi secondari
-  outfits?: CharacterOutfits; // abbigliamento canonico (default + per contesto)
+  role?: string | null;
+  outfits?: CharacterOutfits;
 }
 
-// Override FLASHBACK/ricordo (manuale, per-immagine): marca una generazione come scena del PASSATO,
-// scavalcando età e guardaroba canonici (pensati per la coerenza nel presente). I personaggi vengono
-// resi più GIOVANI e vestiti per l'epoca/luogo del ricordo, conservando l'IDENTITÀ. Tutti i campi
-// opzionali: si attiva quando ne è presente almeno uno.
 export interface SceneFlashback {
-  youngerYears?: number | null; // di quanti anni più giovani rispetto all'età canonica
-  setting?: string | null; // ambientazione/epoca del ricordo (testo libero, es. "spiaggia, gioventù")
-  note?: string | null; // nota libera aggiuntiva
+  youngerYears?: number | null;
+  setting?: string | null;
+  note?: string | null;
+
   characterAges?: { name: string; age: number }[] | null;
 }
 
 export interface SceneDescriptionInput {
   chapterExcerpt: string | null;
-  chapterTitle?: string | null; // titolo del capitolo: spesso NOMINA il soggetto iconico
+  chapterTitle?: string | null;
   characters: SceneCharacter[];
   bookTitle: string | null;
   angle?: string | null;
-  // Scheda visiva del capitolo: grounding affidabile per soggetto/ambiente/personaggi.
+
   sceneCard?: ChapterScene | null;
-  // Configurazione VISIVA per-libro: moduli-dominio attivi (windsurf, porta rossa, …) e
-  // direttive d'arte libere. Scoppiano i blocchi specifici per libro invece di applicarli a tutti.
-  visualDomains?: readonly string[];
-  visualDirectives?: string | null;
-  // Istruzioni-extra APPEND-ONLY: globale + per-libro, già combinate dal chiamante. Accodate al
-  // prompt come art-direction aggiuntiva; NON sostituiscono il core (safety/no-text/output restano).
+
+  directives?: readonly VisualDirective[];
+
   extraInstructions?: string | null;
-  // Oggetti/veicoli ricorrenti canonici + lato di guida.
+
   visualProps?: BookVisualProps;
-  // Personaggi minori/incidentali con un look canonico.
+
   visualExtras?: BookVisualExtras;
-  // Override manuale per scene di FLASHBACK/ricordo: rende i personaggi più giovani e li veste per
-  // l'epoca del ricordo, scavalcando età e outfit canonici SOLO per questa immagine. Assente = normale.
+
   flashback?: SceneFlashback | null;
-  // La scena principale del capitolo è (tutta) un SOGNO → resa onirica (vedi dreamBlock). Assente/false
-  // = scena reale. Indipendente da flashback (un sogno non ringiovanisce di per sé).
+
   dream?: boolean;
+
   imageProfile?: string | null;
 }
 
-// PHYSICS & REALISM (A1): regole HARD-CODED universali, valide per OGNI immagine di OGNI libro
-// (non solo mare). Sono divieti/affermazioni positive che il modello deve rispettare; l'istruzione
-// di verifica finale (vedi sotto) chiede di ricontrollare l'immagine contro queste regole. NON
-// hardcodare il libro: qui solo fisica/realismo generale.
 const PHYSICS_BASELINE = `PHYSICS & REALISM (mandatory, all images):
 - GRAVITY & SUPPORT: no human or animal rests ON TOP of the water surface; people stand on solid
   ground or float immersed in the water (body in the water, not on it); aquatic animals (e.g. a
@@ -122,15 +104,12 @@ const PHYSICS_BASELINE = `PHYSICS & REALISM (mandatory, all images):
   in mid-air.
 - WATER & WAVES: waves advance and break TOWARD the shore (crests and foam roll landward), never
   back out to sea; the water surface and the horizon are level and flat-lying, not tilted or domed.
-- WIND & MOTION: sailing, windsurfing, surfing or kiting require COHERENT wind and waves — no
-  planing or surfing on a flat mirror-calm sea; sails, hair, flags and spray agree on one wind.
+- WIND & MOTION: any water, sailing, riding or action activity needs coherent wind, water/ground and
+  motion — no gliding on a flat mirror-calm sea; sails, hair, flags and spray agree on one wind.
 - LIGHT & SHADOW: a single coherent light source; all shadows fall in agreement with it; reflections
   and highlights are physically plausible.
 - SCALE: realistic proportions between people, animals, objects and the setting.`;
 
-// Combina la baseline universale (A1) con le regole di fisica/realismo SPECIFICHE del capitolo
-// estratte nella scheda (A4). Ritorna sempre almeno la baseline; aggiunge il blocco capitolo solo
-// se presente. Usato sia nel prompt sia per costruire l'istruzione di verifica finale.
 function physicsBlock(card: ChapterScene | null | undefined): string {
   const rules = (card?.physicsRules ?? []).map((r) => r.trim()).filter((r) => r.length > 0);
   if (rules.length === 0) return PHYSICS_BASELINE;
@@ -140,8 +119,6 @@ CHAPTER PHYSICS/REALISM RULES (must hold, specific to this chapter):
 ${lines}`;
 }
 
-// Blocco di GROUNDING dalla scheda capitolo: dà al modello luogo, soggetti iconici e personaggi
-// presenti già estratti, invece di farli dedurre dal grezzo. Vuoto se la scheda è assente.
 function sceneCardBlock(card: ChapterScene | null | undefined): string {
   if (!card) return "";
   const lines: string[] = [];
@@ -154,7 +131,7 @@ function sceneCardBlock(card: ChapterScene | null | undefined): string {
     lines.push(`- Environment (drives lighting AND clothing): ${card.environment}`);
   if (card.mainObjects.length > 0)
     lines.push(
-      `- Main visual subjects to CHOOSE FROM (pick the ONE iconic subject that fits this image): ${card.mainObjects.join(", ")}`,
+      `- Main visual subjects — the SUBJECT of the image MUST be ONE of these (pick the single one that fits this moment); do NOT invent a different subject from the chapter text: ${card.mainObjects.join(", ")}`,
     );
   if (card.secondaryObjects.length > 0)
     lines.push(
@@ -165,16 +142,17 @@ function sceneCardBlock(card: ChapterScene | null | undefined): string {
       `- Characters present in the chapter to CHOOSE FROM (feature only the one or two that fit this image): ${card.characters.join(", ")}`,
     );
   if (lines.length === 0) return "";
-  return `SCENE CARD (reliable grounding for THIS chapter — trust it for subject, setting and clothing).
-These lists are a POOL of options for the chapter, NOT a checklist: a chapter may have many characters
-and objects, but ONE image must stay simple — SELECT only what serves the single moment/scene you choose
-to depict, and LEAVE OUT the rest. Never cram every character or object into one picture.
+  return `SCENE CARD (reliable grounding for THIS chapter — it is AUTHORITATIVE for the SUBJECT, setting
+and clothing). The image SUBJECT must come from this card (its key moment / main subjects / characters);
+the chapter text below is ONLY for the specific action, pose, mood and concrete details of that subject —
+do NOT pick from the text a different subject that the card omits (e.g. a dreamed, remembered or incidental
+thing). ONLY if this card lists no usable subject at all may you take a concrete, physically-present element
+from the text. These lists are a POOL of options, NOT a checklist: a chapter may have many characters and
+objects, but ONE image must stay simple — SELECT only what serves the single moment you depict, and LEAVE
+OUT the rest. Never cram every character or object into one picture.
 ${lines.join("\n")}`;
 }
 
-// "Haystack" per decidere quali moduli-dominio sono pertinenti al capitolo: la SCHEDA visiva
-// (luogo + ambiente + oggetti) se presente — fonte affidabile di ciò che è FISICAMENTE in scena —
-// altrimenti, come fallback, il testo del capitolo. Niente personaggi (i domini riguardano scena/oggetti).
 function domainHaystack(card: ChapterScene | null | undefined, passage: string): string {
   if (card) {
     return [
@@ -189,18 +167,24 @@ function domainHaystack(card: ChapterScene | null | undefined, passage: string):
   return passage.toLowerCase();
 }
 
-// Blocco DIRETTIVE D'ARTE per-libro: testo libero scritto dall'utente per QUESTO libro
-// (es. dettagli ricorrenti, palette, luoghi). Vuoto se assente.
-function directivesBlock(directives: string | null | undefined): string {
-  const d = (directives ?? "").trim();
-  if (d === "") return "";
-  return `BOOK ART DIRECTION (specific to THIS book — follow it whenever relevant to the scene):
-${d}`;
+function directivesBlock(
+  directives: readonly VisualDirective[] | undefined,
+  haystack: string,
+): string {
+  if (!directives || directives.length === 0) return "";
+  const selected: string[] = [];
+  for (const d of directives) {
+    if (!d.enabled) continue;
+    const alwaysOn = d.triggers.length === 0;
+    if (!alwaysOn && !anyKeywordMatches(haystack, d.triggers)) continue;
+    const body = (d.bodyEn ?? d.body ?? "").trim();
+    if (body !== "") selected.push(body);
+  }
+  if (selected.length === 0) return "";
+  return `CANONICAL VISUAL RULES for this book (MANDATORY — apply EVERY rule relevant to this scene: equipment, posture/stance and the clothing the activity requires; they take PRIORITY over generic wording and must NOT be dropped or shortened to save words):
+${selected.join("\n")}`;
 }
 
-// Blocco ISTRUZIONI-EXTRA: art-direction libera dell'utente (globale + per-libro), accodata al
-// prompt come guida AGGIUNTIVA. NON sovrascrive le regole core (safety/intimità, no-testo, formato di
-// output): quelle restano sovraordinate. Vuoto se assente.
 function extraInstructionsBlock(extra: string | null | undefined): string {
   const e = (extra ?? "").trim();
   if (e === "") return "";
@@ -208,14 +192,12 @@ function extraInstructionsBlock(extra: string | null | undefined): string {
 ${e}`;
 }
 
-// Risolve l'ABITO da usare per un personaggio in questa scena: il primo abito-per-contesto le cui
-// keyword combaciano con l'haystack (scheda del capitolo), altrimenti l'abito di default, altrimenti
-// null (→ il modello veste secondo la logica generale). Così "stessa scena → stesso vestito".
 function resolveOutfitMatch(
   outfits: CharacterOutfits | undefined,
   haystack: string,
 ): { outfit: string | null; fromContext: boolean } {
   if (!outfits) return { outfit: null, fromContext: false };
+
   for (const ctx of outfits.contexts) {
     const kws = ctx.when
       .split(/[,;]/)
@@ -226,12 +208,15 @@ function resolveOutfitMatch(
   return { outfit: outfits.default ?? null, fromContext: false };
 }
 
-// Blocco OGGETTI RICORRENTI + MONDO: inietta gli oggetti/veicoli canonici pertinenti alla scena
-// (match keyword sulla scheda, o proprietario presente in scena) e il LATO DI GUIDA quando la scena
-// coinvolge auto/strade. Tutto da rendere IDENTICO tra le immagini.
-function propsBlock(vp: BookVisualProps | undefined, haystack: string, names: string[]): string {
+function propsBlock(
+  vp: BookVisualProps | undefined,
+  haystack: string,
+  sceneNames: string[],
+): string {
   if (!vp) return "";
-  const nameSet = new Set(names.map((n) => n.toLowerCase()));
+  const nameSet = new Set(
+    sceneNames.map((n) => n.toLowerCase().trim()).filter((n) => n.length > 0),
+  );
   const lines: string[] = [];
   for (const p of vp.props) {
     const kws = p.when
@@ -239,7 +224,7 @@ function propsBlock(vp: BookVisualProps | undefined, haystack: string, names: st
       .map((s) => s.trim())
       .filter((s) => s.length > 0);
     const matchWhen = anyKeywordMatches(haystack, kws);
-    const matchOwner = p.owner != null && nameSet.has(p.owner.toLowerCase());
+    const matchOwner = p.owner != null && nameSet.has(p.owner.toLowerCase().trim());
     if (matchWhen || matchOwner) {
       lines.push(
         `- ${p.name}: ALWAYS render it as ${p.description}${p.owner ? ` (belongs to ${p.owner})` : ""}.`,
@@ -264,9 +249,6 @@ function propsBlock(vp: BookVisualProps | undefined, haystack: string, names: st
 ${lines.join("\n")}`;
 }
 
-// Blocco PERSONAGGI MINORI/incidentali canonici: inietta le figure secondarie pertinenti alla
-// scena (match keyword `when` sull'haystack della scheda) col loro aspetto FISSO, da rendere IDENTICO
-// ogni volta che la scena torna. Vuoto se nessuna combacia.
 function extrasBlock(extras: BookVisualExtras | undefined, haystack: string): string {
   if (!extras) return "";
   const lines: string[] = [];
@@ -275,7 +257,8 @@ function extrasBlock(extras: BookVisualExtras | undefined, haystack: string): st
       .split(/[,;]/)
       .map((s) => s.trim())
       .filter((s) => s.length > 0);
-    if (anyKeywordMatches(haystack, kws)) {
+    const alwaysOn = kws.length === 0;
+    if (alwaysOn || anyKeywordMatches(haystack, kws)) {
       lines.push(
         `- ${m.label}: an incidental character — ${m.appearance}${m.outfit ? `; wears ${m.outfit}` : ""}. Keep this character's look IDENTICAL whenever this scene recurs.`,
       );
@@ -286,23 +269,20 @@ function extrasBlock(extras: BookVisualExtras | undefined, haystack: string): st
 ${lines.join("\n")}`;
 }
 
-// Descrive l'INTERO cast (protagonista + secondari) col loro aspetto, così il modello può riconoscere
-// CHI compare nel passaggio e renderlo — non solo il protagonista. I nomi servono SOLO al modello per
-// il match col testo: nell'immagine i personaggi vanno resi per aspetto, mai col nome scritto.
-// Per ogni personaggio aggiunge anche l'ABITO risolto per QUESTA scena (coerenza vestiti).
-// `suppressOutfits`: in scene di flashback NON iniettiamo l'outfit canonico (presente), così la
-// WARDROBE CONSISTENCY non forza i vestiti di oggi: a vestire ci pensa il blocco flashback (epoca).
 function castBlock(chars: SceneCharacter[], haystack: string, suppressOutfits = false): string {
   if (chars.length === 0) return "(no named characters)";
   const fmt = (c: SceneCharacter) => {
     const p = (c.physical ?? "").trim();
     const age = (c.age ?? "").trim();
     const eth = (c.ethnicity ?? "").trim();
+
     const match = resolveOutfitMatch(c.outfits, haystack);
     const outfit = suppressOutfits ? (match.fromContext ? match.outfit : null) : match.outfit;
+
     const sig = suppressOutfits ? "" : (c.outfits?.signature ?? "").trim();
     const worn = [outfit ?? "", sig ? `ALWAYS ${sig}` : ""].filter(Boolean).join(", ");
     const outfitPart = worn ? `; wears: ${worn}` : "";
+
     const short = p.length > 300 ? `${p.slice(0, 300).trimEnd()}…` : p;
     const traits = [eth ? `ethnicity ${eth}` : "", age ? `age ${age}` : "", short]
       .filter(Boolean)
@@ -310,27 +290,23 @@ function castBlock(chars: SceneCharacter[], haystack: string, suppressOutfits = 
     if (!traits) return worn ? `${c.name} (wears: ${worn})` : c.name;
     return `${c.name} (${traits}${outfitPart})`;
   };
-  // Protagonista = primo con ruolo esplicito (protagonista/principale/main), altrimenti il primo per sort_order.
+
   const protagIdx = chars.findIndex((c) => /protagon|principale|\bmain\b/i.test(c.role ?? ""));
   const pIdx = protagIdx >= 0 ? protagIdx : 0;
-  // Fino a 10 secondari (ordinati per sort_order = importanza): copre i personaggi rilevanti senza
-  // includere ogni comparsa. Il modello userà solo quelli realmente presenti nel passaggio.
+
   const others = chars.filter((_, i) => i !== pIdx).slice(0, 10);
   const lines = [`Protagonist — ${fmt(chars[pIdx]!)}.`];
   if (others.length > 0) lines.push(`Other characters — ${others.map(fmt).join("; ")}.`);
   return lines.join("\n");
 }
 
-// Risultato: descrizione (soggetto+scena) + tag (soggetti/mood per la catalogazione).
 export interface SceneDescription {
   description: string;
   tags: string[];
+
+  depicted: SceneCharacter[];
 }
 
-// Blocco FLASHBACK/RICORDO (override manuale): quando una generazione è marcata come scena del
-// passato, questo blocco SCAVALCA esplicitamente la regola dell'ETÀ e la WARDROBE CONSISTENCY — rende
-// ogni personaggio del CAST più giovane (mantenendo l'identità) e lo veste per l'epoca/luogo del
-// ricordo. Va posto DOPO il cast nel prompt (override esplicito, scoped). Vuoto se nessun flashback.
 function flashbackBlock(fb: SceneFlashback | null | undefined): string {
   if (!fb) return "";
   const setting = (fb.setting ?? "").trim();
@@ -343,6 +319,7 @@ function flashbackBlock(fb: SceneFlashback | null | undefined): string {
       Number.isFinite(a.age) &&
       a.age > 0,
   );
+
   const ageDirective =
     ages.length > 0
       ? `In THIS past scene each character has the EXACT age stated here, which OVERRIDES the age in their CAST description: ${ages
@@ -356,53 +333,713 @@ function flashbackBlock(fb: SceneFlashback | null | undefined): string {
   return `FLASHBACK / MEMORY OVERRIDE (this image only — it OVERRIDES the AGE rule and the WARDROBE CONSISTENCY rule above): this scene is a MEMORY set in the PAST. ${ageDirective} Keep each character's IDENTITY unmistakable: SAME hair colour, SAME eye colour, SAME face structure and proportions, clearly the same person at that age. Dress them for the time and place of this memory${setting ? `: ${setting}` : ""}: IF the CAST gives a specific period outfit for this character (a "wears:" note), use EXACTLY that; otherwise dress them coherently with the era and the activity — NOT in their canonical present-day outfit.${note ? ` ${note}` : ""}`;
 }
 
-// Blocco SOGNO: se la scena principale del capitolo è un sogno, l'intera immagine va resa come onirica
-// (atmosfera soffusa/surreale), mantenendo identità ed ETÀ canoniche del cast. Vuoto se non è un sogno.
 function dreamBlock(isDream: boolean | undefined): string {
   if (!isDream) return "";
   return `DREAM SCENE (this whole image is a DREAM): render it as a dream — a soft, surreal, slightly unreal atmosphere (hazy light, dreamlike mood, gentle dissolve at the edges), NOT a sharp everyday photo-real scene. Keep each character's CANONICAL identity and AGE exactly as the CAST states (a dream does NOT make them younger). The dreamed subjects may appear, but the overall image must clearly read as a dream, not as waking reality.`;
 }
 
-// Fallback deterministico se il modello non è disponibile: immagine ATMOSFERICA (no persona),
-// utilizzabile come sfondo per una citazione.
 function fallbackScene(input: SceneDescriptionInput): SceneDescription | null {
   if (!input.bookTitle && input.characters.length === 0 && !input.chapterExcerpt) return null;
   return {
     description:
       "an empty path leading toward distant light at dawn, soft mist, long shadows, quiet evocative atmosphere, no people",
     tags: ["path", "light", "dawn", "atmosphere"],
+    depicted: [],
   };
+}
+
+function isTagsLine(line: string): boolean {
+  return /^\s*tags\s*:/i.test(line);
+}
+function isCharsLine(line: string): boolean {
+  return /^\s*characters\s*:/i.test(line);
+}
+
+function cleanDescriptionLine(line: string): string {
+  let s = line.trim();
+  s = s.replace(/^#{1,6}\s*/, "").replace(/^[-*•]\s+/, "");
+  s = s.replace(/^(line\s*1|description|image|prompt|paragraph)\s*[:.)\-]\s*/i, "");
+  s = s.replace(/^["'`]+|["'`]+$/g, "").trim();
+  return s;
+}
+
+function looksLikePreamble(line: string): boolean {
+  return /^(here\b|sure\b|certainly\b|of course\b|okay\b|ok\b|got it\b)/i.test(line.trim());
+}
+
+function wantsStructuredImagePrompt(imageProfile: string): boolean {
+  return /\bGemini native image model\b/i.test(imageProfile);
+}
+
+function wantsZImagePrompt(imageProfile: string): boolean {
+  return /\bZ-Image Turbo\b/i.test(imageProfile);
+}
+
+function pickDescription(lines: string[], preserveLineBreaks = false): string {
+  const contentLines: string[] = [];
+  for (const l of lines) {
+    if (isTagsLine(l) || isCharsLine(l)) break;
+    const cleaned = cleanDescriptionLine(l);
+    if (cleaned.length > 0) contentLines.push(cleaned);
+  }
+  if (contentLines.length === 0) return "";
+
+  const startIdx = looksLikePreamble(contentLines[0]!) && contentLines.length > 1 ? 1 : 0;
+  const joined = contentLines
+    .slice(startIdx)
+    .join(preserveLineBreaks ? "\n" : " ")
+    .trim();
+
+  const result = joined.length > 0 ? joined : contentLines[0]!;
+  return result.length >= 12 ? result : "";
+}
+
+function looseNameMatch(castName: string, depicted: string): boolean {
+  const tokA = castName
+    .toLowerCase()
+    .trim()
+    .split(/\s+/)
+    .filter((t) => t.length > 0);
+  const tokB = depicted
+    .toLowerCase()
+    .trim()
+    .split(/\s+/)
+    .filter((t) => t.length > 0);
+  if (tokA.length === 0 || tokB.length === 0) return false;
+  if (tokA.join(" ") === tokB.join(" ")) return true;
+
+  function containsRun(hay: readonly string[], needle: readonly string[]): boolean {
+    for (let i = 0; i + needle.length <= hay.length; i++) {
+      if (needle.every((t, j) => hay[i + j] === t)) return true;
+    }
+    return false;
+  }
+  return containsRun(tokA, tokB) || containsRun(tokB, tokA);
+}
+
+function extractHair(physical: string): string {
+  const p = physical.toLowerCase();
+  const en = p.match(/[a-z][a-z-]*(?:\s+[a-z][a-z-]*){0,3}\s+hair\b/);
+  if (en) {
+    const stopRe = /^(?:with|and|a|an|the|of|has|having|their|his|her|con|e|i|le|dai|dei)\s+/;
+    let s = en[0].trim();
+    for (let pass = 0; pass < 4; pass++) {
+      const next = s.replace(stopRe, "");
+      if (next === s) break;
+      s = next;
+    }
+    return s;
+  }
+  const it = p.match(/capelli(?:\s+[a-zàèéìòùç][a-zàèéìòùç-]*){0,3}/);
+  if (it) return it[0].trim();
+  return "";
+}
+
+function canonicalClause(c: SceneCharacter): string {
+  const parts: string[] = [];
+  const eth = (c.ethnicity ?? "").trim();
+  const age = (c.age ?? "").trim();
+  const hair = extractHair((c.physical ?? "").trim());
+  const sig = (c.outfits?.signature ?? "").trim();
+  if (eth) parts.push(eth);
+  if (age) parts.push(`age ${age}`);
+  if (hair) parts.push(hair);
+  let clause = parts.join(", ");
+  if (sig) clause = clause ? `${clause}, always with ${sig}` : `always with ${sig}`;
+  return clause;
+}
+
+const COVERAGE_SYNONYMS: Record<string, string[]> = {
+  hair: ["capelli", "capello", "cheveux", "cabello", "pelo", "haare", "haar"],
+  beard: ["barba", "barbe", "bart"],
+  mustache: ["baffi", "moustache", "bigote", "schnurrbart"],
+  skin: ["pelle", "peau", "piel", "haut"],
+  eyes: ["occhi", "occhio", "yeux", "ojos", "augen"],
+  face: ["viso", "volto", "visage", "cara", "rostro", "gesicht"],
+  man: ["uomo", "homme", "hombre", "mann"],
+  woman: ["donna", "femme", "mujer", "frau"],
+  boy: ["ragazzo", "garcon", "chico", "junge"],
+  girl: ["ragazza", "fille", "chica", "madchen"],
+  years: ["anni", "anno", "ans", "annee", "annees", "anos", "ano", "jahre", "jahr"],
+  about: ["circa", "environ", "unos", "etwa", "ungefahr"],
+  short: [
+    "corti",
+    "corto",
+    "corta",
+    "corte",
+    "courts",
+    "court",
+    "courte",
+    "courtes",
+    "cortos",
+    "cortas",
+    "kurz",
+    "kurze",
+    "kurzen",
+  ],
+  long: [
+    "lunghi",
+    "lungo",
+    "lunga",
+    "longs",
+    "longue",
+    "longues",
+    "largos",
+    "largo",
+    "larga",
+    "lange",
+    "langen",
+    "langes",
+  ],
+  dark: [
+    "scuri",
+    "scuro",
+    "scura",
+    "fonce",
+    "fonces",
+    "foncee",
+    "foncees",
+    "sombre",
+    "sombres",
+    "oscuro",
+    "oscura",
+    "oscuros",
+    "oscuras",
+    "dunkel",
+    "dunkle",
+    "dunklen",
+  ],
+  light: [
+    "chiari",
+    "chiaro",
+    "chiara",
+    "clair",
+    "clairs",
+    "claire",
+    "claires",
+    "claro",
+    "clara",
+    "claros",
+    "claras",
+    "hell",
+    "helle",
+    "hellen",
+  ],
+  brown: [
+    "castani",
+    "castano",
+    "castana",
+    "castane",
+    "marroni",
+    "marrone",
+    "bruns",
+    "brun",
+    "brune",
+    "brunes",
+    "marron",
+    "castanos",
+    "castanas",
+    "braun",
+    "braune",
+    "braunen",
+  ],
+  black: [
+    "neri",
+    "nero",
+    "nera",
+    "noirs",
+    "noir",
+    "noire",
+    "noires",
+    "negros",
+    "negro",
+    "negra",
+    "negras",
+    "schwarz",
+    "schwarze",
+    "schwarzen",
+  ],
+  blond: [
+    "biondi",
+    "biondo",
+    "bionda",
+    "blonds",
+    "blond",
+    "blonde",
+    "blondes",
+    "rubios",
+    "rubio",
+    "rubia",
+    "rubias",
+    "blonden",
+  ],
+  grey: [
+    "grigi",
+    "grigio",
+    "grigia",
+    "brizzolati",
+    "brizzolato",
+    "gris",
+    "grises",
+    "grau",
+    "graue",
+    "grauen",
+  ],
+  red: [
+    "rossi",
+    "rosso",
+    "rossa",
+    "roux",
+    "rousse",
+    "rojos",
+    "rojo",
+    "roja",
+    "rot",
+    "rote",
+    "roten",
+  ],
+  olive: [
+    "olivastra",
+    "olivastro",
+    "olivastri",
+    "olivatre",
+    "olivatres",
+    "aceitunada",
+    "aceituna",
+    "oliv",
+  ],
+  tanned: [
+    "abbronzata",
+    "abbronzato",
+    "bronzee",
+    "bronze",
+    "bronzes",
+    "bronceada",
+    "bronceado",
+    "gebraunt",
+  ],
+  pale: ["pallida", "pallido", "palida", "palido", "blass", "blasse"],
+  lean: [
+    "asciutta",
+    "asciutto",
+    "snella",
+    "snello",
+    "magra",
+    "magro",
+    "mince",
+    "minces",
+    "sec",
+    "seche",
+    "delgada",
+    "delgado",
+    "esbelta",
+    "esbelto",
+    "schlank",
+    "schlanke",
+  ],
+  athletic: ["atletica", "atletico", "athletique", "athletiques", "athletisch", "athletische"],
+  robust: ["robusta", "robusto", "robuste", "robustes", "robust", "kraftig", "kraftige"],
+  tall: [
+    "alto",
+    "alta",
+    "alti",
+    "grand",
+    "grande",
+    "grands",
+    "grandes",
+    "gross",
+    "grosse",
+    "grossen",
+    "hochgewachsen",
+  ],
+  young: [
+    "giovane",
+    "giovani",
+    "jeune",
+    "jeunes",
+    "joven",
+    "jovenes",
+    "jung",
+    "junge",
+    "junger",
+    "jungen",
+  ],
+  adult: [
+    "adulto",
+    "adulta",
+    "adulti",
+    "adulte",
+    "adultes",
+    "erwachsen",
+    "erwachsene",
+    "erwachsener",
+  ],
+  build: ["corporatura", "fisico", "physique", "constitucion", "complexion", "korperbau", "statur"],
+  mediterranean: [
+    "mediterraneo",
+    "mediterranea",
+    "mediterranei",
+    "mediterraneen",
+    "mediterraneenne",
+    "mediterran",
+  ],
+  european: [
+    "europeo",
+    "europea",
+    "europei",
+    "europeen",
+    "europeenne",
+    "europeens",
+    "europaisch",
+    "europaische",
+  ],
+  italian: [
+    "italiano",
+    "italiana",
+    "italiani",
+    "italien",
+    "italienne",
+    "italiens",
+    "italienisch",
+    "italiener",
+  ],
+  french: [
+    "francese",
+    "francesi",
+    "francofono",
+    "francofona",
+    "francais",
+    "francaise",
+    "frances",
+    "francesa",
+    "franzosisch",
+    "franzose",
+  ],
+  spanish: [
+    "spagnolo",
+    "spagnola",
+    "espagnol",
+    "espagnole",
+    "espanol",
+    "espanola",
+    "spanisch",
+    "spanier",
+  ],
+  german: [
+    "tedesco",
+    "tedesca",
+    "allemand",
+    "allemande",
+    "aleman",
+    "alemana",
+    "deutsch",
+    "deutsche",
+    "deutscher",
+  ],
+  roman: ["romano", "romana", "romani", "romain", "romaine", "romisch"],
+  latin: ["latino", "latina", "latini", "latine", "lateinamerikanisch"],
+  caribbean: [
+    "caraibico",
+    "caraibica",
+    "caraibe",
+    "caraibeen",
+    "caribeno",
+    "caribena",
+    "karibisch",
+  ],
+  dominican: [
+    "dominicano",
+    "dominicana",
+    "dominicain",
+    "dominicaine",
+    "dominikanisch",
+    "dominikaner",
+  ],
+  chilean: ["cileno", "cilena", "chilien", "chilienne", "chileno", "chilena", "chilenisch"],
+  african: ["africano", "africana", "africain", "africaine", "afrikanisch"],
+  asian: ["asiatico", "asiatica", "asiatique", "asiatisch"],
+  arab: ["arabo", "araba", "arabe", "arabes", "araber", "arabisch"],
+  neat: ["ordinati", "ordinato", "ordinata", "soignes", "soigne", "cuidado", "cuidada", "gepflegt"],
+};
+
+const COVERAGE_TOKEN_MAP: Record<string, string> = Object.fromEntries(
+  Object.entries(COVERAGE_SYNONYMS).flatMap(([en, srcs]) =>
+    srcs.map((s): [string, string] => [s, en]),
+  ),
+);
+
+const COVERAGE_STOP = new Set([
+  "a",
+  "about",
+  "age",
+  "aged",
+  "always",
+  "and",
+  "an",
+  "around",
+  "has",
+  "having",
+  "is",
+  "of",
+  "old",
+  "the",
+  "their",
+  "with",
+  "year",
+  "years",
+  "e",
+  "con",
+  "di",
+  "il",
+  "la",
+  "lo",
+  "un",
+  "una",
+  "et",
+  "avec",
+  "de",
+  "du",
+  "des",
+  "le",
+  "les",
+  "un",
+  "une",
+  "y",
+  "el",
+  "los",
+  "las",
+  "una",
+  "und",
+  "mit",
+  "der",
+  "die",
+  "das",
+  "ein",
+  "eine",
+]);
+
+export function coverageTokens(text: string): string[] {
+  return text
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .map((t) => COVERAGE_TOKEN_MAP[t] ?? t)
+    .filter((t) => t.length > 0 && !COVERAGE_STOP.has(t));
+}
+
+function canonicalClauseAlreadyCovered(description: string, clause: string): boolean {
+  const needed = coverageTokens(clause);
+  if (needed.length === 0) return true;
+  const present = new Set(coverageTokens(description));
+  return needed.every((t) => present.has(t));
+}
+
+function appendCanonicalReminder(
+  description: string,
+  cast: SceneCharacter[],
+  depictedNames: string[],
+): string {
+  if (depictedNames.length === 0 || cast.length === 0) return description;
+  const matched: SceneCharacter[] = [];
+  for (const n of depictedNames) {
+    const c = cast.find((cc) => looseNameMatch(cc.name, n));
+    if (c && !matched.includes(c)) matched.push(c);
+    if (matched.length >= 2) break;
+  }
+  const clauses = matched
+    .map(canonicalClause)
+    .filter((s) => s.length > 0 && !canonicalClauseAlreadyCovered(description, s));
+  if (clauses.length === 0) return description;
+  const reminder =
+    clauses.length === 1
+      ? `The person shown is ${clauses[0]}.`
+      : `The people shown are: ${clauses.join("; and ")}.`;
+  const base = description.trim();
+  if (/(^|\n)Subject:/i.test(base)) {
+    const lines = base.split("\n");
+    const subjectIdx = lines.findIndex((line) => /^\s*Subject:/i.test(line));
+    if (subjectIdx >= 0) {
+      const nextSectionIdx = lines.findIndex(
+        (line, idx) =>
+          idx > subjectIdx &&
+          /^\s*(Scene|Action|Composition|Equipment or objects|Physical consistency|Style|Constraints|Output):/i.test(
+            line,
+          ),
+      );
+      const insertAt = nextSectionIdx >= 0 ? nextSectionIdx : subjectIdx + 1;
+      return [...lines.slice(0, insertAt), reminder, ...lines.slice(insertAt)].join("\n");
+    }
+  }
+  const sep = base === "" ? "" : /[.!?]$/.test(base) ? " " : ". ";
+  return `${base}${sep}${reminder}`;
+}
+
+const TAGS_LINE = `"TAGS: " followed by 3 to 6 short lowercase keywords (the main subject, the place, the mood), comma-separated.`;
+const CHARACTERS_LINE = `"CHARACTERS: " followed by the NAMES (from the CAST) of the named characters you ACTUALLY depicted in the image, comma-separated, in the same order they appear in the scene; write "none" if the image shows no named character. These names are for cataloguing only — they never appear in the image itself.`;
+const NON_NEGOTIABLES = `Spend the words on the NON-NEGOTIABLES instead (each person's ethnicity + age + hair, the exact pose and any mandatory signature item, the single object colour), so none of them are lost.`;
+const NO_STYLE_WORDS = `style/medium words ("illustration", "graphic novel", "comic", "art", "photo")`;
+
+export function imagePromptDialectBlocks(
+  structuredForGemini: boolean,
+  tailoredForZImage: boolean,
+): {
+  styleRule: string;
+  shapeInstruction: string;
+  orderBlock: string;
+  outputFormatBlock: string;
+  directiveRule: string;
+} {
+  const styleRule = tailoredForZImage
+    ? `STYLE AND QUALITY: the Z-Image paragraph may include concrete image type and visual style at the very
+beginning when useful, but avoid generic quality tags such as "masterpiece", "8k", "ultra detailed" unless
+the requested style explicitly requires them. Do not repeat character descriptions in summary form.`
+    : `RULES: NO style words (do NOT write "graphic novel", "illustration", "comic", "art"); NO quotes.`;
+  const shapeInstruction = structuredForGemini
+    ? `From the book passage, output ONE plain-text Gemini image prompt with clear section headings and
+line breaks, using full sentences or short concrete phrases under each heading. Do NOT use markdown
+fences, markdown headings, JSON, or a tag-list prompt. It must describe an EVOCATIVE, ATMOSPHERIC image that`
+    : tailoredForZImage
+      ? `From the book passage, act as a prompt adapter for a local Z-Image Turbo model executed through
+stable-diffusion.cpp / sd-cli. Output ONE final image-generation prompt as a single fluent descriptive
+English paragraph. Do NOT use a Gemini-style structured prompt, section headings, markdown, JSON, bullet
+points, metadata, interface notes, or a tag-list prompt. It must describe an EVOCATIVE, ATMOSPHERIC image that`
+      : `From the book passage,
+output ONE rich English paragraph describing an EVOCATIVE, ATMOSPHERIC image that`;
+  const orderBlock = structuredForGemini
+    ? `ORDER (write the Gemini prompt as PLAIN TEXT sections in THIS sequence; the opening line anchors the
+model, and the headings reduce ambiguity):
+Opening line: "Create a single cinematic ... image of ..." adapted to THIS scene.
+Subject: the main subject first; if it is a person, describe them by physical appearance ALWAYS including
+ethnicity/skin tone and age, plus build and hair.
+Scene: the location, environment, horizon and large spatial anchors.
+Action: what each subject is doing and their pose, bound to the correct person or object.
+Composition: shot/framing from the COMPOSITION DIRECTIVE, camera position, crop rules and visible forms.
+Equipment or objects: concrete object structure; use an activity-specific heading when the scene needs one.
+Physical consistency: force/motion direction, contact points, attachments, water/spray/light behaviour and
+perspective.
+Constraints: explicit negative constraints for likely failures.
+Output: the aspect/output instruction.
+Do NOT include a Style section and do NOT add ${NO_STYLE_WORDS}: the application appends the Style section afterwards.`
+    : tailoredForZImage
+      ? `ORDER FOR Z-IMAGE (write ONE compact paragraph in THIS visual priority; it is passed directly to
+sd-cli -p on a SMALL diffusion model that CANNOT bind many stacked clauses — density breaks it):
+1) START: image type/visual style if needed, the exact number of visible people, the location, the MAIN
+   OBJECT named as ONE complete assembled shape, and the camera framing. Preserve the exact number of people.
+   Front-load the objects and framing that must stay visible. If the shot is a close-up but multiple people
+   and objects must be visible, write "intimate medium close-up" or "lateral medium close-up".
+2) POSE + EQUIPMENT (front-loaded, together, BEFORE appearance): give the focal subject's COMPLETE equipment
+   as ONE assembled shape and ONE clear body pose with ONE clear grip/contact, as a single coherent action —
+   not a list of parts. Name each equipment part ONCE. Do NOT stack fine spatial sub-relations (which hand
+   on which side of which part): write ONE holistic pose sentence, not five relational qualifiers. Take the
+   specific pose, equipment and connection facts from the CANONICAL VISUAL RULES below — never invent them.
+3) PEOPLE (after the pose): describe each person compactly — ethnicity/nationality, age, skin tone, build,
+   hair, face, clothing — ONE short clause each, in spatial order. If a character is blind, show it visually
+   ("clouded unfocused eyes"). Never repeat a character in summary form.
+4) ENVIRONMENT + LIGHT: finish with environment, then SPECIFIC lighting (time of day, quality of light),
+   atmosphere, colour palette and texture — this model responds strongly to light and texture.
+POSITIVE ONLY — CRITICAL: this model IGNORES negatives and DRAWS whatever noun you forbid (negation-leak). Do
+NOT write any "no …", "not …", "without …", "avoid …" clause. Rephrase EVERY constraint as what IS present:
+"empty calm background", "a single subject", "clean blank surfaces", "the full object visible inside the
+frame". Do NOT invent equipment state (connected/attached vs loose/free) from a negation — read it from the
+CANONICAL VISUAL RULES and state the CORRECT positive state they specify. State each fact ONCE; do not add
+interface notes or emotional filler before the concrete visual composition is clear.`
+      : `ORDER (write the paragraph in THIS sequence — it is how the image model reads best; the SUBJECT comes
+FIRST, this model anchors on the opening noun phrase):
+1) the main SUBJECT (the iconic element) as the FIRST noun phrase of the paragraph — and if it is a
+   person, describe them by physical appearance ALWAYS including their ethnicity/skin tone and age (plus
+   build and hair); 2) the SHOT / framing (take it from the COMPOSITION DIRECTIVE: e.g. wide shot,
+   close-up, three-quarter view, from behind); 3) what they are DOING and their pose, binding each action
+   to the correct person — and when the CANONICAL VISUAL RULES specify the subject's equipment, posture or
+   technique, spell out IN FULL every detail they state, exactly as written, without abbreviating;
+   4) their CLOTHING; 5) the SETTING and where each element sits (grounding,
+   horizon); 6) the LIGHTING — time of day and quality of light, be specific (this model responds strongly
+   to light); 7) the overall MOOD.
+Write FLOWING SENTENCES in that order, not a tag list. Do NOT add ${NO_STYLE_WORDS}: the visual style is appended afterwards, you only describe the
+scene.`;
+  const outputFormatBlock = structuredForGemini
+    ? `OUTPUT FORMAT — exactly this structure:
+First output the Gemini image prompt block as plain text with the section headings above. Do not wrap it in
+markdown fences, do not use markdown headings, and do not output JSON. State each visual fact ONCE in
+concrete words; do NOT pad with synonyms, repeated adjectives or vague filler. ${NON_NEGOTIABLES}
+Then output one line: ${TAGS_LINE}
+Then output one line: ${CHARACTERS_LINE}`
+    : tailoredForZImage
+      ? `OUTPUT FORMAT — exactly THREE lines:
+Line 1: the final Z-Image prompt paragraph only (follow the ORDER FOR Z-IMAGE above). Keep it compact and
+complete, about 90–150 words even when characters are featured — DENSITY, not length: fewer, clearer facts
+beat a long clause pile-up on this model. Do not add explanations, comments, titles, markdown, bullet
+points, section headers or metadata inside this line.
+Line 2: ${TAGS_LINE}
+Line 3: ${CHARACTERS_LINE}`
+      : `OUTPUT FORMAT — exactly THREE lines:
+Line 1: the image description paragraph (follow the adaptive WORD BUDGET above — ~80–110 words with no
+person, ~120–170 words when characters are featured — and the ORDER above). State each visual fact
+ONCE in concrete words; do NOT pad with synonyms, repeated adjectives or vague filler — the image model
+treats repetition and empty modifiers as noise and may drop nearby details. ${NON_NEGOTIABLES}
+Line 2: ${TAGS_LINE}
+Line 3: ${CHARACTERS_LINE}`;
+
+  const directiveRule = tailoredForZImage
+    ? `WORD BUDGET (STRICT for this small diffusion model): ONE paragraph, about 90–150 words. DENSITY, not
+length, is what breaks this model — it cannot bind many stacked clauses onto one object.
+COMPRESS THE CANONICAL VISUAL RULES INTO THEIR VISIBLE ESSENTIALS: the rules below are a detailed written
+spec — do NOT transcribe them clause by clause and do NOT repeat the same object. Extract the focal
+subject's LARGE COMPLETE SHAPE and only the load-bearing, visible facts, and state each ONCE in plain
+POSITIVE words. Name each equipment part ONCE as a complete assembled shape (the whole rig as one unit),
+then give ONE clear pose and ONE clear grip.
+KEEP the POSE- AND CONFIGURATION-DEFINING facts (these decide whether the image is CORRECT, so they are NOT
+optional detail): the active mode/action; the body's lean or balance direction; whether the gear is
+ENGAGED/CONNECTED to the body and WHERE (state the CORRECT connection positively and exactly as the rules
+specify — never guess it from a negation); and how the hands/body relate to the main object, as ONE simple
+relation. Also KEEP each person's ethnicity + age + hair and any signature colour/item.
+DROP only DECORATIVE detail (exact part counts, sub-panel colours, minor sub-part names, mounting-track
+positions). Never spell out fine spatial micro-relations, but never drop a fact that defines whether the pose
+is right. Front-load the subject, its complete equipment and the pose BEFORE the person's appearance.`
+    : `WORD BUDGET (adaptive): about 80–110 words for an OBJECT or PLACE with NO person; about 120–170 words
+when ONE OR MORE named characters are featured (more people need more words to keep each one distinct). The
+budget is a guide, NOT a hard cap: NEVER drop a character's ethnicity, age, hair, the exact pose, a mandatory
+signature item, a single object's signature colour, or the activity's required equipment, posture/stance and
+clothing stated in the CANONICAL VISUAL RULES, just to fit the budget — exceed the budget instead.
+THE CANONICAL VISUAL RULES ARE THE SUBJECT, NOT CLUTTER: when those rules below describe the focal subject's
+specific EQUIPMENT, POSTURE/STANCE or technique in detail, that detail IS the focal subject — TRANSCRIBE
+every such detail they state in FULL into the paragraph, exactly as written, without summarising,
+generalising or dropping any of it, and without reducing it to a single verb. Write as MANY words as that
+needs — exceed the budget. The "uncluttered / evocative" guidance below applies ONLY to the BACKGROUND and
+secondary elements, NEVER to the detail the CANONICAL VISUAL RULES require for the focal subject.`;
+  return { styleRule, shapeInstruction, orderBlock, outputFormatBlock, directiveRule };
 }
 
 export async function buildSceneDescription(
   engine: ContentEngine,
   input: SceneDescriptionInput,
 ): Promise<SceneDescription | null> {
-  // Tutto il capitolo (cap di sicurezza alto per capitoli enormi): GPT sceglie QUALE scena illustrare.
   const passage = (input.chapterExcerpt ?? "").trim().slice(0, 20000);
   if (passage === "" && input.characters.length === 0 && !input.bookTitle) return null;
-  // Haystack della scena (scheda o testo) = base per selezione moduli E risoluzione abiti per contesto.
+
   const haystack = domainHaystack(input.sceneCard, passage);
   const flashback = flashbackBlock(input.flashback);
   const dream = dreamBlock(input.dream);
-  // In flashback NON iniettiamo gli outfit canonici (presente): a vestire ci pensa il blocco flashback.
+
   const cast = castBlock(input.characters, haystack, !!input.flashback);
   const card = sceneCardBlock(input.sceneCard);
   const physics = physicsBlock(input.sceneCard);
-  // Moduli-dominio per-libro, pertinenti alla scena del capitolo, + direttive d'arte del libro.
-  const domainBlocks = selectDomainBlocks({
-    enabled: input.visualDomains ?? [],
-    haystack,
-  }).join("\n");
+
+  const directives = directivesBlock(input.directives, haystack);
+
   const props = propsBlock(
     input.visualProps,
     haystack,
-    input.characters.map((c) => c.name),
+    input.sceneCard != null
+      ? input.sceneCard.characters.slice()
+      : input.characters.map((c) => c.name),
   );
   const extras = extrasBlock(input.visualExtras, haystack);
-  const directives = directivesBlock(input.visualDirectives);
   const extraDirection = extraInstructionsBlock(input.extraInstructions);
+
   const imageProfile = (input.imageProfile ?? "").trim();
+  const structuredForGemini = wantsStructuredImagePrompt(imageProfile);
+  const tailoredForZImage = wantsZImagePrompt(imageProfile);
   const imageModelBlock =
     imageProfile === ""
       ? ""
@@ -410,23 +1047,13 @@ export async function buildSceneDescription(
 form and length IT interprets best, and make it as PRECISE as this model can actually use (adapt format,
 ordering and emphasis to it; do not waste detail the model cannot render, and front-load the detail it
 can): ${imageProfile}\n`;
+  const { styleRule, shapeInstruction, orderBlock, outputFormatBlock, directiveRule } =
+    imagePromptDialectBlocks(structuredForGemini, tailoredForZImage);
 
   const prompt = `You write IMAGE PROMPTS for an AI image model that wants a DETAILED, flowing
-NATURAL-LANGUAGE description (full sentences), NOT a list of comma-separated tags. From the book passage,
-output ONE rich English paragraph describing an EVOCATIVE, ATMOSPHERIC image that
-captures the MOOD and THEME of the moment. WORD BUDGET (adaptive): about 80–110 words for an OBJECT or
-PLACE with NO person; about 120–170 words when ONE OR MORE named characters are featured (more people
-need more words to keep each one distinct). The budget is a guide, NOT a hard cap: NEVER drop a
-character's ethnicity, age, hair, the exact pose, a mandatory signature item, a single object's
-signature colour, or the activity's required equipment, posture/stance and clothing, just to fit the
-budget — exceed the budget instead.
-THE BOOK ART DIRECTION RULES ARE THE SUBJECT, NOT CLUTTER: when those rules below describe the focal
-subject's specific EQUIPMENT, POSTURE/STANCE or technique in detail, that detail IS the focal subject —
-TRANSCRIBE every such detail they state in FULL into the paragraph, exactly as written, without
-summarising, generalising or dropping any of it, and without reducing it to a single verb. Write as MANY
-words as that needs — exceed the budget. The "uncluttered / evocative" guidance below applies ONLY to the
-BACKGROUND and secondary elements, NEVER to the detail the BOOK ART DIRECTION requires for the focal
-subject. The image is a BACKGROUND behind a quote (text will be placed
+NATURAL-LANGUAGE description (full sentences), NOT a list of comma-separated tags. ${shapeInstruction}
+captures the MOOD and THEME of the moment. ${directiveRule}
+The image is a BACKGROUND behind a quote (text will be placed
 on top), so it must be emotional, cinematic and UNCLUTTERED. Favour mood over busy literal narration —
 but you MAY depict the chapter's KEY MOMENT or central ACTION when that action is what the chapter turns
 on (a person doing the pivotal activity of the scene): an event in the MIDDLE of the book is NOT a spoiler,
@@ -458,7 +1085,7 @@ CORRECT, conventional arrangement and ORIENTATION — furniture, seats, fixtures
 architectural elements sit and face the way they actually do in reality. Do NOT rotate, mirror or
 rearrange them just to fit more of them into the frame, and keep one coherent, physically consistent
 space.
-${domainBlocks}
+${directives}
 ${props}
 EXTRAS & CROWDS: render background and incidental people (a film crew, passers-by, a group, other beachgoers) with NATURAL VARIETY — different hair colours and styles, heights, builds, ages and skin tones, never a row of identical clones — and dress them appropriately for the place and activity (a film crew in casual production clothes with lanyards/headphones/cables; beachgoers in swimwear; city people in everyday urban clothes). They are ordinary varied people, not uniformed unless the setting truly requires it.
 ${extras}
@@ -475,8 +1102,9 @@ DECIDES who (if anyone) appears AND from what angle — FOLLOW IT: if it asks fo
 present in this passage, you MUST feature that character; fall back to the iconic subject/place ALONE
 with no person ONLY if NO named character from the CAST appears anywhere in this chapter.
 CLOTHING (VARY it — never default to one fixed outfit): dress every person for the SETTING and ACTIVITY
-of THIS passage, consistent within the scene. By the sea / on the beach of a warm seaside town → swimwear,
-or a lycra rash-guard and boardshorts when surfing or windsurfing, or a light t-shirt and shorts. In a
+of THIS passage, consistent within the scene. Use activity- and setting-appropriate clothing; take the
+exact garments from the CANONICAL VISUAL RULES / scene, do not default to one outfit. By the sea / on the
+beach of a warm seaside town → swimwear or a light t-shirt and shorts. In a
 city, at work, a formal or public moment, indoors in the evening, or a cold place → longer clothes: shirt
 and trousers, a jacket or coat. Meditation, yoga, prayer, exercising, sitting on a practice/yoga mat,
 sleeping or resting at home → NAME concrete modern casual garments (e.g. a plain t-shirt with soft joggers
@@ -496,13 +1124,13 @@ NATURAL POSE: people look relaxed and believable, always anatomically correct an
 everyday or static moment the body is UPRIGHT and well-balanced — head level, shoulders even, spine
 straight, weight settled naturally on the feet, with only slight lifelike motion (a hand doing something,
 a calm gesture, an easy step, sitting, holding an object). For an ACTIVE or SPORTING moment — and ALWAYS
-when the BOOK ART DIRECTION describes the posture for an activity (windsurfing, surfing, running,
-swimming, dancing or any sport) — render that FULL dynamic posture EXACTLY as those rules specify,
-including a strongly leaned-out, extended, crouched or angled body: the activity posture in the BOOK ART
-DIRECTION takes PRIORITY here over the calm-upright default. Keep it athletic and anatomically correct.
+when the CANONICAL VISUAL RULES describe the posture for an activity (any sport or physical
+activity) — render that FULL dynamic posture EXACTLY as those rules specify,
+including a strongly leaned-out, extended, crouched or angled body: the activity posture in the CANONICAL
+VISUAL RULES takes PRIORITY here over the calm-upright default. Keep it athletic and anatomically correct.
 KEEP IT SIMPLE: one clear setting, few elements (diffusion models ruin busy scenes); leave calm space
 for the text. Use the book's overall theme/title as mood guidance: ${input.bookTitle ?? "(book)"}.
-RULES: NO style words (do NOT write "graphic novel", "illustration", "comic", "art"); NO quotes.
+${styleRule}
 NO TEXT IN THE IMAGE: never request letters, words, writing, signs, labels, captions, SPEECH BUBBLES
 or comic panels, phone/computer SCREENS showing text, notes or letters with visible writing, or tattoos
 with words. It is ONE single full-bleed illustration — no panels, no balloons, no lettering. If such an
@@ -542,34 +1170,16 @@ colour — INCLUDING its parts (handle, frame, hardware, panels). Do NOT invent 
 two-tone object or contrasting hardware (no "red-and-white door", no "white handle") unless the book
 explicitly says so.
 Concrete and visual.
-ORDER (write the paragraph in THIS sequence — it is how the image model reads best):
-1) the SHOT / framing (take it from the COMPOSITION DIRECTIVE: e.g. wide shot, close-up, three-quarter
-   view, from behind); 2) the main SUBJECT (the iconic element), and if a person is present describe them
-   by physical appearance ALWAYS including their ethnicity/skin tone and age (plus build and hair); 3) what
-   they are DOING and their pose, binding each action to the correct person — and when the BOOK ART
-   DIRECTION specifies the subject's equipment, posture or technique, spell out IN FULL every detail they
-   state, exactly as written, without abbreviating; 4) their CLOTHING; 5) the SETTING and
-   where each element sits (grounding, horizon); 6) the LIGHTING — time of day and quality of light, be
-   specific (this model responds strongly to light); 7) the overall MOOD.
-Write FLOWING SENTENCES in that order, not a tag list. Do NOT add style/medium words ("illustration",
-"graphic novel", "comic", "art", "photo"): the visual style is appended afterwards, you only describe the
-scene.
+${orderBlock}
 FINAL CHECK (do this before writing): re-read your description against the PHYSICS & REALISM rules and
 the CHAPTER PHYSICS/REALISM RULES above — none of them may be violated. If any element breaks a rule
-(a body resting on the water, a wave breaking out to sea, a sail without a rider, contradictory shadows,
-an object floating with no support, wrong scale), rewrite that element so it complies. Do NOT output this
-check or any reasoning — output ONLY the two lines below.
-OUTPUT FORMAT — exactly THREE lines:
-Line 1: the image description paragraph (within the WORD BUDGET above, following the ORDER above).
-Line 2: "TAGS: " followed by 3 to 6 short lowercase keywords (the main subject, the place, the mood),
-comma-separated.
-Line 3: "CHARACTERS: " followed by the NAMES (from the CAST) of the named characters you ACTUALLY depicted in
-the image, comma-separated, in the same order they appear in the scene; write "none" if the image shows no
-named character. These names are for cataloguing only — they never appear in the image itself.
+(a body resting on the water, a wave breaking out to sea, a piece of equipment that needs an operator shown
+with none, contradictory shadows, an object floating with no support, wrong scale), rewrite that element so it complies. Do NOT output this
+check or any reasoning — output ONLY the format below.
+${outputFormatBlock}
 
 CHAPTER TITLE (strong hint for the iconic subject): ${input.chapterTitle?.trim() || "(none)"}
 ${card}
-${directives}
 ${extraDirection}
 CAST (the book's characters with their appearance — use the NAMES only to recognise who the passage is
 about; in the IMAGE render them by appearance, NEVER write their name; feature ONLY those present in the
@@ -581,14 +1191,15 @@ ${input.angle ? `COMPOSITION DIRECTIVE (follow this): ${input.angle}` : ""}
 SUBJECT MUST FIT ITS REAL CONTEXT: the iconic subject must belong to the moment you actually depict.
 - If you depict a WAKING, real scene, the subject must be PHYSICALLY PRESENT there. Do NOT drop into a waking
   scene an element that the text only DREAMS, remembers, expects, imagines or uses as a comparison/figure of
-  speech (e.g. do not put a real turtle swimming next to the character on the beach when the turtle only
-  appeared in his dream).
+  speech (e.g. do not place a real animal or object beside the character in a waking scene when it only
+  appeared in a dream, memory or comparison).
 - A DREAMED or REMEMBERED element MAY be the subject — but ONLY by depicting THAT dream/memory AS its own
   scene: frame the WHOLE image as the dream/memory (dreamlike, surreal or soft atmosphere; the dreamed content
-  fills the scene), not mixed into the awake reality. If the chapter's strongest image is a dream of a turtle
-  (or a monster, a place, a person), it is correct to illustrate that dream — as a dream.
+  fills the scene), not mixed into the awake reality. If the chapter's strongest image is a dream of a
+  creature (or a monster, a place, a person), it is correct to illustrate that dream — as a dream.
 - NEVER pick a word that merely SOUNDS like an object/animal but names a technique, move or concept (e.g. a
-  surf "turtle roll" is NOT a turtle): that is never a real subject.
+  sports move that borrows an animal's or object's name is NOT that animal or object): that is never a real
+  subject.
 - WHOSE dream/memory: a dream or memory belongs to the character who HAS it — usually the narrator / the "I"
   of a first-person passage, or the point-of-view character. If you depict that dream/memory, it is THAT
   person's; do NOT attribute it to, or feature as its protagonist, an unrelated bystander who merely appears
@@ -601,6 +1212,15 @@ ONLY for the chosen subject's specific action, pose, mood and concrete details �
 the card leaves out):
 ${passage || input.bookTitle || ""}`;
 
+  if (process.env.DBG_INPUT) {
+    console.error(
+      `[DBG_INPUT] total=${prompt.length} chars | passage=${passage.length} | directives=${directives.length} | cast=${cast.length} | card=${card.length} | physics=${physics.length}`,
+    );
+    if (process.env.DBG_INPUT === "full") {
+      console.error("\n----- FULL INPUT TO GPT -----\n" + prompt + "\n----- END INPUT -----\n");
+    }
+  }
+
   try {
     const raw = await engine.run(prompt);
     const lines = (raw ?? "")
@@ -608,15 +1228,10 @@ ${passage || input.bookTitle || ""}`;
       .split("\n")
       .map((l) => l.trim())
       .filter(Boolean);
-    // La riga TAGS (ovunque sia) → tag; TUTTE le altre righe → descrizione (il paragrafo lungo può
-    // andare a capo su più righe: le uniamo, così non si perde testo).
-    const tagLine = lines.find((l) => /^tags\s*:/i.test(l));
-    const charLine = lines.find((l) => /^characters\s*:/i.test(l));
-    const descLines = lines.filter((l) => !/^tags\s*:/i.test(l) && !/^characters\s*:/i.test(l));
-    const cleaned = descLines
-      .join(" ")
-      .replace(/^["'`]+|["'`]+$/g, "")
-      .trim();
+
+    const tagLine = lines.find(isTagsLine);
+    const charLine = lines.find(isCharsLine);
+    const cleaned = pickDescription(lines, structuredForGemini);
     const tags = tagLine
       ? tagLine
           .replace(/^tags\s*:/i, "")
@@ -630,6 +1245,7 @@ ${passage || input.bookTitle || ""}`;
           .filter((t) => t.length > 0 && t.length <= 30)
           .slice(0, 6)
       : [];
+
     const charNames = charLine
       ? charLine
           .replace(/^characters\s*:/i, "")
@@ -641,12 +1257,28 @@ ${passage || input.bookTitle || ""}`;
               .replace(/[."'`]+$/g, ""),
           )
           .filter((s) => s.length > 0 && s.length <= 30 && !/^none$/i.test(s))
+          .filter((s) => input.characters.some((c) => looseNameMatch(c.name, s)))
       : [];
     const seen = new Set<string>();
     const mergedTags = [...charNames, ...tags]
       .filter((t) => (seen.has(t) ? false : (seen.add(t), true)))
       .slice(0, 8);
-    if (cleaned.length >= 8) return { description: cleaned, tags: mergedTags };
+
+    const depicted: SceneCharacter[] = [];
+    for (const n of charNames) {
+      const c = input.characters.find((cc) => looseNameMatch(cc.name, n));
+      if (c && !depicted.includes(c)) depicted.push(c);
+    }
+    if (cleaned.length >= 8) {
+      const description = tailoredForZImage
+        ? cleaned
+        : appendCanonicalReminder(cleaned, input.characters, charNames);
+      const englishDescription = await translateImagePromptToEnglishPreserveStructure(
+        engine,
+        description,
+      );
+      return { description: englishDescription, tags: mergedTags, depicted };
+    }
     return fallbackScene(input);
   } catch (e) {
     if (e instanceof ContentError) return fallbackScene(input);
@@ -672,6 +1304,7 @@ export interface SceneSelectionInput {
   castNames: { name: string; role?: string | null }[];
   objectNames?: string[];
   directiveNames?: string[];
+  directiveGuidance?: string[];
 }
 
 function parseJsonArray(raw: string): unknown[] | null {
@@ -721,8 +1354,15 @@ export async function selectChapterScenes(
     input.castNames.map((c) => `- ${c.name}${c.role ? ` (${c.role})` : ""}`).join("\n") || "(none)";
   const objects =
     (input.objectNames ?? []).length > 0 ? (input.objectNames ?? []).join(", ") : "(none)";
+  const directiveGuidance = (input.directiveGuidance ?? [])
+    .map((d) => d.trim())
+    .filter((d) => d.length > 0);
   const directives =
-    (input.directiveNames ?? []).length > 0 ? (input.directiveNames ?? []).join(", ") : "(none)";
+    directiveGuidance.length > 0
+      ? directiveGuidance.join("\n\n")
+      : (input.directiveNames ?? []).length > 0
+        ? (input.directiveNames ?? []).join(", ")
+        : "(none)";
 
   const prompt = `You SELECT which scenes to illustrate for ONE chapter of a book, then hand each one to an image-prompt writer. A chapter holds several moments; choose the ${n} that make the STRONGEST, most distinct background images.
 Return EXACTLY ${n} scene(s), each a DISTINCT moment with a DIFFERENT subject — never two near-identical scenes.
@@ -744,7 +1384,9 @@ CAST (names + role; copy names EXACTLY, render only those truly in the chosen mo
 ${cast}
 OBJECTS (recurring canonical items; copy names EXACTLY; pick only those truly present in the moment):
 ${objects}
-DIRECTIVES available (themes that may apply to a moment): ${directives}
+CANONICAL VISUAL DIRECTIVES that may constrain WHICH moment is valid to choose. Apply them during scene
+selection, not only after choosing the moment:
+${directives}
 FULL CHAPTER TEXT:
 ${passage || input.bookTitle || ""}`;
 

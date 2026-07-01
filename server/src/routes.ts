@@ -1,10 +1,10 @@
 import { Hono } from "hono";
 import { getCookie } from "hono/cookie";
-import { pages } from "./db/repositories.js";
-import { pageSecretKeyFor } from "./domain.js";
 import * as auth from "./services/authService.js";
-import * as ig from "./facebook/instagramClient.js";
+import { pages } from "./db/repositories.js";
 import * as keyring from "./secrets/keyring.js";
+import * as ig from "./facebook/instagramClient.js";
+import { pageSecretKeyFor } from "./domain.js";
 import type { AppDeps, RouteContext } from "./routes/_shared.js";
 import { rateLimit } from "./routes/_shared.js";
 export type { AppDeps } from "./routes/_shared.js";
@@ -58,13 +58,12 @@ export function buildApi(deps: AppDeps): Hono {
     }
   }
 
-  // Recupera il token della pagina dal keyring dopo aver verificato che la pagina esista.
-  // Ritorna { token } in caso di successo, oppure { fail: {body, status} } da restituire con c.json.
-  async function resolvePageToken(
-    pageId: string,
-  ): Promise<
+  async function resolvePageToken(pageId: string): Promise<
     | { token: string; fail?: undefined }
-    | { token?: undefined; fail: { body: Record<string, unknown>; status: 404 | 503 } }
+    | {
+        token?: undefined;
+        fail: { body: Record<string, unknown>; status: 404 | 503 };
+      }
   > {
     const pg = await pages.find(pageId);
     if (!pg) return { fail: { body: { error: "Pagina non trovata" }, status: 404 } };
@@ -80,9 +79,6 @@ export function buildApi(deps: AppDeps): Hono {
     return { token: pageToken };
   }
 
-  // Risolve token di pagina + igUserId per gli endpoint Instagram. Se l'igUserId non e' ancora in
-  // cache lo risolve via Graph e lo memorizza. Ritorna { fail } da restituire con c.json se la
-  // pagina non esiste, il token manca, o la pagina non ha un account Instagram Business collegato.
   async function resolveIgContext(pageId: string): Promise<
     | { token: string; igUserId: string; fail?: undefined }
     | {
@@ -106,7 +102,9 @@ export function buildApi(deps: AppDeps): Hono {
     if (!igUserId) {
       return {
         fail: {
-          body: { error: "Nessun account Instagram Business collegato a questa Pagina." },
+          body: {
+            error: "Nessun account Instagram Business collegato a questa Pagina.",
+          },
           status: 503,
         },
       };

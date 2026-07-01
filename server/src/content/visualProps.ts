@@ -4,16 +4,12 @@ import { parseModelJson } from "./modelJson.js";
 import { languageName } from "./language.js";
 import type { BookVisualProps, DrivingSide } from "../domain.js";
 
-// Genera il CANONE degli OGGETTI/VEICOLI ricorrenti del libro (aspetto fisso da rendere sempre uguale,
-// es. l'auto di un personaggio = modello specifico) + i fatti del MONDO (paese, lato di guida).
-// Best-effort: ritorna null se il motore fallisce.
-
 export interface VisualPropsInput {
   bookTitle?: string | null;
   language: string;
-  settings: string[]; // luoghi/ambienti distinti dalle schede (contesto)
-  objects: string[]; // oggetti principali distinti dalle schede (per individuare ricorrenze)
-  characters: string[]; // nomi del cast (per legare un oggetto a un proprietario)
+  settings: string[];
+  objects: string[];
+  characters: string[];
 }
 
 const MAX_PROPS = 10;
@@ -43,10 +39,12 @@ Reply EXCLUSIVELY with a valid JSON object, no text before or after:
 
 RULES:
 - "props": 0 to ${MAX_PROPS} concrete, IMPORTANT and RECURRING OBJECTS or VEHICLES that must stay
-  IDENTICAL across images (typically: a character's CAR → specific make/model/color; a distinctive
-  object that recurs). For vehicles, state make+model+color if deducible from the text, otherwise
-  choose a plausible model and FIX it. Do NOT include generic scenery (tables, chairs), nor the
-  symbolic "red door" (handled elsewhere).
+  IDENTICAL across images (typically: a character's CAR, a distinctive object that recurs).
+  For the description: if the book EXPLICITLY names a specific make/model/brand, use it; if NOT
+  explicitly stated, use a STABLE GENERIC descriptor instead (e.g. "a small older hatchback, pale
+  blue" — NOT "a BMW 3 Series"). NEVER invent a specific brand/model when the text does not name one.
+  Do NOT include generic scenery (tables, chairs), nor purely symbolic/metaphorical objects (a motif that
+  stands for a theme rather than a concrete recurring prop).
 - "when": a few KEYWORDS (in ${language}) that will match the chapter card text
   (location/setting/objects), e.g. "car, road, driving".
 - "owner": the character the object belongs to (choose from the CAST), if applicable; otherwise "".

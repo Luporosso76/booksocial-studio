@@ -2,20 +2,6 @@ import { appConfig } from "../config.js";
 import { settings } from "../db/repositories.js";
 import * as keyring from "../secrets/keyring.js";
 
-// ============================================================================
-// CONFIGURAZIONE RUNTIME dei provider AI (testo + immagini), persistita e
-// pilotata dalle Impostazioni. La config NON-segreta vive nel DB (app_setting),
-// le CHIAVI nel keyring (secret-tool). Qui teniamo una CACHE IN-MEMORY SINCRONA
-// così che createEngine() / createImageEngine() possano leggere la config a
-// runtime senza await e senza riavvio del server.
-//
-// FALLBACK ENV: per ogni campo, il valore EFFETTIVO è quello salvato (DB/keyring)
-// ?? appConfig (env). Default app: testo opencode/openai/gpt-5.5, immagini local.
-//
-// SICUREZZA: le chiavi in cache sono in chiaro in memoria (servono a chiamare le
-// API). NON vanno MAI loggate né esposte via effectiveView() (solo boolean).
-// ============================================================================
-
 export interface TextCfg {
   provider: string;
   ollamaBaseUrl: string;
@@ -34,9 +20,10 @@ export interface ImageCfg {
   openaiBaseUrl: string;
   openaiImageModel: string;
   googleApiKey: string | null;
+  geminiApiKey: string | null;
   googleBaseUrl: string;
-  googleImageModel: string;
-  // Provider immagine dedicati (chiave propria + modello).
+  geminiImageModel: string;
+
   stabilityApiKey: string | null;
   stabilityImageModel: string;
   bflApiKey: string | null;
@@ -63,7 +50,7 @@ export interface ImageStyleCfg {
 export const STYLE_PROVIDERS = [
   "local",
   "openai",
-  "google",
+  "gemini",
   "stability",
   "bfl",
   "replicate",
@@ -97,7 +84,7 @@ export interface EffectiveView {
     openaiBaseUrl: string;
     googleBaseUrl: string;
     openaiImageModel: string;
-    googleImageModel: string;
+    geminiImageModel: string;
     stabilityImageModel: string;
     bflImageModel: string;
     replicateImageModel: string;
@@ -110,21 +97,21 @@ export interface EffectiveView {
   keys: {
     openai: boolean;
     google: boolean;
+    gemini: boolean;
     stability: boolean;
     bfl: boolean;
     replicate: boolean;
     fal: boolean;
   };
-  // Istruzioni-extra GLOBALI: testo APPEND-ONLY accodato ai prompt. "" = nessun extra.
+
   extra: {
     textPrompt: string;
     imagePrompt: string;
   };
+
   imageStyle: Record<string, ImageStyleCfg>;
 }
 
-// Patch accettata da save(): solo i campi NON-segreti, più le chiavi separate.
-// Per le chiavi: stringa => put, null => remove, assente (undefined) => invariata.
 export interface AiSettingsPatch {
   text?: {
     provider?: string;
@@ -142,7 +129,7 @@ export interface AiSettingsPatch {
     openaiBaseUrl?: string;
     googleBaseUrl?: string;
     openaiImageModel?: string;
-    googleImageModel?: string;
+    geminiImageModel?: string;
     stabilityImageModel?: string;
     bflImageModel?: string;
     replicateImageModel?: string;
@@ -155,24 +142,24 @@ export interface AiSettingsPatch {
   keys?: {
     openai?: string | null;
     google?: string | null;
+    gemini?: string | null;
     stability?: string | null;
     bfl?: string | null;
     replicate?: string | null;
     fal?: string | null;
   };
-  // Istruzioni-extra GLOBALI: stringa => salva (vuota = rimuove l'extra), assente => invariata.
+
   extra?: {
     textPrompt?: string;
     imagePrompt?: string;
   };
+
   imageStyle?: Record<string, Partial<ImageStyleCfg>>;
 }
 
-// ---------------------------------------------------------------------------
-// Chiavi app_setting (config non-segreta) e keyring (segreti).
-// ---------------------------------------------------------------------------
 const DB_KEYS = {
   textProvider: "ai.text.provider",
+
   openaiBaseUrl: "ai.text.openaiBaseUrl",
   googleBaseUrl: "ai.text.googleBaseUrl",
   ollamaBaseUrl: "ai.text.ollamaBaseUrl",
@@ -185,7 +172,7 @@ const DB_KEYS = {
   textFallbackModel: "ai.text.fallbackModel",
   imageProvider: "ai.image.provider",
   openaiImageModel: "ai.image.openaiImageModel",
-  googleImageModel: "ai.image.googleImageModel",
+  geminiImageModel: "ai.image.geminiImageModel",
   stabilityImageModel: "ai.image.stabilityImageModel",
   bflImageModel: "ai.image.bflImageModel",
   replicateImageModel: "ai.image.replicateImageModel",
@@ -194,8 +181,7 @@ const DB_KEYS = {
   codexImageModel: "ai.image.codexImageModel",
   imageFallback: "ai.image.fallbackProvider",
   imageFallbackModel: "ai.image.fallbackModel",
-  // Istruzioni-extra GLOBALI: testo APPEND-ONLY accodato a TUTTI i prompt POST/IMMAGINE.
-  // Non-segrete → app_setting. La controparte PER-LIBRO vive sulle colonne book.*_extra_instructions.
+
   textPromptExtra: "prompt.text.extra",
   imagePromptExtra: "prompt.image.extra",
 } as const;
@@ -203,16 +189,13 @@ const DB_KEYS = {
 const KEY_KEYS = {
   openai: "ai.key.openai",
   google: "ai.key.google",
+  gemini: "ai.key.gemini",
   stability: "ai.key.stability",
   bfl: "ai.key.bfl",
   replicate: "ai.key.replicate",
   fal: "ai.key.fal",
 } as const;
 
-// ---------------------------------------------------------------------------
-// CACHE IN-MEMORY. Mappa { chiave -> valore } caricata da DB + keyring.
-// undefined (chiave assente nella cache) => si applica il fallback env.
-// ---------------------------------------------------------------------------
 interface Cache {
   db: Map<string, string | null>;
   keys: Map<string, string | null>;
@@ -220,30 +203,25 @@ interface Cache {
 
 const cache: Cache = { db: new Map(), keys: new Map() };
 
-// Valore DB salvato per k, oppure il fallback fornito (env). Stringa vuota => fallback.
 function dbVal(k: string, fallback: string): string {
   const v = cache.db.get(k);
   return v != null && v !== "" ? v : fallback;
 }
 
-// Valore DB nullable: stringa salvata, oppure il fallback (che può essere null).
 function dbValNullable(k: string, fallback: string | null): string | null {
   const v = cache.db.get(k);
   return v != null && v !== "" ? v : fallback;
 }
 
-// Chiave segreta: valore in cache, oppure il fallback env (appConfig). Mai loggata.
 function keyVal(k: string, fallback: string | null): string | null {
   const v = cache.keys.get(k);
   return v != null && v !== "" ? v : fallback;
 }
 
-/**
- * Carica la config non-segreta (DB) e le chiavi (keyring) in memoria.
- * Va chiamata in index.ts PRIMA di createEngine() (await). È best-effort: se il
- * DB o il keyring non rispondono per una chiave, quel valore resta assente e si
- * applica il fallback env.
- */
+function normalizeImageProvider(provider: string): string {
+  return provider === "google" ? "gemini" : provider;
+}
+
 export async function load(): Promise<void> {
   const db = new Map<string, string | null>();
   for (const k of Object.values(DB_KEYS)) {
@@ -253,6 +231,7 @@ export async function load(): Promise<void> {
       db.set(k, null);
     }
   }
+
   for (const p of STYLE_PROVIDERS) {
     const k = imageStyleKey(p);
     try {
@@ -301,7 +280,6 @@ function mergeImageStyle(o: Record<string, unknown>): ImageStyleCfg {
   };
 }
 
-/** Config EFFETTIVA dello STILE immagine per un provider (cache ?? default). SINCRONA. */
 export function getImageStyle(provider: string): ImageStyleCfg {
   const raw = cache.db.get(imageStyleKey(provider));
   if (raw == null || raw === "") return { ...DEFAULT_IMAGE_STYLE };
@@ -310,13 +288,10 @@ export function getImageStyle(provider: string): ImageStyleCfg {
     if (parsed && typeof parsed === "object") {
       return mergeImageStyle(parsed as Record<string, unknown>);
     }
-  } catch {
-    return { ...DEFAULT_IMAGE_STYLE };
-  }
+  } catch {}
   return { ...DEFAULT_IMAGE_STYLE };
 }
 
-/** Config EFFETTIVA del motore TESTO (cache ?? env). SINCRONA. */
 export function getText(): TextCfg {
   return {
     provider: dbVal(DB_KEYS.textProvider, appConfig.contentProvider),
@@ -331,16 +306,16 @@ export function getText(): TextCfg {
   };
 }
 
-/** Config EFFETTIVA del motore IMMAGINI (cache ?? env). SINCRONA. */
 export function getImage(): ImageCfg {
   return {
-    provider: dbVal(DB_KEYS.imageProvider, appConfig.imageProvider),
+    provider: normalizeImageProvider(dbVal(DB_KEYS.imageProvider, appConfig.imageProvider)),
     openaiApiKey: keyVal(KEY_KEYS.openai, appConfig.openaiApiKey),
     openaiBaseUrl: dbVal(DB_KEYS.openaiBaseUrl, appConfig.openaiBaseUrl),
     openaiImageModel: dbVal(DB_KEYS.openaiImageModel, appConfig.openaiImageModel),
     googleApiKey: keyVal(KEY_KEYS.google, appConfig.googleApiKey),
+    geminiApiKey: keyVal(KEY_KEYS.gemini, appConfig.geminiApiKey),
     googleBaseUrl: dbVal(DB_KEYS.googleBaseUrl, appConfig.googleBaseUrl),
-    googleImageModel: dbVal(DB_KEYS.googleImageModel, appConfig.googleImageModel),
+    geminiImageModel: dbVal(DB_KEYS.geminiImageModel, appConfig.geminiImageModel),
     stabilityApiKey: keyVal(KEY_KEYS.stability, appConfig.stabilityApiKey),
     stabilityImageModel: dbVal(DB_KEYS.stabilityImageModel, appConfig.stabilityImageModel),
     bflApiKey: keyVal(KEY_KEYS.bfl, appConfig.bflApiKey),
@@ -351,15 +326,13 @@ export function getImage(): ImageCfg {
     falImageModel: dbVal(DB_KEYS.falImageModel, appConfig.falImageModel),
     agyImageModel: dbVal(DB_KEYS.agyImageModel, appConfig.agyImageModel),
     codexImageModel: dbVal(DB_KEYS.codexImageModel, appConfig.codexImageModel),
-    fallbackProvider: dbVal(DB_KEYS.imageFallback, appConfig.imageFallbackProvider),
+    fallbackProvider: normalizeImageProvider(
+      dbVal(DB_KEYS.imageFallback, appConfig.imageFallbackProvider),
+    ),
     fallbackModel: dbVal(DB_KEYS.imageFallbackModel, appConfig.imageFallbackModel),
   };
 }
 
-/**
- * Istruzioni-extra GLOBALI: testo APPEND-ONLY accodato a TUTTI i prompt POST/IMMAGINE.
- * SINCRONA (legge la cache). "" = nessun extra. La controparte per-libro sta sulle colonne book.
- */
 export function getPromptExtras(): { text: string; image: string } {
   return {
     text: dbVal(DB_KEYS.textPromptExtra, ""),
@@ -367,7 +340,6 @@ export function getPromptExtras(): { text: string; image: string } {
   };
 }
 
-/** Vista EFFETTIVA per l'API: SENZA i valori delle chiavi (solo boolean). */
 export function effectiveView(): EffectiveView {
   const t = getText();
   const i = getImage();
@@ -391,7 +363,7 @@ export function effectiveView(): EffectiveView {
       openaiBaseUrl: i.openaiBaseUrl,
       googleBaseUrl: i.googleBaseUrl,
       openaiImageModel: i.openaiImageModel,
-      googleImageModel: i.googleImageModel,
+      geminiImageModel: i.geminiImageModel,
       stabilityImageModel: i.stabilityImageModel,
       bflImageModel: i.bflImageModel,
       replicateImageModel: i.replicateImageModel,
@@ -404,6 +376,7 @@ export function effectiveView(): EffectiveView {
     keys: {
       openai: i.openaiApiKey != null && i.openaiApiKey !== "",
       google: i.googleApiKey != null && i.googleApiKey !== "",
+      gemini: i.geminiApiKey != null && i.geminiApiKey !== "",
       stability: i.stabilityApiKey != null && i.stabilityApiKey !== "",
       bfl: i.bflApiKey != null && i.bflApiKey !== "",
       replicate: i.replicateApiKey != null && i.replicateApiKey !== "",
@@ -417,7 +390,6 @@ export function effectiveView(): EffectiveView {
   };
 }
 
-// Mappa campo-patch -> chiave app_setting per la sezione testo.
 const TEXT_FIELD_KEYS: Record<string, string> = {
   provider: DB_KEYS.textProvider,
   ollamaBaseUrl: DB_KEYS.ollamaBaseUrl,
@@ -435,7 +407,7 @@ const IMAGE_FIELD_KEYS: Record<string, string> = {
   openaiBaseUrl: DB_KEYS.openaiBaseUrl,
   googleBaseUrl: DB_KEYS.googleBaseUrl,
   openaiImageModel: DB_KEYS.openaiImageModel,
-  googleImageModel: DB_KEYS.googleImageModel,
+  geminiImageModel: DB_KEYS.geminiImageModel,
   stabilityImageModel: DB_KEYS.stabilityImageModel,
   bflImageModel: DB_KEYS.bflImageModel,
   replicateImageModel: DB_KEYS.replicateImageModel,
@@ -446,11 +418,6 @@ const IMAGE_FIELD_KEYS: Record<string, string> = {
   fallbackModel: DB_KEYS.imageFallbackModel,
 };
 
-/**
- * Persiste la patch: campi non-segreti nel DB (app_setting), chiavi nel keyring
- * (stringa => put, null => remove, assente => invariata). Poi RICARICA la cache e
- * ritorna la vista effettiva (SENZA i valori delle chiavi).
- */
 export async function save(patch: AiSettingsPatch): Promise<EffectiveView> {
   if (patch.text) {
     for (const [field, dbKey] of Object.entries(TEXT_FIELD_KEYS)) {
@@ -471,7 +438,7 @@ export async function save(patch: AiSettingsPatch): Promise<EffectiveView> {
   if (patch.keys) {
     for (const [name, dbKey] of Object.entries(KEY_KEYS)) {
       const v = (patch.keys as Record<string, unknown>)[name];
-      if (v === undefined) continue; // assente => invariata
+      if (v === undefined) continue;
       if (v === null) {
         await keyring.remove(dbKey);
       } else if (typeof v === "string") {
@@ -480,7 +447,6 @@ export async function save(patch: AiSettingsPatch): Promise<EffectiveView> {
     }
   }
   if (patch.extra) {
-    // Stringa => salva (anche "" → svuota l'extra); assente => invariata.
     if (typeof patch.extra.textPrompt === "string") {
       await settings.set(DB_KEYS.textPromptExtra, patch.extra.textPrompt.trim());
     }
@@ -500,16 +466,10 @@ export async function save(patch: AiSettingsPatch): Promise<EffectiveView> {
   return effectiveView();
 }
 
-// ---------------------------------------------------------------------------
-// LISTA MODELLI per-provider, gestita da DB (chiave `ai.models.<provider>`,
-// valore JSON array di stringhe). Letta/scritta on-demand via settings.get/set
-// (NON passa dalla cache in-memory sincrona: sono operazioni async occasionali).
-// ---------------------------------------------------------------------------
 function modelsKey(provider: string): string {
   return `ai.models.${provider}`;
 }
 
-/** Lista modelli salvata per il provider (best-effort: [] se assente o JSON non valido). */
 export async function getModels(provider: string): Promise<string[]> {
   let raw: string | null = null;
   try {
@@ -526,7 +486,6 @@ export async function getModels(provider: string): Promise<string[]> {
   }
 }
 
-/** Aggiunge un modello (trim + dedup), salva l'array e lo ritorna. */
 export async function addModel(provider: string, model: string): Promise<string[]> {
   const trimmed = model.trim();
   const list = await getModels(provider);
@@ -537,7 +496,6 @@ export async function addModel(provider: string, model: string): Promise<string[
   return list;
 }
 
-/** Rimuove un modello, salva l'array risultante e lo ritorna. */
 export async function removeModel(provider: string, model: string): Promise<string[]> {
   const trimmed = model.trim();
   const list = await getModels(provider);

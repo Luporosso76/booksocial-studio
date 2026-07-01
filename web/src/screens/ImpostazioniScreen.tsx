@@ -27,13 +27,13 @@ import {
   getQaCheck,
   setQaCheck,
   getAiSettings,
-  updateAiSettings,
+  saveAiSettings,
   testAiText,
   testAiImage,
   listAiModels,
   addAiModel,
   removeAiModel,
-  getCliStatus,
+  aiCliStatus,
   type AiTestResult,
 } from "@/api/endpoints";
 import type {
@@ -164,7 +164,7 @@ const IMAGE_PROVIDERS: AiImageProvider[] = [
   "local",
   "agy",
   "openai",
-  "google",
+  "gemini",
   "stability",
   "bfl",
   "replicate",
@@ -177,7 +177,7 @@ const IMAGE_FALLBACKS: AiImageFallback[] = [
   "local",
   "agy",
   "openai",
-  "google",
+  "gemini",
   "stability",
   "bfl",
   "replicate",
@@ -213,9 +213,9 @@ const DEFAULT_STYLE: ImageStyleCfg = {
 };
 
 // Quale provider usa quale "famiglia" di chiave (per badge + invio chiavi).
-type KeyName = "openai" | "google" | "stability" | "bfl" | "replicate" | "fal";
+type KeyName = "openai" | "gemini" | "stability" | "bfl" | "replicate" | "fal";
 
-const ALL_KEY_NAMES: KeyName[] = ["openai", "google", "stability", "bfl", "replicate", "fal"];
+const ALL_KEY_NAMES: KeyName[] = ["openai", "gemini", "stability", "bfl", "replicate", "fal"];
 
 function ImageStyleBlock({
   title,
@@ -344,7 +344,7 @@ function AiProvidersCard({ section }: { section: "text" | "image" }) {
   // Input chiavi: '' = invariata. Tracciamo separatamente quali sono state "rimosse".
   const emptyKeyRecord = (): Record<KeyName, string> => ({
     openai: "",
-    google: "",
+    gemini: "",
     stability: "",
     bfl: "",
     replicate: "",
@@ -352,7 +352,7 @@ function AiProvidersCard({ section }: { section: "text" | "image" }) {
   });
   const emptyRemovedRecord = (): Record<KeyName, boolean> => ({
     openai: false,
-    google: false,
+    gemini: false,
     stability: false,
     bfl: false,
     replicate: false,
@@ -424,7 +424,7 @@ function AiProvidersCard({ section }: { section: "text" | "image" }) {
 
     setSaving(true);
     try {
-      await updateAiSettings(patch);
+      await saveAiSettings(patch);
       toast.success(t("settings.ai.saved"));
       state.reload();
     } catch (err) {
@@ -612,7 +612,7 @@ function AiProvidersCard({ section }: { section: "text" | "image" }) {
                     />
                   </>
                 )}
-                {image.provider === "google" && (
+                {image.provider === "gemini" && (
                   <>
                     <Field label={t("settings.ai.baseUrl")}>
                       <Input
@@ -621,17 +621,17 @@ function AiProvidersCard({ section }: { section: "text" | "image" }) {
                       />
                     </Field>
                     <ModelSelectField
-                      provider="google"
-                      value={image.googleImageModel}
-                      onChange={(v) => setImageField("googleImageModel", v)}
+                      provider="gemini"
+                      value={image.geminiImageModel}
+                      onChange={(v) => setImageField("geminiImageModel", v)}
                       editable
                     />
                     <ApiKeyField
                       label={t("settings.ai.apiKey")}
-                      configured={keyConfigured("google")}
-                      value={keyInputs.google}
-                      onChange={(v) => onKeyInput("google", v)}
-                      onRemove={() => removeKey("google")}
+                      configured={keyConfigured("gemini")}
+                      value={keyInputs.gemini}
+                      onChange={(v) => onKeyInput("gemini", v)}
+                      onRemove={() => removeKey("gemini")}
                     />
                   </>
                 )}
@@ -1032,7 +1032,7 @@ function CliProviderSection({
   async function check() {
     setLoading(true);
     try {
-      setStatus(await getCliStatus(tool));
+      setStatus(await aiCliStatus(tool));
     } catch {
       setStatus({ tool, installed: false, version: null });
     } finally {
@@ -1043,7 +1043,7 @@ function CliProviderSection({
   useEffect(() => {
     let active = true;
     setLoading(true);
-    getCliStatus(tool)
+    aiCliStatus(tool)
       .then((res) => {
         if (active) setStatus(res);
       })
@@ -1313,7 +1313,7 @@ function PromptExtrasCard() {
   async function save() {
     setSaving(true);
     try {
-      await updateAiSettings({ extra: { textPrompt, imagePrompt } });
+      await saveAiSettings({ extra: { textPrompt, imagePrompt } });
       toast.success(t("settings.ai.saved"));
       state.reload();
     } catch (err) {

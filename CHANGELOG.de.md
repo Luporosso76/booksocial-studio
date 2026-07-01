@@ -5,6 +5,28 @@ Alle wesentlichen Änderungen an diesem Projekt werden in dieser Datei dokumenti
 Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2026-07-01
+
+### Hinzugefügt
+- **Gemini-Bildanbieter (Nano Banana)**: ein neuer Bildanbieter `gemini`, der die Google-API `:generateContent` nutzt, mit dediziertem API-Schlüssel, live vom Anbieter abgerufener Modellliste und bildanbieterspezifischem Stil.
+- **Modellbewusste Bild-Prompts**: die Text-KI schreibt den Bild-Prompt nun gezielt für das Zielmodell — ein strukturierter, in Abschnitte gegliederter Prompt für Gemini, ein einzelner kompakter, positiver Absatz für die lokale Z-Image-Engine oder der Standardabsatz — für bessere Ergebnisse je Engine.
+- **Freier Bildgenerator**: buchunabhängige Endpunkte zur Bilderzeugung (erzeugen / Status / Datei / abbrechen).
+- **Live-Modelllisten**: für die Bildanbieter Gemini und OpenAI wird die Modellliste über die Anbieter-API abgerufen (mit minimalem Offline-Fallback) statt einer fest codierten Liste.
+- **Bildanbieterspezifischer Stil**: Medium/Intensität/Farbintensität (und für die lokale Engine steps/cfg) werden je Anbieter konfiguriert, mit unabhängigem Primär- und Fallback-Stil.
+- **Mehrsprachige Erscheinungsabdeckung**: die Deduplizierung der kanonischen Figurenmerkmale funktioniert nun für Bücher auf Italienisch, Englisch, Französisch, Spanisch und Deutsch.
+
+### Geändert
+- **Buchunabhängiger Prompt-Code**: sämtliche buch- oder domänenspezifischen visuellen Inhalte wurden aus dem Quellcode entfernt; visuelle Direktiven, Figurenaussehen, Kleidung und Ausrüstung liegen nun ausschließlich in der Datenbank und sind die einzige Quelle für den Aufbau der Bild-Prompts. Der fest codierte Seed der visuellen Direktiven und das alte `VISUAL_DOMAINS`-System wurden entfernt.
+- **Bildanbieter `google` → `gemini`**: die alte Imagen-Engine (`:predict`) und das tote Feld `googleImageModel` wurden entfernt.
+- **Z-Image-Prompts**: kompakt, ausschließlich positiv (um Negationsartefakte bei niedriger Guidance zu vermeiden) und mit Subjekt, Pose und Ausrüstung am Anfang, für ein besseres lokales Rendering.
+- **Prompt-Übersetzung**: Bild-Prompts werden nun ins Englische übersetzt, wobei die Ausgangssprache automatisch erkannt wird (jede Sprache → Englisch).
+
+### Behoben
+- **Gemini-Prompt-Profil** nach Modellfamilie (flash/pro) statt nach exakter Version geroutet.
+- **Timeout** bei der Anfrage der Gemini-Modellliste.
+- **Sichtbarer Fallback** (nicht mehr stillschweigend), wenn die Übersetzung des Bild-Prompts nicht verfügbar ist.
+- Kleinere Robustheit: numerisches Parsen von `dashboardHidden`; Bereinigung der Job-Map des freien Generators.
+
 ## [0.5.5] - 2026-06-28
 
 ### Hinzugefügt

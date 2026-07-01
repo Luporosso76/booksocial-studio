@@ -1,28 +1,24 @@
 import { randomUUID } from "node:crypto";
 import { join } from "node:path";
 import { mediaDir } from "../paths.js";
-import { books, characters, media, settings } from "../db/repositories.js";
+import { books, characters, media, settings, visualDirectives } from "../db/repositories.js";
 import type { ContentEngine } from "../content/engine.js";
 import {
   buildSceneDescription,
   selectChapterScenes,
   type SceneFlashback,
+  type SceneCharacter,
   type SceneSelection,
 } from "../content/imagePrompt.js";
 import * as aiSettings from "../content/aiSettings.js";
-import {
-  applyStyleForProvider,
-  buildScenePrompt,
-  generateSceneImage,
-  imageGenAvailable,
-  type SceneAspect,
-} from "../media/imageGen.js";
+import { applyStyleForProvider, buildScenePrompt, type SceneAspect } from "../media/imageGen.js";
+import { createImageEngine, imagePromptProfile } from "../media/imageEngine.js";
 import { verifySceneImage } from "../content/visionCheck.js";
 import { appConfig } from "../config.js";
 import type { ChapterSceneService } from "./chapterSceneService.js";
-import type { BookCharacter, ChapterScene } from "../domain.js";
+import type { BookCharacter, ChapterScene, VisualDirective } from "../domain.js";
+import { anyKeywordMatches } from "../content/imageDomains.js";
 
-// Confronto lasco fra nomi (scheda vs cast): "Marco" combacia con "Marco Romidi".
 function namesMatch(a: string, b: string): boolean {
   const x = a.toLowerCase().trim();
   const y = b.toLowerCase().trim();
@@ -65,14 +61,231 @@ function pruneChapterPhysics(
   if (droppedToks.length === 0) return rules.slice();
   return rules.filter((rule) => {
     if (!droppedToks.some((t) => mentionsWord(rule, t))) return true;
+
     return [...selectedToks].some((t) => mentionsWord(rule, t));
   });
 }
 
-// LIVELLO 1: sceglie i personaggi ELEGGIBILI per il capitolo, così il prompt non riceve l'intero
-// cast ma solo chi è davvero presente. Priorità: (1) la scheda visiva del capitolo se elenca
-// personaggi; (2) le metriche NLP (book_character.chapters); (3) fallback = tutti (NLP assente).
-// Il PROTAGONISTA è sempre eleggibile: è narratore in prima persona e l'NLP lo conta poco.
+const SCENE_VARIETY_STOP = new Set([
+  "about",
+  "after",
+  "along",
+  "also",
+  "away",
+  "because",
+  "behind",
+  "beside",
+  "between",
+  "camera",
+  "clear",
+  "close",
+  "color",
+  "coloured",
+  "colored",
+  "down",
+  "each",
+  "eyes",
+  "face",
+  "from",
+  "front",
+  "into",
+  "light",
+  "little",
+  "medium",
+  "near",
+  "other",
+  "over",
+  "scene",
+  "shot",
+  "side",
+  "skin",
+  "slightly",
+  "still",
+  "their",
+  "there",
+  "toward",
+  "under",
+  "very",
+  "view",
+  "where",
+  "while",
+  "with",
+  "without",
+  "italian",
+  "italiano",
+  "roman",
+  "romano",
+  "mediterranean",
+  "person",
+  "people",
+  "woman",
+  "women",
+  "adult",
+  "young",
+  "years",
+  "year",
+  "tall",
+  "short",
+  "hair",
+  "brown",
+  "dark",
+  "olive",
+  "athletic",
+  "build",
+  "lean",
+  "circa",
+  "anni",
+  "pelle",
+  "uomo",
+  "donna",
+  "volto",
+  "capelli",
+  "castano",
+  "olivastra",
+  "chiara",
+]);
+
+function sceneVarietyTokens(text: string): string[] {
+  return text
+    .toLowerCase()
+    .split(/[^a-zà-ù0-9]+/i)
+    .map((t) => t.trim())
+    .filter((t) => t.length >= 4 && !SCENE_VARIETY_STOP.has(t));
+}
+
+function addWeightedTokens(
+  weights: Map<string, number>,
+  text: string | null | undefined,
+  weight: number,
+): void {
+  if (!text || text.trim() === "") return;
+  for (const token of sceneVarietyTokens(text)) {
+    weights.set(token, Math.max(weights.get(token) ?? 0, weight));
+  }
+}
+
+function sceneSelectionWeights(scene: SceneSelection): Map<string, number> {
+  const weights = new Map<string, number>();
+  addWeightedTokens(weights, scene.brief, 1);
+  addWeightedTokens(weights, scene.characters.join(" "), 1);
+  addWeightedTokens(weights, scene.framing, 2);
+  addWeightedTokens(weights, scene.mood, 2);
+  addWeightedTokens(weights, scene.objects.join(" "), 4);
+  addWeightedTokens(weights, scene.subject, 5);
+  return weights;
+}
+
+function sceneDirectiveHaystack(card: ChapterScene | null, passage: string): string {
+  return [
+    card?.keyMoment ?? "",
+    card?.location ?? "",
+    card?.environment ?? "",
+    ...(card?.mainObjects ?? []),
+    ...(card?.secondaryObjects ?? []),
+    passage,
+  ]
+    .join(" ")
+    .toLowerCase();
+}
+
+function compactDirectiveForSceneSelection(d: VisualDirective): string | null {
+  const body = (d.bodyEn ?? d.body ?? "")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+  if (body === "") return d.title.trim() !== "" ? `- ${d.title}` : null;
+  const max = 5_200;
+  if (body.length <= max) return `- ${d.title}:\n${body}`;
+  const half = Math.floor(max / 2);
+  return `- ${d.title}:\n${body.slice(0, half).trimEnd()}\n...\n${body.slice(-half).trimStart()}`;
+}
+
+function directiveGuidanceForSceneSelection(
+  directives: readonly VisualDirective[],
+  card: ChapterScene | null,
+  passage: string,
+): string[] {
+  const haystack = sceneDirectiveHaystack(card, passage);
+  const out: string[] = [];
+  for (const d of directives) {
+    if (!d.enabled) continue;
+    const alwaysOn = d.triggers.length === 0;
+    if (!alwaysOn && !anyKeywordMatches(haystack, d.triggers)) continue;
+    const text = compactDirectiveForSceneSelection(d);
+    if (text) out.push(text);
+  }
+  return out;
+}
+
+function normalizedPhrase(text: string): string {
+  return sceneVarietyTokens(text).join(" ");
+}
+
+export function pickLeastRepeatedSceneSelection(
+  scenes: readonly SceneSelection[],
+  existingPromptTexts: readonly string[],
+): SceneSelection | null {
+  if (scenes.length === 0) return null;
+  const history = existingPromptTexts
+    .map((text) => text.trim())
+    .filter((text) => text !== "")
+    .map((text) => ({ raw: text.toLowerCase(), tokens: new Set(sceneVarietyTokens(text)) }));
+  if (history.length === 0) return scenes[0] ?? null;
+
+  let best = scenes[0]!;
+  let bestScore = Number.POSITIVE_INFINITY;
+  for (const scene of scenes) {
+    const weights = sceneSelectionWeights(scene);
+    const subjectPhrase = normalizedPhrase(scene.subject);
+    let score = 0;
+    for (const seen of history) {
+      for (const [token, weight] of weights) {
+        if (seen.tokens.has(token)) score += weight;
+      }
+      if (subjectPhrase.length >= 8 && seen.raw.includes(subjectPhrase)) score += 20;
+    }
+    if (score < bestScore) {
+      best = scene;
+      bestScore = score;
+    }
+  }
+  return best;
+}
+
+function buildHardConstraints(
+  depicted: readonly SceneCharacter[],
+  flashback?: SceneFlashback | null,
+): string[] {
+  const out: string[] = [];
+  for (const c of depicted) {
+    const eth = (c.ethnicity ?? "").trim();
+
+    let age = (c.age ?? "").trim();
+    if (flashback) {
+      const nm = c.name.toLowerCase().trim();
+      const abs = (flashback.characterAges ?? []).find((a) => {
+        const x = (a.name ?? "").toLowerCase().trim();
+        return x !== "" && (x === nm || x.includes(nm) || nm.includes(x));
+      });
+      if (abs) {
+        age = `about ${abs.age}`;
+      } else if (flashback.youngerYears && flashback.youngerYears > 0) {
+        const canon = parseInt(age.replace(/[^0-9]/g, ""), 10);
+        age = Number.isFinite(canon) ? `about ${Math.max(0, canon - flashback.youngerYears)}` : "";
+      } else {
+        age = "";
+      }
+    }
+    const sig = (c.outfits?.signature ?? "").trim();
+    const traits = [eth ? `ethnicity ${eth}` : "", age ? `age ${age}` : ""]
+      .filter(Boolean)
+      .join(", ");
+    if (traits) out.push(`a person shown must match ${traits}`);
+    if (sig) out.push(`a person shown must visibly wear ${sig} (their ALWAYS signature item)`);
+  }
+  return out;
+}
+
 function pickCastForChapter(
   chars: BookCharacter[],
   chapterIndex: number,
@@ -80,6 +293,8 @@ function pickCastForChapter(
   featureCharacters?: readonly string[] | null,
 ): BookCharacter[] {
   if (chars.length === 0) return [];
+  const requested = resolveWanted(chars, featureCharacters ?? []);
+  if (requested.length > 0) return requested;
   const protagIdx = chars.findIndex((c) => /protagon|principale|\bmain\b/i.test(c.role ?? ""));
   const protagonist = chars[protagIdx >= 0 ? protagIdx : 0]!;
   const cardNames = (card?.characters ?? []).map((n) => n.trim()).filter((n) => n.length > 0);
@@ -92,8 +307,7 @@ function pickCastForChapter(
     picked = haveNlp ? chars.filter((c) => c.chapters.includes(chapterIndex)) : chars.slice();
   }
   if (!picked.some((c) => c.id === protagonist.id)) picked = [protagonist, ...picked];
-  // "Genera per personaggio" (MULTI): GARANTISCE che OGNI personaggio richiesto sia tra gli eleggibili
-  // anche se i filtri (scheda/NLP) lo escluderebbero, così il prompt li conosce e può featurarli.
+
   for (const name of featureCharacters ?? []) {
     if (!name || name.trim() === "") continue;
     const wanted = chars.find((c) => namesMatch(c.name, name));
@@ -102,8 +316,6 @@ function pickCastForChapter(
   return picked;
 }
 
-// Risolve una lista di nomi richiesti (dal cast) nei rispettivi BookCharacter, dedup per id e
-// nell'ordine d'ingresso. Nomi che non combaciano con nessuno del cast vengono ignorati.
 function resolveWanted(chars: BookCharacter[], names: readonly string[]): BookCharacter[] {
   const out: BookCharacter[] = [];
   for (const name of names) {
@@ -113,10 +325,6 @@ function resolveWanted(chars: BookCharacter[], names: readonly string[]): BookCh
   }
   return out;
 }
-
-// Orchestratore: da un libro produce UNA immagine di scena (illustrazione graphic-novel) e la
-// salva come media_asset (scope GENERAL = upload riusabile), così entra nel matching aspect e
-// può fare da sfondo a card/reel/storia, oltre a servire da pool/fallback.
 
 export interface SceneImageDeps {
   engine: ContentEngine;
@@ -133,40 +341,30 @@ export interface SceneImageResult {
 export class SceneImageService {
   constructor(private readonly deps: SceneImageDeps) {}
 
-  // True se il motore locale (sd-cli + modello) è installato.
   available(): boolean {
-    return imageGenAvailable();
+    return createImageEngine().available();
   }
 
-  // Estratto di un capitolo SICURO (evita ultimi 2 = anti-spoiler e quelli da evitare).
   private async safeExcerpt(
     bookId: number,
     avoid: ReadonlySet<number>,
     prefer: number | null = null,
-    // "Genera per personaggio": se valorizzato, il pool dei capitoli si RESTRINGE a quelli in cui il
-    // personaggio compare (BookCharacter.chapters), intersecati con i capitoli sicuri quando possibile.
+
     restrictChapters: ReadonlySet<number> | null = null,
   ): Promise<{ text: string; chapterIndex: number; title: string | null } | null> {
     const chapters = await books.chapters(bookId);
     if (chapters.length === 0) return null;
-    // ESCLUSIONE capitoli: i capitoli esclusi (frontespizio/toggle) NON entrano nel pool di
-    // selezione random né nell'intersezione con restrictChapters. ECCEZIONE più sotto: un capitolo
-    // `prefer` esplicito viene onorato comunque (cerca su `chapters` interi, non sul pool eleggibile).
+
     const eligibleChapters = chapters.filter((ch) => !ch.excluded);
     const base = eligibleChapters.length > 0 ? eligibleChapters : chapters;
     const safe = base.slice(0, Math.max(0, base.length - 2));
     let pool = safe.length > 0 ? safe : base;
     if (restrictChapters && restrictChapters.size > 0) {
-      // Capitoli del personaggio ∩ sicuri; se vuoto (compare solo negli ultimi 2) ripiega ai suoi
-      // capitoli a prescindere dalla regola anti-spoiler — meglio illustrarlo che cadere su altro.
       const inSafe = pool.filter((ch) => restrictChapters.has(ch.index));
       const inAll = base.filter((ch) => restrictChapters.has(ch.index));
       pool = inSafe.length > 0 ? inSafe : inAll.length > 0 ? inAll : pool;
     }
-    // Capitolo PREFERITO (scelta esplicita: capitolo del post o capitolo scelto dall'utente in UI):
-    // se indicato ed esiste, l'immagine illustra PROPRIO quel capitolo — onorato anche se è uno
-    // degli ultimi (scelta deliberata; gli sfondi sono evocativi, non testo). Senza prefer: scelta
-    // variata ANTI-SPOILER (capitolo fresco tra quelli sicuri).
+
     let chosen = prefer != null ? (chapters.find((ch) => ch.index === prefer) ?? null) : null;
     if (!chosen) {
       const fresh = pool.filter((ch) => !avoid.has(ch.index));
@@ -176,51 +374,58 @@ export class SceneImageService {
     const clean = chosen.text.replace(/\s+/g, " ").trim();
     if (clean === "") return null;
     return {
-      // Passa il capitolo INTERO: GPT deve poter scegliere QUALE scena del capitolo illustrare
-      // (il cap a monte era 2000 → vedeva solo l'inizio). Il cap di sicurezza vero è in imagePrompt.
       text: clean,
       chapterIndex: chosen.index,
       title: chosen.title ?? null,
     };
   }
 
-  // Costruisce la DESCRIZIONE-scena (soggetto+scena) + tag per un capitolo, rifacendo la pipeline
-  // completa (excerpt → scheda visiva → cast eleggibile → buildSceneDescription) MA senza generare
-  // né salvare nulla. Riusato sia da generateForBook sia da buildPromptForChapter (no duplicazione).
   private async buildSceneForChapter(
     bookId: number,
     opts?: {
       angle?: string | null;
       avoidChapterIndexes?: number[];
       chapterIndex?: number | null;
-      // Nomi dei personaggi da FEATURARE (MULTI): ne restringe i capitoli all'UNIONE, li garantisce
-      // eleggibili e forza un angle che li rende prominenti. Assente/[] = comportamento normale.
+
       featureCharacters?: readonly string[] | null;
+
       flashback?: SceneFlashback | null;
+
       forceFlashback?: boolean;
+
       moment?: number | null;
+
       randomMoment?: boolean;
+      selectFreshScene?: boolean;
+      selectedScene?: SceneSelection | null;
       signal?: AbortSignal;
     },
-  ): Promise<{ description: string; tags: string[]; chapterIndex: number | null } | null> {
+  ): Promise<{
+    description: string;
+    tags: string[];
+    chapterIndex: number | null;
+    hardConstraints: string[];
+  } | null> {
     const avoid = new Set(opts?.avoidChapterIndexes ?? []);
     const features = (opts?.featureCharacters ?? []).map((n) => n.trim()).filter((n) => n !== "");
     const allChars = await characters.byBook(bookId);
-    // Se chiediamo dei personaggi: restringi il pool dei capitoli all'UNIONE di quelli dove compaiono
-    // (BookCharacter.chapters). I nomi non risolti vengono ignorati.
+
     const wanted = features.length > 0 ? resolveWanted(allChars, features) : [];
     const union = new Set<number>();
     for (const w of wanted) for (const ch of w.chapters) union.add(ch);
     const restrict = union.size > 0 ? union : null;
-    const [excerpt, book] = await Promise.all([
+    const [excerpt, book, directives] = await Promise.all([
       this.safeExcerpt(bookId, avoid, opts?.chapterIndex ?? null, restrict),
       books.get(bookId),
+      visualDirectives.byBook(bookId),
     ]);
-    // LIVELLO 2: scheda visiva del capitolo (cache o estrazione on-demand) come grounding del prompt.
+
     const baseCard =
       excerpt != null
         ? await this.deps.chapterScenes.getOrBuild(bookId, excerpt.chapterIndex)
         : null;
+    if (opts?.signal?.aborted) return null;
+
     let effMoment = opts?.moment ?? -1;
     const altCount = baseCard?.altMoments?.length ?? 0;
     if ((opts?.moment == null || opts.moment < 0) && opts?.randomMoment && altCount > 0) {
@@ -245,17 +450,14 @@ export class SceneImageService {
             altMoments: [],
           }
         : baseCard;
-    if (opts?.signal?.aborted) return null;
-    // LIVELLO 1: passa solo i personaggi presenti nel capitolo (+ protagonista), non l'intero cast.
-    // Con featureCharacters, quei personaggi sono GARANTITI tra gli eleggibili anche se i filtri li scartano.
+
     const eligible =
       excerpt != null
         ? pickCastForChapter(allChars, excerpt.chapterIndex, card, features)
         : allChars;
-    // Composition directive: se sono richiesti dei personaggi, ANTEPONI una direttiva che li featura in
-    // modo prominente (mai col nome, niente ritratto in posa né sguardo in camera), eventualmente
-    // integrando l'angle già passato dal chiamante.
+
     let angle = this.composeAngle(opts?.angle ?? null, wanted);
+
     let twoPassChars = eligible;
     let twoPassCard: ChapterScene | null = card;
     let twoPassProps = book?.visualProps;
@@ -268,20 +470,44 @@ export class SceneImageService {
       card?.kind !== "flashback" &&
       card?.kind !== "dream";
     if (defaultWaking && excerpt && features.length === 0) {
-      const sels = await selectChapterScenes(
-        this.deps.engine,
-        {
-          chapterTitle: excerpt.title,
-          chapterExcerpt: excerpt.text,
-          bookTitle: book?.title ?? null,
-          sceneCard: card,
-          castNames: eligible.map((c) => ({ name: c.name, role: c.role })),
-          objectNames: (book?.visualProps?.props ?? []).map((p) => p.name),
-          directiveNames: [],
-        },
-        1,
-      );
-      const sel = sels?.[0];
+      let sel = opts?.selectedScene ?? null;
+      if (!sel && opts?.selectFreshScene) {
+        const sels = await selectChapterScenes(
+          this.deps.engine,
+          {
+            chapterTitle: excerpt.title,
+            chapterExcerpt: excerpt.text,
+            bookTitle: book?.title ?? null,
+            sceneCard: card,
+            castNames: eligible.map((c) => ({ name: c.name, role: c.role })),
+            objectNames: (book?.visualProps?.props ?? []).map((p) => p.name),
+            directiveNames: directives.filter((d) => d.enabled).map((d) => d.title),
+            directiveGuidance: directiveGuidanceForSceneSelection(directives, card, excerpt.text),
+          },
+          8,
+        );
+        sel = pickLeastRepeatedSceneSelection(
+          sels ?? [],
+          await this.existingPromptTextsForChapter(bookId, excerpt.chapterIndex),
+        );
+      }
+      if (!sel) {
+        const sels = await selectChapterScenes(
+          this.deps.engine,
+          {
+            chapterTitle: excerpt.title,
+            chapterExcerpt: excerpt.text,
+            bookTitle: book?.title ?? null,
+            sceneCard: card,
+            castNames: eligible.map((c) => ({ name: c.name, role: c.role })),
+            objectNames: (book?.visualProps?.props ?? []).map((p) => p.name),
+            directiveNames: directives.filter((d) => d.enabled).map((d) => d.title),
+            directiveGuidance: directiveGuidanceForSceneSelection(directives, card, excerpt.text),
+          },
+          1,
+        );
+        sel = sels?.[0] ?? null;
+      }
       if (sel) {
         const chosen = eligible.filter((c) => sel.characters.some((nm) => namesMatch(c.name, nm)));
         twoPassChars = sel.characters.length === 0 ? [] : chosen.length > 0 ? chosen : eligible;
@@ -312,6 +538,16 @@ export class SceneImageService {
           angle = [angle, sel.framing].filter((s) => s && s.trim() !== "").join("; ");
       }
     }
+    const resolvedFlashback =
+      opts?.flashback ??
+      (opts?.forceFlashback || card?.kind === "flashback"
+        ? {
+            youngerYears: card?.youngerYears ?? undefined,
+            setting: card?.location ?? undefined,
+            characterAges: card?.characterAges ?? undefined,
+          }
+        : null);
+    const imageProfile = imagePromptProfile();
     const scene = await buildSceneDescription(this.deps.engine, {
       chapterExcerpt: twoPassExcerpt,
       chapterTitle: excerpt?.title ?? null,
@@ -326,43 +562,36 @@ export class SceneImageService {
       bookTitle: book?.title ?? null,
       angle,
       sceneCard: twoPassCard,
-      visualDomains: book?.visualDomains ?? [],
-      // Nel prompt va la traduzione EN (il modello rende meglio in inglese); fallback all'originale.
-      visualDirectives: book?.visualDirectivesEn ?? book?.visualDirectives ?? null,
+
+      directives,
       visualProps: twoPassProps,
       visualExtras: book?.visualExtras,
+
       extraInstructions: [aiSettings.getPromptExtras().image, book?.imageExtraInstructions]
         .map((s) => (s ?? "").trim())
         .filter((s) => s !== "")
         .join("\n\n"),
-      flashback:
-        opts?.flashback ??
-        (opts?.forceFlashback || card?.kind === "flashback"
-          ? {
-              youngerYears: card?.youngerYears ?? undefined,
-              setting: card?.location ?? undefined,
-              characterAges: card?.characterAges ?? undefined,
-            }
-          : null),
+
+      flashback: resolvedFlashback,
       dream: card?.kind === "dream",
+      imageProfile,
     });
     if (!scene) return null;
+
+    const hardConstraints = buildHardConstraints(scene.depicted, resolvedFlashback);
     return {
       description: scene.description,
       tags: scene.tags,
       chapterIndex: excerpt?.chapterIndex ?? null,
+      hardConstraints,
     };
   }
 
-  // Costruisce la composition directive quando si genera "per personaggio" (MULTI): featura i
-  // personaggi selezionati (per aspetto, mai col nome) in modo prominente, in interazione naturale con
-  // la scena. CAP a 3 personaggi per immagine (oltre diventa una folla illeggibile): se ne sono passati
-  // di più, ne featura i primi 3. Se è già passato un angle dal chiamante, lo integra anteponendo
-  // l'indicazione dei personaggi. Lista vuota → ritorna l'angle invariato (comportamento normale).
   private composeAngle(angle: string | null, wanted: readonly BookCharacter[]): string | null {
     if (wanted.length === 0) return angle;
     const MAX = 3;
     const featured = wanted.slice(0, MAX);
+
     const lookOf = (c: BookCharacter): string => {
       const eth = (c.ethnicity ?? "").trim();
       const age = (c.age ?? "").trim();
@@ -382,6 +611,8 @@ export class SceneImageService {
       const desc = look.length > 0 ? ` (render by appearance: ${look})` : "";
       directive =
         `Composition: this image MUST visibly contain this specific PERSON — they are REQUIRED in the frame; ` +
+        `ONLY this one person may appear: do NOT include any other person, named character, rescuer, victim, ` +
+        `partner, crowd member, bystander, duplicate or background figure. ` +
         `never render a scene without them, and even if this chapter has a strong iconic animal, object or ` +
         `landscape, that element may appear WITH them but must NOT replace them. FEATURE this character ` +
         `prominently${desc}, INTERACTING with ` +
@@ -393,6 +624,8 @@ export class SceneImageService {
       const list = featured.map(describe).join("; ");
       directive =
         `Composition: this image MUST visibly contain these ${featured.length} specific PEOPLE — they are ` +
+        `the ONLY people allowed in the frame: do NOT include any other named character, rescuer, victim, ` +
+        `partner, crowd member, bystander, duplicate or background figure. They are ` +
         `REQUIRED in the frame and must NOT be replaced by an iconic animal/object/landscape (which may ` +
         `appear WITH them). FEATURE these ${featured.length} characters TOGETHER in the frame ` +
         `(${list}), in a candid but RELAXED, NATURAL INTERACTION with each other or the scene (talking, ` +
@@ -405,10 +638,6 @@ export class SceneImageService {
     return angle && angle.trim() !== "" ? `${directive} ${angle.trim()}` : directive;
   }
 
-  // Costruisce SOLO il prompt finale (scena + STYLE_TAIL) per un capitolo, applicando la pipeline
-  // ATTUALE (e quindi tutte le regole correnti: fisica/realismo, postura windsurf, ecc.) — senza
-  // generare né inserire nulla. Serve alla rigenerazione "dal capitolo" (D-rebuild) per NON riusare
-  // il vecchio gen_prompt salvato. Ritorna null se il capitolo/motore non producono una scena.
   async buildPromptForChapter(
     bookId: number,
     chapterIndex: number,
@@ -416,16 +645,53 @@ export class SceneImageService {
       angle?: string | null;
       featureCharacters?: readonly string[] | null;
       flashback?: SceneFlashback | null;
+      selectedScene?: SceneSelection | null;
     },
   ): Promise<string | null> {
+    const data = await this.buildPromptDataForChapter(bookId, chapterIndex, opts);
+    return data?.prompt ?? null;
+  }
+
+  async buildPromptDataForChapter(
+    bookId: number,
+    chapterIndex: number,
+    opts?: {
+      angle?: string | null;
+      featureCharacters?: readonly string[] | null;
+      flashback?: SceneFlashback | null;
+      selectedScene?: SceneSelection | null;
+    },
+  ): Promise<{ prompt: string; tags: string[] } | null> {
     const scene = await this.buildSceneForChapter(bookId, {
       chapterIndex,
       ...(opts?.angle != null ? { angle: opts.angle } : {}),
       ...(opts?.featureCharacters != null ? { featureCharacters: opts.featureCharacters } : {}),
       ...(opts?.flashback != null ? { flashback: opts.flashback } : {}),
+      ...(opts?.selectedScene != null ? { selectedScene: opts.selectedScene } : {}),
     });
     if (!scene) return null;
-    return buildScenePrompt(scene.description);
+    return { prompt: buildScenePrompt(scene.description), tags: scene.tags };
+  }
+
+  async selectFreshSceneForChapter(
+    bookId: number,
+    chapterIndex: number,
+  ): Promise<SceneSelection | null> {
+    const scenes = await this.selectScenesForChapter(bookId, chapterIndex, 8);
+    if (!scenes || scenes.length === 0) return null;
+    return pickLeastRepeatedSceneSelection(
+      scenes,
+      await this.existingPromptTextsForChapter(bookId, chapterIndex),
+    );
+  }
+
+  private async existingPromptTextsForChapter(
+    bookId: number,
+    chapterIndex: number,
+  ): Promise<string[]> {
+    return (await media.byBook(bookId))
+      .filter((m) => m.chapterIdx === chapterIndex && m.genPrompt && m.genPrompt.trim() !== "")
+      .map((m) => [m.tags.join(" "), m.genPrompt ?? ""].filter((s) => s.trim() !== "").join("\n"));
   }
 
   async selectScenesForChapter(
@@ -433,9 +699,10 @@ export class SceneImageService {
     chapterIndex: number,
     count: number,
   ): Promise<SceneSelection[] | null> {
-    const [excerpt, book, allChars] = await Promise.all([
+    const [excerpt, book, directives, allChars] = await Promise.all([
       this.safeExcerpt(bookId, new Set<number>(), chapterIndex, null),
       books.get(bookId),
+      visualDirectives.byBook(bookId),
       characters.byBook(bookId),
     ]);
     if (!excerpt) return null;
@@ -444,6 +711,8 @@ export class SceneImageService {
     const objectNames = (book?.visualProps?.props ?? [])
       .map((p) => p.name)
       .filter((n) => n.trim() !== "");
+    const directiveNames = directives.filter((d) => d.enabled).map((d) => d.title);
+    const directiveGuidance = directiveGuidanceForSceneSelection(directives, card, excerpt.text);
     return selectChapterScenes(
       this.deps.engine,
       {
@@ -453,71 +722,71 @@ export class SceneImageService {
         sceneCard: card,
         castNames: eligible.map((c) => ({ name: c.name, role: c.role })),
         objectNames,
-        directiveNames: [],
+        directiveNames,
+        directiveGuidance,
       },
       count,
     );
   }
 
-  // Genera e salva una immagine di scena. Ritorna null se il motore non è disponibile o fallisce.
   async generateForBook(
     bookId: number,
     aspect: SceneAspect,
     opts?: {
       angle?: string | null;
       avoidChapterIndexes?: number[];
-      // Capitolo da illustrare (quello del post): se indicato, l'immagine viene generata su quel
-      // capitolo invece che su uno casuale, così lo sfondo AI è pertinente al post.
+
       chapterIndex?: number | null;
-      // "Genera per personaggio" (MULTI): nomi (dal cast) da featurare; restringe i capitoli all'UNIONE
-      // di quelli dove compaiono, li garantisce eleggibili e forza un angle che li rende prominenti.
+
       featureCharacters?: readonly string[] | null;
+
       flashback?: SceneFlashback | null;
+
       forceFlashback?: boolean;
+
       moment?: number | null;
+
       randomMoment?: boolean;
+      selectFreshScene?: boolean;
+      selectedScene?: SceneSelection | null;
       signal?: AbortSignal;
     },
   ): Promise<SceneImageResult | null> {
-    if (!imageGenAvailable() || opts?.signal?.aborted) return null;
+    if (!createImageEngine().available() || opts?.signal?.aborted) return null;
     const scene = await this.buildSceneForChapter(bookId, opts);
     if (!scene) return null;
 
     if (opts?.signal?.aborted) return null;
     const outPath = join(mediaDir(), `scene-${bookId}-${randomUUID()}.png`);
-    // Seed generato QUI (non dentro il backend) così possiamo PERSISTERLO: con stesso prompt+seed
-    // l'immagine è riproducibile. Vale per il backend locale sd-cli; i provider HTTP lo ignorano.
+
     const seed = Math.floor(Math.random() * 1_000_000_000);
-    const ok = await generateSceneImage({
-      subjectScene: scene.description,
+    const ok = await createImageEngine().generate({
+      prompt: buildScenePrompt(scene.description),
       aspect,
       outPath,
       seed,
-      signal: opts?.signal,
+      ...(opts?.signal ? { signal: opts.signal } : {}),
     });
     if (!ok) return null;
 
     const asset = await media.insert({
       bookId,
       chapterId: null,
-      scope: "GENERAL", // upload riusabile (NON 'GENERATED': dev'essere usabile come sfondo)
+      scope: "GENERAL",
       path: outPath,
-      caption: null, // caption PULITA: niente prompt nei campi user-facing
-      // Il prompt completo va nel campo dedicato gen_prompt (ispezionabile, non pubblicabile).
+      caption: null,
+
       genPrompt: applyStyleForProvider(
         buildScenePrompt(scene.description),
         aiSettings.getImage().provider,
       ),
-      chapterIdx: scene.chapterIndex, // capitolo di riferimento (catalogazione)
-      tags: scene.tags, // soggetti/mood (catalogazione + selezione per pertinenza)
-      seed, // seed di generazione (riproducibilità)
-      addedAt: Date.now(), // qa: default null; il verdetto QA è riempito sotto (best-effort)
+      chapterIdx: scene.chapterIndex,
+      tags: scene.tags,
+      seed,
+      addedAt: Date.now(),
     });
-    // QUALITY CHECK visivo: un modello multimodale GUARDA l'immagine e segnala i problemi.
-    // Best-effort: la QA è opzionale e NON deve mai far fallire la generazione (batch = solo flag,
-    // nessun auto-retry: quello è opt-in lato rigenerazione). Usa opencode direttamente via config.
+
     try {
-      // Gate globale: il controllo qualità si può disattivare dal pulsante in Impostazioni.
       if ((await settings.get("qa_enabled")) !== "off") {
         const verdict = await verifySceneImage({
           imagePath: outPath,
@@ -525,12 +794,12 @@ export class SceneImageService {
           binary: appConfig.opencodeBinary,
           model: appConfig.opencodeModel,
           timeoutMs: appConfig.visionTimeoutMs,
+
+          hardConstraints: scene.hardConstraints,
         });
         await media.setQa(asset.id, verdict);
       }
-    } catch {
-      /* QA best-effort: ignora qualunque errore */
-    }
+    } catch {}
     return { mediaId: asset.id, path: outPath, aspect, chapterIndex: scene.chapterIndex };
   }
 }

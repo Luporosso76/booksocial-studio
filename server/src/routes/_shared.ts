@@ -1,14 +1,19 @@
-import { type Context, type Next } from "hono";
+import type { Context, Next } from "hono";
 import { basename } from "node:path";
-import { type ContentEngine } from "../content/engine.js";
-import { ContentService } from "../services/contentService.js";
-import { WeekPlanner } from "../services/weekPlanner.js";
-import { Director } from "../media/director.js";
-import { SceneImageService } from "../services/sceneImageService.js";
-import { ChapterSceneService } from "../services/chapterSceneService.js";
-import { type SceneAspect } from "../media/imageGen.js";
 import { imageAspectRatio } from "../media/imageDimensions.js";
-import { CharacterOutfits, BookVisualProps, DrivingSide, BookVisualExtras } from "../domain.js";
+import type { SceneAspect } from "../media/imageGen.js";
+import type { ContentEngine } from "../content/engine.js";
+import type { ContentService } from "../services/contentService.js";
+import type { WeekPlanner } from "../services/weekPlanner.js";
+import type { Director } from "../media/director.js";
+import type { SceneImageService } from "../services/sceneImageService.js";
+import type { ChapterSceneService } from "../services/chapterSceneService.js";
+import type {
+  CharacterOutfits,
+  BookVisualProps,
+  DrivingSide,
+  BookVisualExtras,
+} from "../domain.js";
 
 export interface AppDeps {
   engine: ContentEngine;
@@ -23,11 +28,12 @@ export interface AppDeps {
 export interface RouteContext {
   deps: AppDeps;
   requireSecrets: () => void;
-  resolvePageToken: (
-    pageId: string,
-  ) => Promise<
+  resolvePageToken: (pageId: string) => Promise<
     | { token: string; fail?: undefined }
-    | { token?: undefined; fail: { body: Record<string, unknown>; status: 404 | 503 } }
+    | {
+        token?: undefined;
+        fail: { body: Record<string, unknown>; status: 404 | 503 };
+      }
   >;
   resolveIgContext: (pageId: string) => Promise<
     | { token: string; igUserId: string; fail?: undefined }
@@ -40,7 +46,6 @@ export interface RouteContext {
   runImageGenExclusive: (fn: () => Promise<void>) => Promise<void>;
 }
 
-// Normalizza l'input utente per gli oggetti/mondo del libro (PUT /books/:id).
 export function parseVisualPropsInput(v: unknown): BookVisualProps {
   const o = (v ?? {}) as Record<string, unknown>;
   const props = Array.isArray(o.props)
@@ -81,7 +86,6 @@ export function parseTriggersInput(v: unknown): string[] {
   return out;
 }
 
-// Normalizza l'input utente per i personaggi minori/incidentali del libro (PUT /books/:id).
 export function parseVisualExtrasInput(v: unknown): BookVisualExtras {
   const o = (v ?? {}) as Record<string, unknown>;
   const minors = Array.isArray(o.minors)
@@ -100,7 +104,6 @@ export function parseVisualExtrasInput(v: unknown): BookVisualExtras {
   return { minors };
 }
 
-// Normalizza l'input utente per gli abiti di un personaggio (PUT /characters/:id).
 export function parseOutfitsInput(v: unknown): CharacterOutfits {
   const o = (v ?? {}) as Record<string, unknown>;
   const def = typeof o.default === "string" && o.default.trim() !== "" ? o.default.trim() : null;
@@ -120,18 +123,65 @@ export function parseOutfitsInput(v: unknown): CharacterOutfits {
   return { default: def, contexts, signature: sig };
 }
 
+export async function jsonBody(c: Context): Promise<any> {
+  let raw: string;
+  try {
+    raw = await c.req.text();
+  } catch {
+    return {};
+  }
+  if (raw.trim() === "") return {};
+  try {
+    const v = JSON.parse(raw);
+    return v != null && typeof v === "object" ? v : {};
+  } catch {
+    throw Object.assign(new Error("invalid-json"), { httpStatus: 400 });
+  }
+}
+
 export const SCENE_ASPECTS: readonly SceneAspect[] = ["1:1", "4:5", "1.91:1", "9:16", "16:9"];
 export function isSceneAspect(v: unknown): v is SceneAspect {
   return typeof v === "string" && (SCENE_ASPECTS as readonly string[]).includes(v);
 }
 
-// Aspect SDXL dell'immagine dal suo ratio reale (per rigenerarla nella stessa forma).
+export const STYLE_PRESETS: Record<string, string> = {
+  none: "",
+  graphic_novel:
+    "comic book art style, graphic novel illustration, bold ink outlines, cel shading, cinematic light",
+  photo: "photorealistic, ultra detailed, natural lighting, sharp focus, 50mm photograph",
+  watercolor: "delicate watercolor painting, soft washes, textured paper, hand-painted",
+  anime: "anime style, manga illustration, clean linework, vibrant colors, studio quality",
+  render3d:
+    "3d render, pixar style, soft global illumination, subsurface scattering, highly detailed",
+};
+
+const SCENE_ASPECT_RATIOS: Record<SceneAspect, number> = {
+  "1:1": 1,
+  "4:5": 4 / 5,
+  "1.91:1": 1.91,
+  "9:16": 9 / 16,
+  "16:9": 16 / 9,
+};
+
+const CONTENT_SCENE_ASPECTS: readonly SceneAspect[] = ["1:1", "4:5", "1.91:1", "9:16"];
+
+function nearestContentSceneAspect(ratio: number): SceneAspect {
+  let best: SceneAspect = "1:1";
+  let bestDistance = Number.POSITIVE_INFINITY;
+  for (const aspect of CONTENT_SCENE_ASPECTS) {
+    const distance = Math.abs(Math.log(ratio / SCENE_ASPECT_RATIOS[aspect]));
+    if (distance < bestDistance) {
+      best = aspect;
+      bestDistance = distance;
+    }
+  }
+  return best;
+}
+
 export async function sceneAspectOfFile(path: string): Promise<SceneAspect> {
   const r = await imageAspectRatio(path);
   if (r == null) return "1:1";
-  if (r < 0.8) return "9:16";
-  if (r > 1.25) return "1.91:1";
-  return "1:1";
+  return nearestContentSceneAspect(r);
 }
 
 export function rateLimit(opts: { windowMs: number; max: number }) {
@@ -165,23 +215,6 @@ export function err(message: string): { error: string } {
   return { error: message };
 }
 
-export async function jsonBody(c: Context): Promise<any> {
-  let raw: string;
-  try {
-    raw = await c.req.text();
-  } catch {
-    return {};
-  }
-  if (raw.trim() === "") return {};
-  try {
-    const v = JSON.parse(raw);
-    return v != null && typeof v === "object" ? v : {};
-  } catch {
-    throw Object.assign(new Error("invalid-json"), { httpStatus: 400 });
-  }
-}
-
-// Regola d'uso link valida (always|sometimes|manual), altrimenti null.
 export function parseUsagePolicy(v: unknown): "always" | "sometimes" | "manual" | null {
   return v === "always" || v === "sometimes" || v === "manual" ? v : null;
 }

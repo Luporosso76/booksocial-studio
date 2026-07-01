@@ -965,7 +965,6 @@
       "keyConfigured": "configurata",
       "keyHint": "Lascia vuoto per non modificare la chiave esistente.",
       "removeKey": "Rimuovi",
-      "cliLoginNote": "Usa l'abbonamento/login del CLI (nessuna chiave necessaria).",
       "sharedOpenaiKey": "Usa la stessa chiave OpenAI configurata sopra.",
       "sharedGoogleKey": "Usa la stessa chiave Google configurata sopra.",
       "localImageNote": "Usa il motore locale (sd-cli). Configurazione via variabili d'ambiente.",
@@ -992,7 +991,6 @@
       "cliAuthenticate": "Autentica",
       "cliVerify": "Verifica",
       "cliOpenAndAuthorize": "Apri e autorizza",
-      "cliLoginGuide": "Completa il login nel browser/terminale, poi premi Verifica.",
       "cliModelOptional": "Modello (opzionale)",
       "cliModelPlaceholder": "Nome del modello del CLI (lascia vuoto per il default)",
       "imageModelHint": "Inserisci il nome del modello del provider.",
@@ -1009,13 +1007,14 @@
         "auto": "Automatico",
         "local": "Locale (sd-cli)",
         "openai": "OpenAI",
-        "google": "Google",
+        "gemini": "Gemini (Nano Banana)",
         "stability": "Stability AI",
         "bfl": "Black Forest Labs (FLUX)",
         "replicate": "Replicate",
         "fal": "fal.ai",
         "none": "Nessuno",
-        "agy": "Agy (agente)"
+        "agy": "Agy (agente)",
+        "codex": "Codex (agente)"
       },
       "fallbackText": "Fallback testo",
       "fallbackImage": "Fallback immagini",
@@ -1027,6 +1026,8 @@
       "agentImageNote": "Genera le immagini tramite il CLI agentico (nessuna chiave: usa il login del CLI).",
       "imageStyle": {
         "title": "Stile immagine",
+        "primaryTitle": "Stile immagine — principale",
+        "fallbackTitle": "Stile immagine — fallback",
         "description": "Stile applicato alle immagini generate con {{provider}}. Le modifiche valgono solo per il provider selezionato qui sopra.",
         "preset": "Preset di stile",
         "customStyle": "Stile personalizzato",
@@ -1385,28 +1386,6 @@
       "props": "Oggetti & mondo",
       "minors": "Personaggi minori",
       "presence": "Presenza personaggi"
-    }
-  },
-  "visualDomain": {
-    "sea_windsurf": {
-      "label": "Mare / windsurf / surf",
-      "description": "Regole per spiaggia, mare, onde e attrezzatura da windsurf/surf/kite: geometria della vela, postura del rider, posizione delle onde. Attive solo nei capitoli che mostrano davvero queste cose."
-    },
-    "red_door": {
-      "label": "Porta rossa / soglia simbolica",
-      "description": "La porta rossa ricorrente con design FISSO e sempre identico (lastra rossa Ferrari liscia, una maniglia bianca in legno, niente pannelli né buco serratura, sola in una radura). Attiva solo nei capitoli in cui la porta è davvero presente."
-    },
-    "spiritual_practice": {
-      "label": "Pratica spirituale (meditazione/reiki/yoga)",
-      "description": "Resa veritiera di meditazione, reiki, yoga, preghiera. Attiva solo nei capitoli in cui la pratica avviene davvero."
-    },
-    "film_set": {
-      "label": "Set cinematografico",
-      "description": "Resa di un set cinematografico reale (telecamere, luci, troupe, ciak). Attiva solo nei capitoli ambientati su un set."
-    },
-    "vehicles_places": {
-      "label": "Veicoli e luoghi (auto/ospedale/casa)",
-      "description": "Resa plausibile di auto su strade di lago/montagna, stanze d'ospedale, scene domestiche quiete. Attiva solo nei capitoli pertinenti."
     }
   },
   "bookDetail": {

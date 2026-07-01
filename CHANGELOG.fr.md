@@ -5,6 +5,28 @@ Toutes les modifications notables apportées à ce projet sont documentées dans
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 et ce projet respecte le [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2026-07-01
+
+### Ajouté
+- **Fournisseur d'images Gemini (Nano Banana)** : un nouveau fournisseur d'images `gemini` utilisant l'API Google `:generateContent`, avec une clé API dédiée, la liste des modèles récupérée en direct depuis le fournisseur et un style d'image par fournisseur.
+- **Prompts d'image adaptés au modèle** : l'IA de texte rédige désormais le prompt d'image spécifiquement pour le modèle cible — un prompt structuré en sections pour Gemini, un unique paragraphe compact et positif pour le moteur local Z-Image, ou le paragraphe par défaut — améliorant le rendu sur chaque moteur.
+- **Générateur d'image libre** : points d'accès de génération d'images indépendants du livre (générer / état / fichier / annuler).
+- **Listes de modèles en direct** : pour les fournisseurs d'images Gemini et OpenAI, la liste des modèles est récupérée depuis l'API du fournisseur (avec un repli minimal hors ligne) au lieu d'une liste codée en dur.
+- **Style d'image par fournisseur** : medium/intensité/vivacité (et pour le local steps/cfg) sont configurés par fournisseur, avec des styles principal et de repli indépendants.
+- **Couverture d'apparence multilingue** : la déduplication des traits canoniques du personnage fonctionne désormais pour les livres en italien, anglais, français, espagnol et allemand.
+
+### Modifié
+- **Code de prompt indépendant du livre** : tout contenu visuel spécifique à un livre ou à un domaine a été retiré du code source ; les directives visuelles, l'apparence des personnages, les vêtements et l'équipement résident désormais uniquement dans la base de données et sont la seule source utilisée pour construire les prompts d'image. Le seed codé en dur des directives visuelles et l'ancien système `VISUAL_DOMAINS` ont été supprimés.
+- **Fournisseur d'images `google` → `gemini`** : l'ancien moteur Imagen (`:predict`) et le champ mort `googleImageModel` ont été supprimés.
+- **Prompts Z-Image** : compacts, uniquement positifs (pour éviter les artefacts de négation à faible guidance) et avec le sujet, la pose et l'équipement en tête, pour un meilleur rendu local.
+- **Traduction des prompts** : les prompts d'image sont désormais traduits en anglais en détectant automatiquement la langue source (toute langue → anglais).
+
+### Corrigé
+- **Profil de prompt Gemini** routé par famille de modèle (flash/pro) au lieu d'une correspondance de version exacte.
+- **Timeout** sur la requête de liste des modèles Gemini.
+- **Repli visible** (plus silencieux) lorsque la traduction du prompt d'image n'est pas disponible.
+- Robustesse mineure : analyse numérique de `dashboardHidden` ; purge de la table des tâches du générateur libre.
+
 ## [0.5.5] - 2026-06-28
 
 ### Ajouté

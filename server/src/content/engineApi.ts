@@ -2,10 +2,6 @@ import { appConfig } from "../config.js";
 import type { TextCfg } from "./aiSettings.js";
 import { ContentError, type ContentEngine } from "./engine.js";
 
-// Provider via API HTTP (NIENTE SDK, niente dipendenze): usano la global `fetch` (Node 20+).
-// Ricevono SOLO testo (scheda libro / prompt), mai token applicativi.
-
-// AbortController condiviso: applica `appConfig.engineTimeoutMs` a una `fetch`.
 async function fetchWithTimeout(
   url: string,
   init: RequestInit,
@@ -25,11 +21,6 @@ async function fetchWithTimeout(
   }
 }
 
-/**
- * Motore OpenAI-compatibile PARAMETRICO: copre OpenAI, OpenRouter/Groq/LMStudio/vLLM
- * ("openai-compatible" con OPENAI_BASE_URL custom) e Ollama locale (apiKey=null).
- * POST `${baseURL}/chat/completions`; se `apiKey` è non-null aggiunge `Authorization: Bearer`.
- */
 export class OpenAICompatibleEngine implements ContentEngine {
   constructor(
     private readonly providerName: string,
@@ -79,11 +70,6 @@ export class OpenAICompatibleEngine implements ContentEngine {
   }
 }
 
-/**
- * Elenca i MODELLI di testo realmente disponibili per un provider, interrogando la sua API HTTP.
- * Best-effort: su errore/timeout ritorna [] (NON lancia), così la UI può degradare a input libero.
- * Solo `fetch` globale + AbortController (~15s). Niente SDK.
- */
 export async function listTextModels(input: {
   provider: string;
   apiKey?: string | null;
@@ -129,7 +115,7 @@ export async function listTextModels(input: {
         .sort((a, b) => a.localeCompare(b));
     }
 
-    if (provider === "google" || provider === "gemini") {
+    if (provider === "gemini") {
       const root = (baseUrl || "https://generativelanguage.googleapis.com/v1beta").replace(
         /\/+$/,
         "",
@@ -145,7 +131,7 @@ export async function listTextModels(input: {
       return (data.models ?? [])
         .filter((m) => {
           const methods = m.supportedGenerationMethods;
-          // Se il campo è assente teniamo il modello; se presente filtriamo su generateContent.
+
           return !Array.isArray(methods) || methods.includes("generateContent");
         })
         .map((m) => (typeof m.name === "string" ? m.name.replace(/^models\//, "") : null))

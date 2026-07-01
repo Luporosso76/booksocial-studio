@@ -965,7 +965,6 @@
       "keyConfigured": "configured",
       "keyHint": "Leave empty to keep the existing key unchanged.",
       "removeKey": "Remove",
-      "cliLoginNote": "Uses the CLI subscription/login (no key required).",
       "sharedOpenaiKey": "Uses the same OpenAI key configured above.",
       "sharedGoogleKey": "Uses the same Google key configured above.",
       "localImageNote": "Uses the local engine (sd-cli). Configured via environment variables.",
@@ -992,7 +991,6 @@
       "cliAuthenticate": "Authenticate",
       "cliVerify": "Verify",
       "cliOpenAndAuthorize": "Open and authorize",
-      "cliLoginGuide": "Complete the login in the browser/terminal, then press Verify.",
       "cliModelOptional": "Model (optional)",
       "cliModelPlaceholder": "CLI model name (leave empty for the default)",
       "imageModelHint": "Enter the provider's model name.",
@@ -1009,13 +1007,14 @@
         "auto": "Automatic",
         "local": "Local (sd-cli)",
         "openai": "OpenAI",
-        "google": "Google",
+        "gemini": "Gemini (Nano Banana)",
         "stability": "Stability AI",
         "bfl": "Black Forest Labs (FLUX)",
         "replicate": "Replicate",
         "fal": "fal.ai",
         "none": "None",
-        "agy": "Agy (agent)"
+        "agy": "Agy (agent)",
+        "codex": "Codex (agent)"
       },
       "fallbackText": "Text fallback",
       "fallbackImage": "Image fallback",
@@ -1027,6 +1026,8 @@
       "agentImageNote": "Generates images via the agentic CLI (no key: uses the CLI login).",
       "imageStyle": {
         "title": "Image style",
+        "primaryTitle": "Image style — primary",
+        "fallbackTitle": "Image style — fallback",
         "description": "Style applied to images generated with {{provider}}. Changes apply only to the provider selected above.",
         "preset": "Style preset",
         "customStyle": "Custom style",
@@ -1385,28 +1386,6 @@
       "props": "Objects & world",
       "minors": "Minor characters",
       "presence": "Character presence"
-    }
-  },
-  "visualDomain": {
-    "sea_windsurf": {
-      "label": "Sea / windsurf / surf",
-      "description": "Rules for beach, sea, waves and windsurf/surf/kite gear: sail geometry, rider posture, wave placement. Active only in chapters that actually show these things."
-    },
-    "red_door": {
-      "label": "Red door / symbolic threshold",
-      "description": "The recurring red door with a FIXED, always-identical design (a smooth Ferrari-red slab, one white wooden handle, no panels or keyhole, standing alone in a clearing). Active only in chapters where the door is actually present."
-    },
-    "spiritual_practice": {
-      "label": "Spiritual practice (meditation/reiki/yoga)",
-      "description": "Truthful rendering of meditation, reiki, yoga, prayer. Active only in chapters where the practice actually takes place."
-    },
-    "film_set": {
-      "label": "Film set",
-      "description": "Rendering of a real film set (cameras, lights, crew, clapperboard). Active only in chapters set on a film set."
-    },
-    "vehicles_places": {
-      "label": "Vehicles and places (car/hospital/home)",
-      "description": "Plausible rendering of cars on lakeside/mountain roads, hospital rooms, quiet domestic scenes. Active only in relevant chapters."
     }
   },
   "bookDetail": {

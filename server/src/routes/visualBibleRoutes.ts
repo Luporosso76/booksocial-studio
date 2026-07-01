@@ -1,41 +1,27 @@
 import { Hono } from "hono";
-import { books, marketingCards, visualDirectives } from "../db/repositories.js";
-import { ChapterMarketingService } from "../services/chapterMarketingService.js";
-import { VISUAL_DOMAINS } from "../content/imageDomains.js";
-import { ChapterMoment } from "../domain.js";
+import { setJob } from "../analysisJobs.js";
 import { translateDirectivesToEnglish } from "../content/translate.js";
 import { generateVisualDirective } from "../content/visualDirectiveAssist.js";
-import { buildVisualBible, stepProps, stepMinors } from "../services/visualBible.js";
+import { books, marketingCards, visualDirectives } from "../db/repositories.js";
+import { type ChapterMoment } from "../domain.js";
+import { bookDto, characterDto, visualDirectiveDto } from "../serialize.js";
+import { ChapterMarketingService } from "../services/chapterMarketingService.js";
+import { buildVisualBible, stepMinors, stepProps } from "../services/visualBible.js";
 import {
+  VB_STEP_ORDER,
+  finishVisualBible,
   getVisualBible,
   isVisualBibleRunning,
-  finishVisualBible,
-  VB_STEP_ORDER,
   type VBStepKey,
 } from "../visualBibleJobs.js";
-import { setJob } from "../analysisJobs.js";
-import { bookDto, characterDto, visualDirectiveDto } from "../serialize.js";
-import { parseTriggersInput, err, jsonBody, type RouteContext } from "./_shared.js";
+import { err, jsonBody, parseTriggersInput, type RouteContext } from "./_shared.js";
 
-// Guard contro la doppia esecuzione concorrente del ricalcolo presenza personaggi (per libro):
-// l'operazione è sincrona e lenta (1 chiamata GPT per capitolo), quindi blocchiamo i doppioni.
 const recomputingChapters = new Set<number>();
-// Stato del build (per libro) delle schede marketing, esposto da /marketing-cards/status.
+
 const marketingBuilds = new Map<number, { running: boolean; done: number; total: number }>();
 
 export function mountVisualBible(api: Hono, ctx: RouteContext): void {
   const { deps } = ctx;
-
-  // Elenco dei MODULI-DOMINIO disponibili per il prompt immagine (per la UI di configurazione libro).
-  api.get("/visual-domains", (c) =>
-    c.json({
-      domains: VISUAL_DOMAINS.map((d) => ({
-        key: d.key,
-        label: d.label,
-        description: d.description,
-      })),
-    }),
-  );
 
   api.get("/books/:id/visual-directives", async (c) => {
     const id = Number(c.req.param("id"));
@@ -59,6 +45,7 @@ export function mountVisualBible(api: Hono, ctx: RouteContext): void {
       typeof body.intent === "string" && body.intent.trim() !== "" ? body.intent.trim() : null;
     const text = typeof body.body === "string" ? body.body.trim() : "";
     const enabled = body.enabled === undefined ? true : body.enabled === true;
+
     const bodyEn = text === "" ? null : await translateDirectivesToEnglish(deps.engine, text);
     const created = await visualDirectives.create({
       bookId: id,
@@ -101,6 +88,7 @@ export function mountVisualBible(api: Hono, ctx: RouteContext): void {
         : (existing.body ?? "");
     const enabled = "enabled" in body ? body.enabled === true : existing.enabled;
     const sortOrder = typeof body.sortOrder === "number" ? body.sortOrder : existing.sortOrder;
+
     let bodyEn = existing.bodyEn;
     if (text === "") bodyEn = null;
     else if ((existing.body ?? "") !== text || existing.bodyEn == null)
@@ -149,8 +137,6 @@ export function mountVisualBible(api: Hono, ctx: RouteContext): void {
     return c.json(draft);
   });
 
-  // POST /books/:id/generate-props — genera il canone degli OGGETTI/VEICOLI ricorrenti + lato di guida
-  // (dalle schede dei capitoli e dal cast) e lo salva in visual_props_json. Oggetti resi sempre uguali.
   api.post("/books/:id/generate-props", async (c) => {
     const bookId = Number(c.req.param("id"));
     const book = await books.get(bookId);
@@ -160,9 +146,6 @@ export function mountVisualBible(api: Hono, ctx: RouteContext): void {
     return c.json(updated ? bookDto(updated) : err("Libro non trovato"));
   });
 
-  // POST /books/:id/generate-minors — estrae i PERSONAGGI MINORI/incidentali canonici dai capitoli
-  // (look fisso da rendere sempre uguale) e li salva in visual_extras_json. Loop SERIALE sui capitoli
-  // (l'engine è una risorsa singola); dedup per label.
   api.post("/books/:id/generate-minors", async (c) => {
     const bookId = Number(c.req.param("id"));
     const book = await books.get(bookId);
@@ -172,9 +155,6 @@ export function mountVisualBible(api: Hono, ctx: RouteContext): void {
     return c.json(updated ? bookDto(updated) : err("Libro non trovato"));
   });
 
-  // POST /books/:id/build-visual-bible — costruisce in BACKGROUND la "bibbia visiva" (tutti gli step
-  // o quelli richiesti) e ritorna subito. Body opzionale: { steps?: VBStepKey[] }. Job resumable
-  // visibile via /visual-bible-status e /jobs.
   api.post("/books/:id/build-visual-bible", async (c) => {
     const id = Number(c.req.param("id"));
     const book = await books.get(id);
@@ -187,7 +167,7 @@ export function mountVisualBible(api: Hono, ctx: RouteContext): void {
     const stepKeys: VBStepKey[] = requested
       ? VB_STEP_ORDER.filter((k) => requested.includes(k))
       : [...VB_STEP_ORDER];
-    // Fire-and-forget: la richiesta HTTP non aspetta la fine della costruzione.
+
     void buildVisualBible(
       { engine: deps.engine, chapterScenes: deps.chapterScenes },
       id,
@@ -196,7 +176,6 @@ export function mountVisualBible(api: Hono, ctx: RouteContext): void {
     return c.json({ started: true });
   });
 
-  // Stato della costruzione "bibbia visiva" di un libro (per il polling del frontend).
   api.get("/books/:id/visual-bible-status", async (c) => {
     const id = Number(c.req.param("id"));
     const s = getVisualBible(id);
@@ -213,15 +192,16 @@ export function mountVisualBible(api: Hono, ctx: RouteContext): void {
     return c.json(s);
   });
 
-  // Ri-lancia l'analisi (profilo + personaggi) in BACKGROUND e ritorna subito.
   api.post("/books/:id/reanalyze", async (c) => {
     const id = Number(c.req.param("id"));
     const book = await books.get(id);
     if (!book) return c.json(err("Libro non trovato"), 404);
-    const body = (await jsonBody(c)) as { language?: string };
+    const body = (await jsonBody(c)) as {
+      language?: string;
+    };
     const language = typeof body.language === "string" ? body.language : undefined;
     setJob(id, "analyzing");
-    // Fire-and-forget: la richiesta HTTP non aspetta la fine dell'analisi.
+
     void deps.content
       .reanalyzeBook(id, language)
       .then(() => setJob(id, "ready"))
@@ -229,8 +209,6 @@ export function mountVisualBible(api: Hono, ctx: RouteContext): void {
     return c.json({ status: "analyzing" });
   });
 
-  // Ri-estrae solo le citazioni reali + metriche personaggi (pre-pass NLP) e le ripopola, senza
-  // rifare la scheda GPT. Sincrono: ritorna quante citazioni sono state scritte.
   api.post("/books/:id/reindex-nlp", async (c) => {
     const id = Number(c.req.param("id"));
     const book = await books.get(id);
@@ -246,9 +224,6 @@ export function mountVisualBible(api: Hono, ctx: RouteContext): void {
     }
   });
 
-  // ---------------- schede visive capitolo ----------------
-
-  // Scheda del capitolo: dalla cache o estratta on-demand (LAZY). Per la UI quando si apre il capitolo.
   api.get("/books/:id/chapters/:idx/scene", async (c) => {
     const id = Number(c.req.param("id"));
     const idx = Number(c.req.param("idx"));
@@ -261,7 +236,6 @@ export function mountVisualBible(api: Hono, ctx: RouteContext): void {
     return c.json({ scene });
   });
 
-  // (Ri)genera la scheda da zero, ignorando la cache. Bottone "(Ri)genera scheda".
   api.post("/books/:id/chapters/:idx/scene/generate", async (c) => {
     const id = Number(c.req.param("id"));
     const idx = Number(c.req.param("idx"));
@@ -277,7 +251,6 @@ export function mountVisualBible(api: Hono, ctx: RouteContext): void {
     return c.json({ scene });
   });
 
-  // Salva le modifiche manuali alla scheda (marca source='USER').
   api.put("/books/:id/chapters/:idx/scene", async (c) => {
     const id = Number(c.req.param("id"));
     const idx = Number(c.req.param("idx"));
@@ -313,6 +286,7 @@ export function mountVisualBible(api: Hono, ctx: RouteContext): void {
         ? { secondaryObjects: arr(body.secondaryObjects) }
         : {}),
       ...(arr(body.characters) !== undefined ? { characters: arr(body.characters) } : {}),
+      ...(body.pov !== undefined ? { pov: str(body.pov) } : {}),
       ...(arr(body.physicsRules) !== undefined ? { physicsRules: arr(body.physicsRules) } : {}),
       ...(body.keyMoment !== undefined ? { keyMoment: str(body.keyMoment) } : {}),
       ...(body.kind === "waking" || body.kind === "dream" || body.kind === "flashback"
@@ -364,10 +338,6 @@ export function mountVisualBible(api: Hono, ctx: RouteContext): void {
     return c.json({ scene });
   });
 
-  // RICALCOLO COMPLETO della presenza dei personaggi per capitolo (book_character.chapters):
-  // ricostruisce la presenza dalla scheda visiva di ogni capitolo (più accurato del pre-pass NLP,
-  // che conta solo le menzioni esplicite del nome). Sincrono: può durare ~1 min (1 chiamata GPT per
-  // capitolo non ancora in cache). Guard in-memory per bookId contro la doppia esecuzione concorrente.
   api.post("/books/:id/recompute-character-chapters", async (c) => {
     const id = Number(c.req.param("id"));
     const book = await books.get(id);
@@ -386,22 +356,22 @@ export function mountVisualBible(api: Hono, ctx: RouteContext): void {
     }
   });
 
-  // GET /books/:id/marketing-cards — tutte le schede marketing del libro (ispezione/UI futura).
   api.get("/books/:id/marketing-cards", async (c) => {
     const id = Number(c.req.param("id"));
     return c.json(await marketingCards.byBook(id));
   });
 
-  // GET /books/:id/marketing-cards/status — progresso del build in corso, o conteggio attuale.
   api.get("/books/:id/marketing-cards/status", async (c) => {
     const id = Number(c.req.param("id"));
     const st = marketingBuilds.get(id);
     if (st) return c.json(st);
-    return c.json({ running: false, done: await marketingCards.countByBook(id), total: 0 });
+    return c.json({
+      running: false,
+      done: await marketingCards.countByBook(id),
+      total: 0,
+    });
   });
 
-  // POST /books/:id/marketing-cards/build — costruisce in BACKGROUND tutte le schede marketing
-  // (fire-and-forget, una chiamata GPT per capitolo). Stato via /marketing-cards/status.
   api.post("/books/:id/marketing-cards/build", async (c) => {
     const id = Number(c.req.param("id"));
     const book = await books.get(id);

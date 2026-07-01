@@ -4,10 +4,8 @@ import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { existsSync } from "node:fs";
 import { books, links, media, pages } from "../db/repositories.js";
-import { isVisualDomainKey } from "../content/imageDomains.js";
 import { booksDir } from "../paths.js";
 import { validateUpload } from "../uploads.js";
-import { translateDirectivesToEnglish } from "../content/translate.js";
 import { buildVisualBible } from "../services/visualBible.js";
 import { VB_STEP_ORDER } from "../visualBibleJobs.js";
 import { setJob, getJob } from "../analysisJobs.js";
@@ -207,32 +205,6 @@ export function mountBooks(api: Hono, ctx: RouteContext): void {
       await books.setBaseHashtags(id, body.baseHashtags.map(String).join(" "));
     } else if (typeof body.baseHashtags === "string") {
       await books.setBaseHashtags(id, body.baseHashtags);
-    }
-    // Configurazione VISIVA per-libro. Aggiornata solo se almeno uno dei due campi è presente
-    // nel body, così un PUT che tocca solo il titolo non azzera la config. I domini sono validati
-    // contro le chiavi note (gli sconosciuti vengono scartati silenziosamente).
-    if ("visualDomains" in body || "visualDirectives" in body) {
-      const rawDomains = Array.isArray(body.visualDomains)
-        ? body.visualDomains
-        : typeof body.visualDomains === "string"
-          ? body.visualDomains.split(",")
-          : book.visualDomains;
-      const domains = (rawDomains as unknown[])
-        .map((d) => String(d).trim())
-        .filter((d) => isVisualDomainKey(d));
-      // Direttive: l'utente le scrive in italiano. Se cambiano, le TRADUCIAMO una volta in inglese
-      // (la versione iniettata nel prompt); se nel body non ci sono, preserviamo originale + traduzione.
-      let directives: string | null;
-      let directivesEn: string | null;
-      if ("visualDirectives" in body) {
-        const src = body.visualDirectives == null ? "" : String(body.visualDirectives).trim();
-        directives = src === "" ? null : src;
-        directivesEn = src === "" ? null : await translateDirectivesToEnglish(deps.engine, src);
-      } else {
-        directives = book.visualDirectives;
-        directivesEn = book.visualDirectivesEn;
-      }
-      await books.setVisualConfig(id, domains, directives, directivesEn);
     }
     // Oggetti/veicoli ricorrenti + mondo, modificabili a mano.
     if ("visualProps" in body) {

@@ -2,7 +2,6 @@ import { config as loadEnv } from "dotenv";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 
-// Load server/.env relative to this file (works regardless of cwd).
 const here = dirname(fileURLToPath(import.meta.url));
 loadEnv({ path: resolve(here, "..", ".env") });
 
@@ -24,13 +23,14 @@ export interface AppConfig {
   openaiApiKey: string | null;
   openaiBaseUrl: string;
   googleApiKey: string | null;
+  geminiApiKey: string | null;
   googleBaseUrl: string;
-  // Generazione IMMAGINI: provider attivo (auto|local|openai|google|stability|bfl|replicate|fal|none)
-  // e modelli/chiavi HTTP. openai/google riusano le stesse chiavi del testo (stesso account).
+
   imageProvider: string;
   openaiImageModel: string;
   googleImageModel: string;
-  // Provider immagine dedicati (solo immagini): chiave propria + modello.
+  geminiImageModel: string;
+
   stabilityApiKey: string | null;
   stabilityImageModel: string;
   bflApiKey: string | null;
@@ -39,27 +39,27 @@ export interface AppConfig {
   replicateImageModel: string;
   falApiKey: string | null;
   falImageModel: string;
-  // Provider CLI ad ABBONAMENTO (login via CLI ufficiale).
+
   opencodeModel: string;
   opencodeBinary: string;
   codexBinary: string;
   codexModel: string | null;
   claudeBinary: string;
   claudeModel: string | null;
-  // agy = CLI ad abbonamento (Gemini/antigravity). Genera testo e (in modalità agente) immagini.
+
   agyBinary: string;
   agyModel: string | null;
-  // Modelli dei provider-immagine via CLI agente (agy/codex): se vuoti usano il modello testo.
+
   agyImageModel: string;
   codexImageModel: string;
-  // Fallback su rate-limit/quota: provider a cui passare se il primario è esaurito ("none" = nessuno).
+
   textFallbackProvider: string;
   imageFallbackProvider: string;
-  // Modello usato dal provider di fallback (se vuoto: il modello configurato di quel provider).
+
   textFallbackModel: string;
   imageFallbackModel: string;
   engineTimeoutMs: number;
-  // Timeout (ms) per il QUALITY CHECK visivo delle immagini generate (modello multimodale).
+
   visionTimeoutMs: number;
   schedulerPollSeconds: number;
   maxPublishAttempts: number;
@@ -72,19 +72,20 @@ export interface AppConfig {
 export const appConfig: AppConfig = {
   port: Number(env("PORT", "8770")),
   host: env("HOST", "127.0.0.1"),
-  // Default NEUTRO: 'none' = nessun provider configurato → l'utente lo sceglie dall'onboarding /
-  // Impostazioni (niente provider personale preimpostato nel repo pubblico).
+
   contentProvider: env("CONTENT_PROVIDER", "none").toLowerCase(),
   ollamaBaseUrl: env("OLLAMA_BASE_URL", "http://localhost:11434/v1"),
   ollamaModel: env("OLLAMA_MODEL", ""),
   openaiApiKey: process.env.OPENAI_API_KEY || null,
   openaiBaseUrl: env("OPENAI_BASE_URL", "https://api.openai.com/v1"),
   googleApiKey: process.env.GOOGLE_API_KEY || null,
+  geminiApiKey: process.env.GEMINI_API_KEY || null,
   googleBaseUrl: env("GOOGLE_BASE_URL", "https://generativelanguage.googleapis.com/v1beta"),
   imageProvider: env("IMAGE_PROVIDER", "auto").toLowerCase(),
-  // Modelli immagine: nessun default hardcoded (i nomi corretti dipendono dal provider/piano).
+
   openaiImageModel: env("OPENAI_IMAGE_MODEL", ""),
   googleImageModel: env("GOOGLE_IMAGE_MODEL", ""),
+  geminiImageModel: env("GEMINI_IMAGE_MODEL", "gemini-2.5-flash-image"),
   stabilityApiKey: process.env.STABILITY_API_KEY || null,
   stabilityImageModel: env("STABILITY_IMAGE_MODEL", ""),
   bflApiKey: process.env.BFL_API_KEY || null,

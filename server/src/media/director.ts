@@ -13,12 +13,6 @@ import {
   validateSpec,
 } from "./spec.js";
 
-// IA-REGISTA: NON disegna pixel. Costruisce un prompt per il content engine passando
-// testo del post + scheda + personaggi + CITAZIONI REALI (book_quote) + brand, e
-// chiede SOLO uno spec JSON valido scegliendo tra TEMPLATE FISSI. La risposta viene
-// validata con default su ogni campo errato (vedi spec.ts). Usa SEMPRE citazioni
-// reali dal DB, mai testo inventato.
-
 export interface DirectorDeps {
   engine: ContentEngine;
 }
@@ -27,71 +21,50 @@ export interface DirectorOpts {
   kind: VisualKind;
   template?: string;
   aspect?: Aspect;
-  // Se true (default), il regista puo' usare le immagini GIA' CARICATE del libro
-  // (media_asset). Se false o il libro non ne ha, comportamento solo-testo attuale.
+
   useImages?: boolean;
-  // Traccia musicale opzionale (music_track.id) da montare sul reel: se passata,
-  // sopravvive nello spec (music.trackId). Non obbligatorio: il regista non ne sceglie una.
+
   musicTrackId?: number | null;
-  // Destinazione del video (reel vs storia): determina quante scene e quanto durano.
-  // Le durate seguono il TEMPO DI LETTURA di ogni frase (non un valore fisso): le storie
-  // restano corte (poche frasi), i reel un po' più lunghi. Default: "reel".
+
   target?: "reel" | "story";
-  // Chiavi normalizzate delle citazioni già usate DI RECENTE (vedi normalizeQuoteKey):
-  // il regista le mette in fondo alla lista e preferisce quelle "fresche", così post/reel/
-  // storia non mostrano sempre la stessa frase del libro. Best-effort.
+
   avoidQuotes?: string[];
-  // Se valorizzato, FORZA questo media_asset come sfondo del visual (usato dalla "Generazione
-  // diretta": l'immagine di scena AI appena creata diventa lo sfondo, non una a caso della libreria).
+
   forceImageId?: number | null;
-  // Indice del capitolo da cui è stato tratto il post: usato per SELEZIONARE PER PERTINENZA
-  // l'immagine di sfondo (capitolo esatto → vicinanza di capitolo → overlap tag → ripiego aspect).
-  // Best-effort: se null si ricade sul comportamento storico (solo filtro aspect, ordine d'inserimento).
+
   chapterIndex?: number | null;
-  // Id delle immagini usate DI RECENTE come sfondo: vengono deprioritizzate (spostate in fondo),
-  // preferendo le fresche, così post/reel successivi non riusano sempre gli stessi sfondi.
-  // Best-effort: assente/[] → comportamento INVARIATO (nessuna deprioritizzazione).
+
   avoidImages?: number[];
-  // ROTAZIONE LRU (least-recently-used) — preferita ad avoidQuotes/avoidImages quando presente.
-  // Conteggio d'uso per ogni citazione (chiave normalizzata) e immagine (id) su TUTTO lo storico:
-  // il regista sceglie SEMPRE il MENO usato (random tra i pari-merito), così rigenerazioni e
-  // programmi consecutivi ciclano l'intero materiale prima di ripeterlo. Assente → usa gli avoid.
+
   quoteUsage?: Map<string, number>;
   imageUsage?: Map<number, number>;
 }
 
-// Immagine disponibile del libro (sottoinsieme di MediaAsset utile al regista).
 interface AvailableImage {
   id: number;
   caption: string | null;
   scope: string;
-  // Capitolo illustrato (catalogazione) + tag soggetto/luogo/mood (in INGLESE: vengono
-  // prodotti per il modello immagini). Usati per la selezione per pertinenza.
+
   chapterIdx: number | null;
   tags: string[];
 }
 
 export interface DirectorResult {
   spec: VisualSpec;
-  // Citazioni reali disponibili (per debug/UI): il renderer usa quelle nello spec.
+
   realQuotes: string[];
-  // Id delle immagini reali del libro messe a disposizione del regista (per UI/debug).
+
   availableImageIds: number[];
-  // Id delle immagini EFFETTIVAMENTE usate come sfondo nello spec finale (card/scene/pannelli):
-  // serve al planner per la rotazione (avoidImages) reale, non il solo pool offerto. [] se nessuna.
+
   chosenImageIds: number[];
-  // Citazione EFFETTIVAMENTE finita sul visual (per tracciare la varietà ed evitare di
-  // ripeterla nei contenuti successivi). null se il visual non ha testo da citazione.
+
   chosenQuote: string | null;
 }
 
-// Chiave normalizzata di una citazione: usata sia per evitare le ripetizioni sia come
-// quoteKey nello storico d'uso. Deve restare coerente tra director e weekPlanner.
 export function normalizeQuoteKey(text: string): string {
   return text.toLowerCase().replace(/\s+/g, " ").trim().slice(0, 180);
 }
 
-// Estrae la citazione principale finita nello spec (per kind), per tracciarne l'uso.
 function primaryQuoteOf(spec: VisualSpec): string | null {
   if (spec.kind === "quote_card") return spec.quote.trim() || null;
   if (spec.kind === "reel_text") {
@@ -105,9 +78,6 @@ function primaryQuoteOf(spec: VisualSpec): string | null {
   return null;
 }
 
-// Estrae gli imageId EFFETTIVAMENTE usati come sfondo nello spec finale (card/scene/pannelli),
-// deduplicati nell'ordine d'apparizione. Serve a tracciare gli sfondi REALI per la rotazione
-// (avoidImages) invece del solo pool offerto. [] se il visual è solo-testo.
 function imageIdsOf(spec: VisualSpec): number[] {
   const ids: number[] = [];
   const push = (id: number | null | undefined): void => {
@@ -124,17 +94,13 @@ const MAX_IMAGES = 12;
 
 type AspectCategory = "vertical" | "square" | "landscape";
 
-// Categoria d'aspetto di un'immagine dal suo ratio (larghezza/altezza). null se sconosciuto.
 function aspectCategory(ratio: number | null): AspectCategory | null {
   if (ratio == null) return null;
-  if (ratio < 0.7) return "vertical"; // più alta che larga (9:16); 4:5 resta square
-  if (ratio > 1.25) return "landscape"; // più larga che alta (1.91:1, 16:9)
-  return "square"; // ~1:1 / 4:5
+  if (ratio < 0.7) return "vertical";
+  if (ratio > 1.25) return "landscape";
+  return "square";
 }
 
-// Categoria di immagine ADATTA al visual richiesto, così l'immagine non viene ritagliata:
-// i 9:16 (reel/storia) vogliono immagini VERTICALI, le card 1.91:1 ORIZZONTALI, tutto il
-// resto (1:1, 4:5, default) QUADRATE. Se nessuna immagine combacia → composizione solo-testo.
 function targetAspectCategory(opts: DirectorOpts): AspectCategory {
   if (opts.aspect === "9:16") return "vertical";
   if (opts.aspect === "1.91:1") return "landscape";
@@ -142,35 +108,24 @@ function targetAspectCategory(opts: DirectorOpts): AspectCategory {
   return opts.kind === "reel_text" ? "vertical" : "square";
 }
 
-// Normalizza un tag per il confronto. I tag sono GIA' in inglese (vengono prodotti per il
-// modello immagini locale, vedi imagePrompt.ts), quindi il confronto resta inglese-vs-inglese.
 function normTag(t: string): string {
   return t.toLowerCase().replace(/\s+/g, " ").trim();
 }
 
-// SELEZIONE PER PERTINENZA: ordina le immagini (gia' filtrate per aspect) in base al capitolo da
-// cui nasce il post. Priorita': capitolo ESATTO → VICINANZA di capitolo (capitoli adiacenti
-// condividono ambientazione/soggetti) → overlap dei TAG col "profilo soggetti" del capitolo come
-// SPAREGGIO (es. cap.7 = {sea turtle, reef}: un'immagine di un altro capitolo taggata "sea turtle"
-// sale). Se il capitolo del post e' ignoto (chapterIndex null) si mantiene l'ordine d'inserimento
-// (comportamento storico). Ordinamento STABILE: a parita' di punteggio resta l'ordine originale.
 function rankImagesByRelevance(images: MediaAsset[], chapterIndex: number | null): MediaAsset[] {
   if (chapterIndex == null) return images;
-  // Profilo soggetti del capitolo del post: i tag delle immagini che illustrano QUEL capitolo.
+
   const profile = new Set<string>();
   for (const m of images) {
     if (m.chapterIdx === chapterIndex) for (const t of m.tags) profile.add(normTag(t));
   }
   const scored = images.map((m, i) => {
-    // Punteggio capitolo: esatto = 1000, poi cala di 50 per ogni capitolo di distanza (min 0).
-    // Capitolo ignoto sull'immagine (chapterIdx null) = 0 → finisce nel ripiego aspect.
     let score = 0;
     if (m.chapterIdx != null) {
       const distance = Math.abs(m.chapterIdx - chapterIndex);
       score = Math.max(0, 1000 - distance * 50);
     }
-    // Spareggio: numero di tag dell'immagine presenti nel profilo del capitolo. Resta SEMPRE
-    // sotto lo step di distanza (50), quindi non scavalca mai un capitolo piu' vicino.
+
     if (profile.size > 0) for (const t of m.tags) if (profile.has(normTag(t))) score++;
     return { m, score, i };
   });
@@ -178,9 +133,6 @@ function rankImagesByRelevance(images: MediaAsset[], chapterIndex: number | null
   return scored.map((s) => s.m);
 }
 
-// ROTAZIONE SFONDI: a parità d'ordine (già pertinenza), sposta IN FONDO le immagini usate di
-// recente (avoidImages), preferendo le "fresche". Ordinamento STABILE: tra fresche e tra usate
-// l'ordine relativo (pertinenza) resta invariato. avoidImages vuoto → lista INVARIATA.
 function deprioritizeImages(images: MediaAsset[], avoidImages: number[]): MediaAsset[] {
   if (avoidImages.length === 0) return images;
   const avoid = new Set(avoidImages);
@@ -189,43 +141,30 @@ function deprioritizeImages(images: MediaAsset[], avoidImages: number[]): MediaA
   return [...fresh, ...used];
 }
 
-// ROTAZIONE LRU citazioni: ordina le frasi per numero d'uso CRESCENTE (le meno usate prima),
-// mescolando a caso quelle con lo STESSO conteggio così, a parità d'uso (es. tutte a 0 al primo
-// programma), non esce sempre la stessa. La prima della lista è quindi una frase a caso tra le
-// meno usate → forcedQuote varia anche quando un capitolo torna o il pool è piccolo.
 function lruOrderQuotes(quotes: string[], usage: Map<string, number>): string[] {
   const withC = quotes.map((q) => ({ q, c: usage.get(normalizeQuoteKey(q)) ?? 0 }));
   for (let i = withC.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [withC[i], withC[j]] = [withC[j]!, withC[i]!];
   }
-  withC.sort((a, b) => a.c - b.c); // sort STABILE: preserva il mescolamento tra i pari-uso
+  withC.sort((a, b) => a.c - b.c);
   return withC.map((w) => w.q);
 }
 
-// ROTAZIONE LRU immagini: a parità di PERTINENZA (già ordinate), porta avanti le meno usate.
-// Sort STABILE → tra immagini con lo stesso conteggio d'uso resta l'ordine di pertinenza.
 function lruOrderImages(images: MediaAsset[], usage: Map<number, number>): MediaAsset[] {
   return images.slice().sort((a, b) => (usage.get(a.id) ?? 0) - (usage.get(b.id) ?? 0));
 }
 
-// Soglia minima del pool citazioni per capitolo: sotto questa si attinge anche ai capitoli
-// VICINI (per distanza) invece di ricadere sulla frase top globale (es. cap. senza citazioni).
 const QUOTE_POOL_MIN = 8;
 
 function brandFor(bookTitle: string | null, accent: string | null) {
   return { title: bookTitle, accent: accent ?? "#c8553d" };
 }
 
-// I visual che generiamo noi vengono registrati in media_asset con caption "visual <kind>"
-// (vedi renderQueue.ts). Vanno esclusi dalle immagini "vere" del libro offerte al regista,
-// per non riciclare card/reel generati come sfondi.
 function isGeneratedVisual(caption: string | null): boolean {
   return typeof caption === "string" && caption.startsWith("visual ");
 }
 
-// Fallback citazioni: estrae le key_quotes (non-spoiler) gia' presenti nella scheda
-// (analysisJson), usate quando il pre-pass NLP non ha popolato book_quote.
 function keyQuotesFromProfile(profile: { analysisJson?: string | null } | null): string[] {
   if (!profile?.analysisJson) return [];
   try {
@@ -248,9 +187,6 @@ function keyQuotesFromProfile(profile: { analysisJson?: string | null } | null):
   }
 }
 
-// Tempo di lettura stimato (secondi) per una frase da mostrare a schermo: ~0.5s a parola
-// (lettura "a colpo d'occhio" + un momento per registrarla) + 1.5s di respiro. Clamp 3.5-8s
-// così anche una frase brevissima resta leggibile e una lunga non blocca troppo il video.
 function readingSeconds(text: string): number {
   const words = (text || "").trim().split(/\s+/).filter(Boolean).length;
   const sec = 1.5 + words * 0.5;
@@ -262,13 +198,13 @@ export class Director {
 
   async generaVisualSpec(post: ScheduledPost, opts: DirectorOpts): Promise<DirectorResult> {
     const bookId = post.bookId;
-    // Raccogli i materiali REALI dal DB (best-effort: liste vuote se mancano).
+
     const realQuotes: string[] = [];
     let charNames: string[] = [];
     let bookTitle: string | null = null;
     let images: AvailableImage[] = [];
 
-    const useImages = opts.useImages !== false; // default true
+    const useImages = opts.useImages !== false;
 
     if (bookId != null) {
       const [book, bookQuotes, chars, profile, mediaAssets] = await Promise.all([
@@ -279,11 +215,7 @@ export class Director {
         useImages ? media.uploadsByBook(bookId) : Promise.resolve([]),
       ]);
       bookTitle = book?.title ?? null;
-      // POOL CITAZIONI: se il post nasce da un capitolo noto, attingi alle citazioni di QUEL
-      // capitolo (cosi' post di capitoli diversi mostrano frasi diverse), ESPANDENDO ai capitoli
-      // VICINI quando ne ha poche (un capitolo senza citazioni NON deve ricadere sulla frase top
-      // globale). Fuori dal capitolo o pool vuoto → tutto il libro; se neanche book_quote e'
-      // popolato → key_quotes della scheda. Il taglio a MAX_QUOTES avviene DOPO l'ordinamento LRU.
+
       let poolTexts: string[] = [];
       if (opts.chapterIndex != null) {
         poolTexts = await this.chapterQuotePool(bookId, opts.chapterIndex);
@@ -292,21 +224,16 @@ export class Director {
       if (poolTexts.length === 0) poolTexts = keyQuotesFromProfile(profile);
       for (const q of poolTexts) realQuotes.push(q);
       charNames = chars.map((c) => c.name);
-      // Usa SOLO immagini reali del libro (upload, non i 'visual' generati) il cui ASPECT
-      // combacia con quello del visual: una 1:1 dentro un 9:16 verrebbe ritagliata. Se
-      // nessuna immagine ha l'aspect giusto, si resta in solo-testo.
+
       const wantCat = targetAspectCategory(opts);
       const uploads = mediaAssets.filter((m) => !isGeneratedVisual(m.caption));
       const rated = await Promise.all(
         uploads.map(async (m) => ({ m, cat: aspectCategory(await imageAspectRatio(m.path)) })),
       );
-      // SELEZIONE PER PERTINENZA: tra le immagini dell'aspect giusto, ordina per pertinenza al
-      // capitolo del post (capitolo esatto → vicinanza → overlap tag) PRIMA di tagliare a
-      // MAX_IMAGES, così le più pertinenti sopravvivono al taglio e finiscono in cima all'elenco.
+
       const matching = rated.filter((x) => x.cat === wantCat).map((x) => x.m);
       const ranked = rankImagesByRelevance(matching, opts.chapterIndex ?? null);
-      // ROTAZIONE SFONDI: a parità di pertinenza, sposta in fondo le immagini usate di recente
-      // (avoidImages), preferendo le fresche. avoidImages assente/[] → ordine INVARIATO.
+
       const rotated = opts.imageUsage
         ? lruOrderImages(ranked, opts.imageUsage)
         : deprioritizeImages(ranked, opts.avoidImages ?? []);
@@ -322,12 +249,6 @@ export class Director {
     const validImageIds = new Set(images.map((m) => m.id));
     const availableImageIds = images.map((m) => m.id);
 
-    // ESCLUSIONE CITAZIONI: usa SOLO quelle non viste di recente (fresche). Cosi' il modello
-    // NON puo' ripescare una frase gia' usata finche' ce ne sono di fresche. Solo se TUTTE
-    // sono gia' state usate si ricade sull'intero pool (per non restare senza testo reale).
-    // ROTAZIONE: con il conteggio d'uso (LRU) ordina le citazioni per uso CRESCENTE (le meno usate
-    // prima, random tra i pari-uso), così sull'intero storico ogni frase viene usata prima di
-    // ripeterne una. Senza conteggio si ricade sull'esclusione binaria storica (fresche prima).
     const orderedAll = opts.quoteUsage
       ? lruOrderQuotes(realQuotes, opts.quoteUsage)
       : (() => {
@@ -337,11 +258,8 @@ export class Director {
         })();
     const orderedQuotes = orderedAll.slice(0, MAX_QUOTES);
 
-    // Testo reale GARANTITO non vuoto: citazione scelta → testo del post → titolo libro.
     const fallbackText = (orderedQuotes[0] ?? post.message ?? bookTitle ?? "").trim();
-    // CITAZIONE FORZATA: IMPONIAMO questa come testo principale dello spec, SCAVALCANDO la frase
-    // del modello (che tendeva a ripescare sempre la sua preferita). Con LRU è già la prima =
-    // una a caso tra le MENO usate; col path storico resta una a caso tra le fresche.
+
     const forcedQuote = (
       orderedQuotes.length > 0
         ? opts.quoteUsage
@@ -362,20 +280,14 @@ export class Director {
     try {
       const response = await this.deps.engine.run(prompt);
       const raw = parseModelJson(response);
-      // Forza kind/aspect/template ai valori richiesti se l'utente li ha specificati.
+
       const merged = this.applyOverrides(raw, opts);
       spec = validateSpec(opts.kind, merged);
-      // IMPONI la citazione fresca come testo principale, SCAVALCANDO la frase del modello
-      // (così non ripete sempre la sua preferita). Per i reel con più scene ruota anche le
-      // scene successive su citazioni fresche distinte. Salta se forcedQuote è vuota.
+
       this.forcePrimaryQuote(spec, forcedQuote, orderedQuotes);
-      // Rete di sicurezza: se per qualunque motivo il testo principale è ancora vuoto
-      // (es. forcedQuote vuota), inietta testo reale (citazione o post).
+
       this.ensureRealText(spec, orderedQuotes, fallbackText);
     } catch (e) {
-      // Se il modello non e' disponibile o non risponde in JSON, costruiamo uno
-      // spec di fallback DETERMINISTICO usando un testo reale (la prima citazione FRESCA),
-      // cosi' la generazione visual non dipende in modo rigido dal modello.
       if (!(e instanceof ContentError)) throw e;
       spec = this.fallbackSpec(opts, {
         realQuotes: orderedQuotes,
@@ -384,31 +296,24 @@ export class Director {
         fallbackText,
         images,
       });
-      // Coerenza col percorso modello: imponi la citazione fresca come testo principale.
+
       this.forcePrimaryQuote(spec, forcedQuote, orderedQuotes);
     }
 
-    // Scarta gli imageId inventati dal modello: tieni SOLO id reali del libro.
     this.sanitizeImageIds(spec, validImageIds);
-    // Sfondo FORZATO (Generazione diretta): l'immagine di scena AID appena creata. Dopo la
-    // sanitize, così non viene scartata (è un media_asset reale, anche se non nella lista offerta).
+
     this.applyForcedImage(spec, opts.forceImageId);
-    // Lascia sopravvivere un'eventuale traccia musicale richiesta (solo per i reel).
+
     this.applyMusicTrack(spec, opts.musicTrackId);
-    // Durata scene = tempo di lettura + numero scene per tipo (reel/storia).
+
     this.applyReelTiming(spec, opts.target);
-    // A) SLIDESHOW: dopo aver fissato le scene definitive, dà a ciascuna un'immagine DIVERSA e
-    // pertinente (se non è forzata un'immagine specifica). Il reel diventa un vero racconto visivo.
+
     this.applyReelImageVariety(spec, images, opts.forceImageId);
-    // chosenQuote = la citazione forzata (coincide con primaryQuoteOf dopo forcePrimaryQuote);
-    // chosenImageIds = gli sfondi EFFETTIVAMENTE usati nello spec finale (per la rotazione reale).
+
     const chosenQuote = forcedQuote || primaryQuoteOf(spec);
     return { spec, realQuotes, availableImageIds, chosenImageIds: imageIdsOf(spec), chosenQuote };
   }
 
-  // Pool citazioni del capitolo, ESPANSO ai capitoli vicini (per distanza crescente) finché non
-  // raggiunge QUOTE_POOL_MIN. Deduplica per chiave normalizzata, preserva l'ordine (capitolo del
-  // post prima, poi vicini). Risolve i capitoli con poche/zero citazioni senza ricadere sul libro.
   private async chapterQuotePool(bookId: number, chapterIndex: number): Promise<string[]> {
     const out: string[] = [];
     const seen = new Set<string>();
@@ -430,7 +335,6 @@ export class Director {
     return out;
   }
 
-  // Forza un media_asset come sfondo su tutti i contenitori del visual (card/scene/pannelli).
   private applyForcedImage(spec: VisualSpec, imageId: number | null | undefined): void {
     if (imageId == null || !Number.isInteger(imageId) || imageId <= 0) return;
     if (spec.kind === "quote_card") spec.imageId = imageId;
@@ -438,10 +342,6 @@ export class Director {
     else if (spec.kind === "storyboard") for (const p of spec.panels) p.imageId = imageId;
   }
 
-  // A) Distribuisce immagini DIVERSE (ordinate per pertinenza) sulle scene del reel, così ogni
-  // scena ha uno sfondo PROPRIO invece dello stesso ripetuto → vero slideshow. Salta se è stata
-  // forzata un'immagine specifica (Generazione diretta) o se non ci sono immagini disponibili.
-  // Cicla se le scene sono più delle immagini (raro: la 1ª immagine è la più pertinente).
   private applyReelImageVariety(
     spec: VisualSpec,
     images: AvailableImage[],
@@ -456,40 +356,30 @@ export class Director {
     });
   }
 
-  // Se è stato passato un music.trackId e lo spec è un reel, impostalo sullo spec.
-  // Best-effort: id non validi (<=0) -> nessun montaggio musicale.
   private applyMusicTrack(spec: VisualSpec, trackId: number | null | undefined): void {
     if (spec.kind !== "reel_text") return;
     if (trackId == null || !Number.isInteger(trackId) || trackId <= 0) return;
     spec.music = { ...spec.music, trackId };
   }
 
-  // Imposta durata delle scene e numero di scene per i video (reel/storia). Le nostre scene
-  // sono FRASI DA LEGGERE: ogni scena resta in video il tempo necessario per leggerla (in
-  // base alla lunghezza del testo), non un valore fisso. Storie = poche frasi e brevi
-  // (sweet spot 5-10s, max ~15s); reel = qualche frase in più (~15s, dati engagement 2026).
   private applyReelTiming(spec: VisualSpec, target: "reel" | "story" | undefined): void {
     if (spec.kind !== "reel_text") return;
     const isStory = target === "story";
     const maxScenes = isStory ? 2 : 4;
-    const totalCap = isStory ? 14 : 26; // tetto durata: storia <15s (limite FB), reel non troppo lungo
+    const totalCap = isStory ? 14 : 26;
 
-    // Tieni al massimo `maxScenes` scene (le prime, già ordinate dal regista).
     if (spec.scenes.length > maxScenes) spec.scenes = spec.scenes.slice(0, maxScenes);
 
-    // Durata di ogni scena = tempo di lettura del suo testo (clamp 3.5-8s).
     for (const s of spec.scenes) {
       s.sec = readingSeconds(s.quote ?? s.text ?? "");
     }
-    // Rispetta il tetto totale: rimuovi scene dalla coda finché si rientra (min 1 scena).
+
     while (spec.scenes.length > 1 && spec.scenes.reduce((a, s) => a + s.sec, 0) > totalCap) {
       spec.scenes.pop();
     }
     spec.durationSec = Math.round(spec.scenes.reduce((a, s) => a + s.sec, 0));
   }
 
-  // Azzera ogni imageId che non corrisponda a un media_asset reale del libro
-  // (il modello potrebbe inventarne): cosi' il renderer non prova a caricare id falsi.
   private sanitizeImageIds(spec: VisualSpec, validIds: Set<number>): void {
     const keep = (id: number | null | undefined): number | null =>
       id != null && validIds.has(id) ? id : null;
@@ -502,7 +392,6 @@ export class Director {
     }
   }
 
-  // Se l'utente ha imposto template/aspect, scrivili nell'oggetto grezzo prima di validare.
   private applyOverrides(raw: unknown, opts: DirectorOpts): Record<string, unknown> {
     const o = (
       raw && typeof raw === "object" ? { ...(raw as Record<string, unknown>) } : {}
@@ -513,27 +402,20 @@ export class Director {
     return o;
   }
 
-  // IMPONE la citazione fresca come testo principale dello spec, SCAVALCANDO ciò che ha scritto
-  // il modello (che tendeva a ripescare sempre la sua frase preferita ignorando l'esclusione).
-  // Per i reel con più scene, assegna citazioni FRESCHE DISTINTE anche alle scene successive
-  // (rotazione interna, senza ripetere), pescando da orderedQuotes. Salta se forcedQuote è vuota.
   private forcePrimaryQuote(spec: VisualSpec, forcedQuote: string, orderedQuotes: string[]): void {
     const primary = (forcedQuote ?? "").trim();
     if (!primary) return;
     if (spec.kind === "quote_card") {
       spec.quote = primary;
     } else if (spec.kind === "reel_text") {
-      // Citazioni fresche distinte (ordinate), forcedQuote in testa: una per scena senza ripetere.
       const distinct: string[] = [];
       for (const q of [primary, ...orderedQuotes]) {
         const t = (q ?? "").trim();
         if (t && !distinct.includes(t)) distinct.push(t);
       }
       spec.scenes.forEach((s, i) => {
-        // Se ci sono abbastanza citazioni fresche le ruoto sulle scene; altrimenti riuso l'ultima
-        // disponibile (mai una frase del modello). La scena 0 resta sempre la citazione forzata.
         s.quote = distinct[Math.min(i, distinct.length - 1)]!;
-        delete s.text; // il testo principale è la citazione: rimuovi un eventuale text del modello
+        delete s.text;
       });
     } else if (spec.kind === "storyboard") {
       spec.panels[0]!.dialogue = primary;
@@ -554,8 +436,6 @@ export class Director {
     }
   }
 
-  // Spec deterministico senza modello: usa la prima citazione reale disponibile.
-  // Se il libro ha immagini reali, le usa come sfondo (card singola / slideshow reel).
   private fallbackSpec(
     opts: DirectorOpts,
     ctx: {
@@ -566,14 +446,12 @@ export class Director {
       images: AvailableImage[];
     },
   ): VisualSpec {
-    // Testi reali da usare: le citazioni se presenti, altrimenti il testo garantito.
     const texts =
       ctx.realQuotes.length > 0 ? ctx.realQuotes : ctx.fallbackText ? [ctx.fallbackText] : [];
     const quote = texts[0] ?? "";
     const source = ctx.bookTitle ?? "";
     const imageIds = ctx.images.map((m) => m.id);
     if (opts.kind === "reel_text") {
-      // Slideshow: assegna un'immagine diversa a ogni scena (cicla se poche).
       return validateSpec("reel_text", {
         template: opts.template,
         scenes: texts.slice(0, 3).map((q, i) => ({
@@ -661,8 +539,6 @@ Reply with a JSON of this form (fill missing fields with sensible values):
 ${schema}`;
   }
 
-  // Sezione "immagini disponibili" + istruzioni di COMPOSIZIONE. Se non ci sono
-  // immagini (o useImages=false) istruisce esplicitamente a NON usare imageId.
   private imagesSection(
     kind: VisualKind,
     images: AvailableImage[],
@@ -672,7 +548,7 @@ ${schema}`;
     if (!useImages || images.length === 0) {
       return `\nBOOK IMAGES: none available. Do NOT use any imageId field (leave it null or omit it): the composition will be TEXT ONLY.\n`;
     }
-    // Ogni voce mostra capitolo illustrato e tag soggetto (per scegliere con cognizione).
+
     const list = images
       .map((m) => {
         const label = (m.caption && m.caption.trim()) || m.scope;
@@ -681,7 +557,7 @@ ${schema}`;
         return `- ${m.id}: ${label}${ch}${tags}`;
       })
       .join("\n");
-    // L'elenco è già ORDINATO PER PERTINENZA al capitolo del post: la prima è la più pertinente.
+
     const relevanceNote =
       chapterIndex != null
         ? `Images are ORDERED BY RELEVANCE to the post (chapter ${chapterIndex} and subjects): when equally suitable, PREFER the FIRST ones in the list.\n`

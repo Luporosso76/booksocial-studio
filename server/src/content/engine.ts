@@ -8,19 +8,12 @@ import * as aiSettings from "./aiSettings.js";
 import { dataDir } from "../paths.js";
 import { buildOllamaEngine } from "./engineApi.js";
 
-/** Base dir per le work dir temporanee degli agenti: dentro il data dir (scrivibile in Docker). */
 function agentWorkBase(): string {
   const base = join(dataDir(), ".agent-work");
   mkdirSync(base, { recursive: true });
   return base;
 }
 
-// I CLI (opencode/codex/claude/agy) vivono dove l'utente li ha installati (nvm, brew, asdf,
-// volta, ~/.local/bin...). Invece di enumerare cartelle a mano, chiediamo alla SHELL DI LOGIN
-// dell'utente: eredita lo stesso PATH che funziona nel suo terminale. Best-effort + cache; se
-// la shell non c'e' (es. Docker minimale) si ricade sul PATH del processo.
-
-/** Esegue un comando nella login shell dell'utente e ritorna stdout (trim), o "" su errore. */
 function loginShellQuery(command: string): string {
   try {
     return execFileSync("bash", ["-lic", command], {
@@ -33,9 +26,6 @@ function loginShellQuery(command: string): string {
   }
 }
 
-// FALLBACK: posizioni note dove possono stare i CLI quando la login shell del servizio NON li
-// espone. Caso tipico: codex installato via nvm, la cui dir e' su PATH solo dopo `nvm use` (che
-// il servizio systemd/Docker non esegue). NON e' il meccanismo primario, solo una rete di sicurezza.
 function nvmBins(): string[] {
   try {
     const base = join(homedir(), ".nvm", "versions", "node");
@@ -58,7 +48,7 @@ function knownBinDirs(): string[] {
 }
 
 let cachedLoginPath: string | null = null;
-/** PATH per i sottoprocessi CLI: quello della login shell dell'utente UNITO alle posizioni note. */
+
 export function enginePath(): string {
   if (cachedLoginPath != null) return cachedLoginPath;
   const fromShell = loginShellQuery('printf %s "$PATH"');
@@ -71,14 +61,9 @@ export function enginePath(): string {
 }
 
 const binaryCache = new Map<string, string>();
-/**
- * Risolve il percorso assoluto di un CLI. PRIMARIO: la login shell dell'utente
- * (`command -v <name>`) — trova i binari ovunque l'utente li abbia (nvm/brew/asdf...).
- * FALLBACK: se la shell non lo espone (es. nvm non attivo nel servizio), cerca nelle posizioni
- * note. Se non lo trova, ritorna il nome com'e' (lo spawn fallira' con messaggio chiaro). Cache.
- */
+
 export function resolveBinary(name: string): string {
-  if (name.includes("/")) return name; // gia' un percorso
+  if (name.includes("/")) return name;
   const cached = binaryCache.get(name);
   if (cached) return cached;
   const viaShell = loginShellQuery(`command -v ${name}`)
@@ -99,10 +84,6 @@ export function resolveBinary(name: string): string {
   }
   return name;
 }
-
-// Content engine: a local CLI that turns a text prompt into a text response.
-// Ported from Java OpenCodeProcess / CodexProcess / ClaudeProcess.
-// The engine receives ONLY text (book scheda / prompt), never any token.
 
 export interface ContentEngine {
   name(): string;
@@ -130,7 +111,7 @@ function spawnCollect(
         cwd: opts.cwd ?? tmpdir(),
         stdio: ["pipe", "pipe", "pipe"],
         env: { ...process.env, PATH: enginePath() },
-        detached: true, // gruppo di processi: gli agenti CLI lanciano sotto-processi/tool
+        detached: true,
       });
     } catch (e) {
       reject(e);
@@ -141,7 +122,6 @@ function spawnCollect(
     let timedOut = false;
     let settled = false;
 
-    // Uccide l'INTERO gruppo (agente + figli), non solo il padre, per non lasciare orfani.
     const killTree = () => {
       try {
         if (child.pid) process.kill(-child.pid, "SIGKILL");
@@ -149,9 +129,7 @@ function spawnCollect(
       } catch {
         try {
           child.kill("SIGKILL");
-        } catch {
-          /* già terminato */
-        }
+        } catch {}
       }
     };
 
@@ -163,9 +141,7 @@ function spawnCollect(
     if (opts.collectStdout) {
       child.stdout.on("data", (d) => (stdout += d.toString("utf8")));
     } else {
-      child.stdout.on("data", () => {
-        /* drain to avoid blocking */
-      });
+      child.stdout.on("data", () => {});
     }
     child.stderr.on("data", (d) => (stderr += d.toString("utf8")));
 
@@ -189,7 +165,6 @@ function spawnCollect(
   });
 }
 
-// DEFAULT: opencode run -m <model> <prompt>  (clean answer on stdout).
 class OpenCodeEngine implements ContentEngine {
   constructor(
     private readonly binary: string,
@@ -204,9 +179,6 @@ class OpenCodeEngine implements ContentEngine {
   async run(prompt: string): Promise<string> {
     let out: SpawnOut;
     try {
-      // Prompt via STDIN (non come argomento): evita il limite ~128KB per singolo argomento
-      // di Linux (MAX_ARG_STRLEN), che fa fallire l'analisi dei libri grandi.
-      // --pure: nessun plugin esterno, l'engine dipende solo da OpenCode e dalle sue skill globali.
       out = await spawnCollect(this.binary, ["run", "--pure", "-m", this.model], {
         input: prompt,
         timeoutMs: this.timeoutMs,
@@ -233,8 +205,6 @@ class OpenCodeEngine implements ContentEngine {
   }
 }
 
-// codex exec --skip-git-repo-check --color never -s read-only [-m model] -o <file>
-// prompt on stdin; answer read from the output file.
 class CodexEngine implements ContentEngine {
   constructor(
     private readonly binary: string,
@@ -288,7 +258,6 @@ class CodexEngine implements ContentEngine {
   }
 }
 
-// claude -p --output-format text [--model m]  ; prompt on stdin.
 class ClaudeEngine implements ContentEngine {
   constructor(
     private readonly binary: string,
@@ -336,8 +305,6 @@ class ClaudeEngine implements ContentEngine {
   }
 }
 
-// agy --model <model> --print <prompt>  ; il prompt è passato come ARGOMENTO, la
-// risposta arriva su stdout. Provider testo ad abbonamento (Gemini/antigravity via CLI agy).
 class AgyEngine implements ContentEngine {
   constructor(
     private readonly binary: string,
@@ -388,11 +355,6 @@ class AgyEngine implements ContentEngine {
   }
 }
 
-/**
- * VISIONE best-effort: chiede a un modello multimodale di GUARDARE un'immagine e rispondere.
- * `opencode run --pure -m <model> -f <imagePath>` con la domanda su STDIN. La visione è OPZIONALE:
- * non lancia mai eccezioni — ritorna lo stdout ripulito, oppure null su errore/timeout/risposta vuota.
- */
 export async function runOpenCodeVision(opts: {
   binary: string;
   model: string;
@@ -408,17 +370,13 @@ export async function runOpenCodeVision(opts: {
       { input: opts.prompt, timeoutMs: opts.timeoutMs, collectStdout: true },
     );
   } catch {
-    return null; // spawn fallito (binario assente, ecc.)
+    return null;
   }
   if (out.timedOut || out.code !== 0) return null;
   const answer = out.stdout.trim();
   return answer === "" ? null : answer;
 }
 
-/**
- * Errore di RATE-LIMIT/quota: vero se il messaggio (case-insensitive) contiene un marcatore noto.
- * Usato per decidere se ritentare col provider di fallback. Non logga né espone segreti.
- */
 export function isRateLimitError(e: unknown): boolean {
   const msg = (e instanceof Error ? e.message : String(e)).toLowerCase();
   const markers = [
@@ -434,26 +392,13 @@ export function isRateLimitError(e: unknown): boolean {
   return markers.some((m) => msg.includes(m));
 }
 
-/**
- * Registry centrale dei provider del motore TESTO. È l'UNICO punto di estensione:
- * per aggiungere un provider, implementa l'interfaccia `ContentEngine` (qui o in engineApi.ts)
- * e aggiungi un `case` in questo switch, instradato dal provider scelto nelle Impostazioni.
- *
- * Due modalità di auth/esecuzione:
- *  - Abbonamento/login via CLI: opencode | codex | claude | agy (auth e skill/plugin si
- *    configurano NEI rispettivi tool, non nell'app; l'app si limita a invocare il CLI col modello).
- *  - Locale: ollama (nessuna chiave).
- *
- * I BINARI dei CLI restano da `appConfig` (env); i MODELLI e il provider da `aiSettings.getText()`.
- * Il `provider` può essere forzato (per il fallback su rate-limit) riusando gli stessi modelli `cfg`.
- */
 export function buildEngine(
   cfg: aiSettings.TextCfg,
   provider: string,
   modelOverride?: string,
 ): ContentEngine {
   const timeout = appConfig.engineTimeoutMs;
-  // Se modelOverride è valorizzato (trim != ""), sostituisce il modello del provider.
+
   const ov = modelOverride && modelOverride.trim() !== "" ? modelOverride : null;
   const mdl = (base: string): string => ov ?? base;
   const mdlN = (base: string | null): string | null => ov ?? base;
@@ -487,21 +432,11 @@ export function buildEngine(
   }
 }
 
-// Ultimo motore TESTO realmente usato da run() (primario o fallback), col nome+modello concreto.
-// I name in fallback portano il suffisso " (fallback)" per evidenziare il cambio nella UI.
 let lastTextEngine: string | null = null;
 export function getLastTextEngine(): string | null {
   return lastTextEngine;
 }
 
-/**
- * Ritorna un WRAPPER DINAMICO: `name()` e `run()` ricostruiscono ogni volta il motore
- * concreto da `aiSettings.getText()`. Così cambiare provider/chiavi/model dalle Impostazioni
- * (che ricaricano la cache) ha effetto immediato, senza riavviare il server.
- *
- * FALLBACK: se il motore primario fallisce con un errore di rate-limit/quota e `fallbackProvider`
- * è valorizzato (!= "none" e diverso dal primario), ritenta UNA volta col provider di fallback.
- */
 export function createEngine(): ContentEngine {
   return {
     name(): string {
@@ -509,12 +444,10 @@ export function createEngine(): ContentEngine {
         const cfg = aiSettings.getText();
         return buildEngine(cfg, cfg.provider).name();
       } catch {
-        // name() non deve lanciare: mostra il provider scelto.
         return aiSettings.getText().provider;
       }
     },
     async run(prompt: string): Promise<string> {
-      // async: un eventuale throw sincrono di buildEngine() diventa un reject della Promise.
       const cfg = aiSettings.getText();
       const primary = cfg.provider;
       const fallback = cfg.fallbackProvider;

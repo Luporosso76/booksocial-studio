@@ -1,6 +1,6 @@
 {
   "name": "booksocial-server",
-  "version": "0.5.5",
+  "version": "0.6.0",
   "private": true,
   "description": "BookSocial Studio backend (Node + TypeScript + Hono + SQLite).",
   "type": "module",
