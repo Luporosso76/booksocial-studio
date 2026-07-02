@@ -43,7 +43,7 @@ export default tseslint.config(
         { argsIgnorePattern: "^_", varsIgnorePattern: "^_", caughtErrorsIgnorePattern: "^_" },
       ],
       "@typescript-eslint/no-empty-object-type": "off",
-      "no-empty": "warn",
+      "no-empty": ["warn", { allowEmptyCatch: true }],
       "no-control-regex": "off",
       "no-useless-escape": "warn",
       "prefer-const": "warn",

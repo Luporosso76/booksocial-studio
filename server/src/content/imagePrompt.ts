@@ -379,7 +379,7 @@ function isCharsLine(line: string): boolean {
 function cleanDescriptionLine(line: string): string {
   let s = line.trim();
   s = s.replace(/^#{1,6}\s*/, "").replace(/^[-*•]\s+/, "");
-  s = s.replace(/^(line\s*1|description|image|prompt|paragraph)\s*[:.)\-]\s*/i, "");
+  s = s.replace(/^(line\s*1|description|image|prompt|paragraph)\s*[:.)-]\s*/i, "");
   s = s.replace(/^["'`]+|["'`]+$/g, "").trim();
   return s;
 }

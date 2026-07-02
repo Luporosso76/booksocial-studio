@@ -1333,6 +1333,7 @@ function VisualDirectivesCard({ bookId }: { bookId: string }) {
     const ctrl = new AbortController();
     load(ctrl.signal);
     return () => ctrl.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bookId]);
 
   function openCreate() {
