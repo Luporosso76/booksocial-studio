@@ -15,7 +15,7 @@ import { generateAppearance } from "../content/characterAppearance.js";
 import { generateOutfits, extractOutfitColors } from "../content/characterOutfits.js";
 import { generateVisualProps } from "../content/visualProps.js";
 import { extractMinorsForChapter } from "../content/minorCharacters.js";
-import { collectCharacterPassages } from "../content/characterText.js";
+import { collectCharacterPassages, namesMatch } from "../content/characterText.js";
 import type { MinorCharacter } from "../domain.js";
 import {
   startVisualBible,
@@ -45,6 +45,7 @@ export async function stepAppearance(
   bookId: number,
   opts: { onlyWeak?: boolean; onlyNames?: readonly string[] } = {},
   hooks: StepHooks = {},
+  passages?: ReadonlyMap<string, string>,
 ): Promise<string[]> {
   const book = await books.get(bookId);
   if (!book) return [];
@@ -71,7 +72,8 @@ export async function stepAppearance(
       hooks.onItem?.();
       continue;
     }
-    const sourceText = collectCharacterPassages(chapters, ch.name);
+    const sourceText =
+      passages?.get(ch.name.toLowerCase().trim()) ?? collectCharacterPassages(chapters, ch.name);
     const res = await generateAppearance(engine, {
       name: ch.name,
       role: ch.role,
@@ -107,6 +109,7 @@ export async function stepOutfits(
   bookId: number,
   opts: { onlyNames?: readonly string[] } = {},
   hooks: StepHooks = {},
+  passages?: ReadonlyMap<string, string>,
 ): Promise<string[]> {
   const book = await books.get(bookId);
   if (!book) return [];
@@ -144,16 +147,14 @@ export async function stepOutfits(
       hooks.onItem?.();
       continue;
     }
-    const sourceText = collectCharacterPassages(chapters, ch.name);
+    const sourceText =
+      passages?.get(ch.name.toLowerCase().trim()) ?? collectCharacterPassages(chapters, ch.name);
     const nm = ch.name.toLowerCase().trim();
     const charSet = new Set<string>();
     for (const c of chapters) {
       const sc = c.scene;
       if (!sc) continue;
-      const present = (sc.characters ?? []).some((n) => {
-        const x = (n ?? "").toLowerCase().trim();
-        return x !== "" && (x === nm || x.includes(nm) || nm.includes(x));
-      });
+      const present = (sc.characters ?? []).some((n) => namesMatch(n ?? "", nm));
       if (!present) continue;
       for (const v of [sc.location, sc.environment, ...sc.mainObjects]) {
         const t = (v ?? "").trim();
@@ -162,10 +163,7 @@ export async function stepOutfits(
     }
     const charSettings = charSet.size > 0 ? [...charSet] : settings;
     const isPresent = (names: readonly (string | null)[] | undefined): boolean =>
-      (names ?? []).some((n) => {
-        const x = (n ?? "").toLowerCase().trim();
-        return x !== "" && (x === nm || x.includes(nm) || nm.includes(x));
-      });
+      (names ?? []).some((n) => namesMatch(n ?? "", nm));
     const flashbackSet = new Set<string>();
     const dreamSet = new Set<string>();
     for (const c of chapters) {
@@ -337,6 +335,10 @@ export async function buildVisualBible(
 ): Promise<void> {
   const ordered = VB_STEP_ORDER.filter((k) => stepKeys.includes(k));
   startVisualBible(bookId, ordered);
+  const passages =
+    ordered.includes("appearance") || ordered.includes("outfits")
+      ? await buildPassagesMap(bookId)
+      : undefined;
   for (const key of ordered) {
     const hooks: StepHooks = {
       onTotal: (total) => setStepTotal(bookId, key, total),
@@ -345,13 +347,13 @@ export async function buildVisualBible(
     await runStep(bookId, key, async () => {
       switch (key) {
         case "appearance":
-          await stepAppearance(deps.engine, bookId, {}, hooks);
+          await stepAppearance(deps.engine, bookId, {}, hooks, passages);
           break;
         case "sceneCards":
           await stepSceneCards(deps.chapterScenes, bookId, hooks);
           break;
         case "outfits":
-          await stepOutfits(deps.engine, bookId, {}, hooks);
+          await stepOutfits(deps.engine, bookId, {}, hooks, passages);
           break;
         case "props":
           await stepProps(deps.engine, bookId, hooks);
@@ -366,4 +368,14 @@ export async function buildVisualBible(
     });
   }
   finishVisualBible(bookId);
+}
+
+async function buildPassagesMap(bookId: number): Promise<Map<string, string>> {
+  const chapters = await books.chapters(bookId);
+  const cast = await characters.byBook(bookId);
+  const map = new Map<string, string>();
+  for (const ch of cast) {
+    map.set(ch.name.toLowerCase().trim(), collectCharacterPassages(chapters, ch.name));
+  }
+  return map;
 }

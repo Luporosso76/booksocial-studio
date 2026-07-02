@@ -2,7 +2,7 @@ import { books, characters, visualDirectives } from "../db/repositories.js";
 import type { ContentEngine } from "../content/engine.js";
 import { extractChapterScene, type ExtractedChapterScene } from "../content/chapterScene.js";
 import { domainHaystack, resolveOutfitMatch } from "../content/imagePrompt.js";
-import { nameAppearsInText } from "../content/characterText.js";
+import { nameAppearsInText, namesMatch } from "../content/characterText.js";
 import { sha256 } from "../content/importer.js";
 import { SCENE_PROMPT_VERSION } from "../domain.js";
 import type {
@@ -48,29 +48,7 @@ export class ChapterSceneService {
   ): Promise<ChapterScene | null> {
     const chapter = await books.chapter(bookId, chapterIndex);
     if (!chapter) return null;
-    const prev = chapter.scene;
-    const scene: ChapterScene = {
-      location: patch.location !== undefined ? patch.location : (prev?.location ?? null),
-      environment:
-        patch.environment !== undefined ? patch.environment : (prev?.environment ?? null),
-      mainObjects: patch.mainObjects !== undefined ? patch.mainObjects : (prev?.mainObjects ?? []),
-      secondaryObjects:
-        patch.secondaryObjects !== undefined
-          ? patch.secondaryObjects
-          : (prev?.secondaryObjects ?? []),
-      characters: patch.characters !== undefined ? patch.characters : (prev?.characters ?? []),
-      pov: patch.pov !== undefined ? patch.pov : (prev?.pov ?? null),
-      physicsRules:
-        patch.physicsRules !== undefined ? patch.physicsRules : (prev?.physicsRules ?? []),
-      keyMoment: patch.keyMoment !== undefined ? patch.keyMoment : (prev?.keyMoment ?? null),
-      kind: patch.kind !== undefined ? patch.kind : (prev?.kind ?? "waking"),
-      altMoments: patch.altMoments !== undefined ? patch.altMoments : (prev?.altMoments ?? []),
-      source: "USER",
-      model: prev?.model ?? null,
-      promptVersion: SCENE_PROMPT_VERSION,
-      sourceHash: sha256(chapter.text),
-      updatedAt: Date.now(),
-    };
+    const scene = mergeUserScene(chapter.scene ?? null, chapter.text, patch);
     await books.setChapterScene(chapter.id, scene);
     return scene;
   }
@@ -156,11 +134,16 @@ export class ChapterSceneService {
 
     // Persisti in bulk (transazione) e ritorna il cast aggiornato.
     await characters.setChaptersBulk(
-      cast.map((c) => ({
-        characterId: c.id,
-        chapters: [...presence.get(c.id)!],
-        temporalPresence: classifyTemporalPresence(sceneKinds.get(c.id)!),
-      })),
+      cast.map((c) => {
+        const chapterSet = presence.get(c.id)!;
+        const computed = classifyTemporalPresence(sceneKinds.get(c.id)!);
+        const inFailed = [...chapterSet].some((idx) => failedChapters.has(idx));
+        return {
+          characterId: c.id,
+          chapters: [...chapterSet],
+          temporalPresence: resolveTemporalPresence(computed, c.temporalPresence ?? null, inFailed),
+        };
+      }),
     );
     return characters.byBook(bookId);
   }
@@ -245,6 +228,7 @@ export class ChapterSceneService {
       dream: new Set(desired.dream),
     };
     const chapters = await books.chapters(bookId);
+    const pending: { chapterId: number; scene: ChapterScene }[] = [];
     for (const chapter of chapters) {
       const scene = chapter.scene;
       if (!scene) continue;
@@ -268,11 +252,13 @@ export class ChapterSceneService {
         return { ...moment, characters: next };
       });
       if (!changedMain && !changedAlt) continue;
-      await this.save(bookId, idx, {
+      const updated = mergeUserScene(scene, chapter.text, {
         ...(changedMain ? { characters: mainChars } : {}),
         ...(changedAlt ? { altMoments: nextMoments } : {}),
       });
+      pending.push({ chapterId: chapter.id, scene: updated });
     }
+    await books.setChapterScenesBulk(pending);
     await this.recomputeCharacterChapters(bookId);
   }
 
@@ -312,16 +298,17 @@ export class ChapterSceneService {
     return scene;
   }
 
-  async placeMinorInScenes(bookId: number, name: string, when: string): Promise<void> {
+  async placeMinorInScenes(bookId: number, name: string, when: string): Promise<number> {
     const kws = when
       .split(/[,;]/)
       .map((s) => s.trim())
       .filter((s) => s.length > 0);
-    if (kws.length === 0) return;
+    if (kws.length === 0) return 0;
     const matchOutfits = { default: null, contexts: [{ when, outfit: "" }], signature: null };
     const matches = (haystack: string): boolean =>
       resolveOutfitMatch(matchOutfits, haystack).fromContext;
     const chapters = await books.chapters(bookId);
+    let changedCount = 0;
     for (const chapter of chapters) {
       const scene = chapter.scene;
       if (!scene) continue;
@@ -355,8 +342,37 @@ export class ChapterSceneService {
         ...(changedMain ? { characters: mainChars } : {}),
         ...(changedAlt ? { altMoments: nextMoments } : {}),
       });
+      changedCount++;
     }
+    return changedCount;
   }
+}
+
+function mergeUserScene(
+  prev: ChapterScene | null,
+  chapterText: string,
+  patch: Partial<ExtractedChapterScene>,
+): ChapterScene {
+  return {
+    location: patch.location !== undefined ? patch.location : (prev?.location ?? null),
+    environment: patch.environment !== undefined ? patch.environment : (prev?.environment ?? null),
+    mainObjects: patch.mainObjects !== undefined ? patch.mainObjects : (prev?.mainObjects ?? []),
+    secondaryObjects:
+      patch.secondaryObjects !== undefined
+        ? patch.secondaryObjects
+        : (prev?.secondaryObjects ?? []),
+    characters: patch.characters !== undefined ? patch.characters : (prev?.characters ?? []),
+    pov: patch.pov !== undefined ? patch.pov : (prev?.pov ?? null),
+    physicsRules: patch.physicsRules !== undefined ? patch.physicsRules : (prev?.physicsRules ?? []),
+    keyMoment: patch.keyMoment !== undefined ? patch.keyMoment : (prev?.keyMoment ?? null),
+    kind: patch.kind !== undefined ? patch.kind : (prev?.kind ?? "waking"),
+    altMoments: patch.altMoments !== undefined ? patch.altMoments : (prev?.altMoments ?? []),
+    source: "USER",
+    model: prev?.model ?? null,
+    promptVersion: SCENE_PROMPT_VERSION,
+    sourceHash: sha256(chapterText),
+    updatedAt: Date.now(),
+  };
 }
 
 function isSceneFresh(scene: ChapterScene, chapterText: string): boolean {
@@ -376,20 +392,13 @@ export function classifyTemporalPresence(
   return null;
 }
 
-// Confronto lasco fra nomi, ma per TOKEN INTERI (no sottostringhe): "Marco" combacia con
-// "Marco Romidi", mentre "Anna" NON combacia con "Marianna" né "Sara" con "Rosaria". Combaciano
-// se i token del nome più corto sono tutti presenti, come parole intere, nell'altro (così due
-// nomi completi diversi con lo stesso primo nome — "Marco Rossi"/"Marco Bianchi" — restano distinti).
-function namesMatch(a: string, b: string): boolean {
-  const x = a.toLowerCase().trim();
-  const y = b.toLowerCase().trim();
-  if (x === "" || y === "") return false;
-  if (x === y) return true;
-  const tx = x.split(/\s+/);
-  const ty = y.split(/\s+/);
-  const [short, long] = tx.length <= ty.length ? [tx, ty] : [ty, tx];
-  const longSet = new Set(long);
-  return short.every((t) => longSet.has(t));
+export function resolveTemporalPresence(
+  computed: TemporalPresence | null,
+  existing: TemporalPresence | null,
+  presentInFailedChapter: boolean,
+): TemporalPresence | null {
+  if (computed === null && presentInFailedChapter) return existing;
+  return computed;
 }
 
 function reconcileMembership(names: string[], name: string, shouldBePresent: boolean): string[] {

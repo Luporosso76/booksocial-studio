@@ -10,6 +10,9 @@ import type {
   BookCharacter,
   BookDetail,
   BookLink,
+  BookQuote,
+  ChapterMarketingCard,
+  ChapterMarketingCardData,
   CharacterInput,
   CharacterOutfits,
   CharacterSceneAppearances,
@@ -173,6 +176,27 @@ export const assistVisualDirective = (bookId: string, body: { intent: string; ti
     `/books/${bookId}/visual-directives/assist`,
     body,
   );
+
+export const listMarketingCards = (bookId: string, signal?: AbortSignal) =>
+  apiGet<{ cards: ChapterMarketingCard[] }>(`/books/${bookId}/marketing-cards`, signal);
+
+export const updateMarketingCard = (
+  bookId: string,
+  chapterIndex: number,
+  data: Partial<ChapterMarketingCardData>,
+) => apiPut<ChapterMarketingCard>(`/books/${bookId}/marketing-cards/${chapterIndex}`, { data });
+
+export const listQuotes = (bookId: string, signal?: AbortSignal) =>
+  apiGet<{ quotes: BookQuote[] }>(`/books/${bookId}/quotes`, signal);
+
+export const updateQuote = (
+  bookId: string,
+  quoteId: string,
+  payload: { text?: string; speaker?: string | null },
+) => apiPut<BookQuote>(`/books/${bookId}/quotes/${quoteId}`, payload);
+
+export const deleteQuote = (bookId: string, quoteId: string) =>
+  apiDelete<{ ok: true }>(`/books/${bookId}/quotes/${quoteId}`);
 
 export const deleteBook = (id: string) => apiDelete<{ ok: boolean }>(`/books/${id}`);
 

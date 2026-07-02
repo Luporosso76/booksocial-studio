@@ -5,6 +5,8 @@ import type {
   Book,
   BookProfile,
   BookCharacter,
+  BookQuote,
+  ChapterMarketingCard,
   ContentFormat,
   FacebookPage,
   BookLink,
@@ -316,5 +318,28 @@ export function generatedToPostDto(g: Record<string, unknown>) {
     createdAt: Date.now(),
     fbPostId: null,
     errorMessage: null,
+  };
+}
+
+export function quoteDto(q: BookQuote) {
+  return {
+    id: String(q.id),
+    bookId: String(q.bookId),
+    chapterId: q.chapterId == null ? null : String(q.chapterId),
+    text: q.text,
+    kind: q.kind,
+    speaker: q.speaker,
+    score: q.score,
+  };
+}
+
+export function marketingCardDto(c: ChapterMarketingCard) {
+  return {
+    bookId: String(c.bookId),
+    chapterIndex: c.chapterIndex,
+    schemaVersion: c.schemaVersion,
+    data: c.data,
+    model: c.model,
+    updatedAt: c.updatedAt,
   };
 }

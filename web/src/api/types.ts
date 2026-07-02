@@ -977,3 +977,57 @@ export interface ScheduleDraftsResult {
   skipped: number; // orario già passato/assente
   messages?: string[]; // eventuali avvisi (es. programmazione nativa fallita → job interno)
 }
+
+export type QuoteKind = "quote" | "dialogue";
+export interface BookQuote {
+  id: string;
+  bookId: string;
+  chapterId: string | null;
+  text: string;
+  kind: QuoteKind;
+  speaker: string | null;
+  score: number;
+}
+
+export type SpoilerLevel = "low" | "medium" | "high";
+export interface MarketingSafeQuote {
+  quote: string;
+  whyItWorks: string;
+  spoilerRisk: SpoilerLevel;
+}
+export interface MarketingCharacterFocus {
+  name: string;
+  stateInChapter: string;
+  desire: string;
+  fear: string;
+  changeWithoutSpoiler: string;
+}
+export interface MarketingPostAngle {
+  type: string;
+  hook: string;
+  reason: string;
+  concreteness: number;
+  emotionalStrength: number;
+  spoilerSafety: number;
+  freshness: number;
+}
+export interface ChapterMarketingCardData {
+  spoilerLevel: SpoilerLevel;
+  nonSpoilerSummary: string;
+  emotionalCore: string;
+  humanTruth: string;
+  readerQuestion: string;
+  mainTension: string;
+  visualMoment: string;
+  safeQuotes: MarketingSafeQuote[];
+  characterFocus: MarketingCharacterFocus[];
+  postAngles: MarketingPostAngle[];
+}
+export interface ChapterMarketingCard {
+  bookId: string;
+  chapterIndex: number;
+  schemaVersion: number;
+  data: ChapterMarketingCardData;
+  model: string | null;
+  updatedAt: number;
+}

@@ -386,6 +386,13 @@ const MIGRATIONS: Migration[] = [
       `ALTER TABLE book_character ADD COLUMN temporal_presence_locked INTEGER NOT NULL DEFAULT 0`,
     ],
   },
+  {
+    version: 12,
+    statements: [
+      `CREATE INDEX IF NOT EXISTS ix_media_chapter ON media_asset(chapter_id)`,
+      `CREATE INDEX IF NOT EXISTS ix_generation_book ON generation_record(book_id, created_at)`,
+    ],
+  },
 ];
 
 async function currentVersion(): Promise<number> {

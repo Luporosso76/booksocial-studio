@@ -21,5 +21,16 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('i18n/locales')) return 'i18n-locales';
+          if (!id.includes('node_modules')) return undefined;
+          if (id.includes('i18next')) return 'i18n-vendor';
+          if (id.includes('lucide-react')) return 'icons';
+          return 'vendor';
+        },
+      },
+    },
   },
 });

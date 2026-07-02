@@ -30,6 +30,18 @@ export function nameAppearsInText(name: string, text: string): boolean {
   return re.test(text || "");
 }
 
+export function namesMatch(a: string, b: string): boolean {
+  const x = a.toLowerCase().trim();
+  const y = b.toLowerCase().trim();
+  if (x === "" || y === "") return false;
+  if (x === y) return true;
+  const tx = x.split(/\s+/);
+  const ty = y.split(/\s+/);
+  const [short, long] = tx.length <= ty.length ? [tx, ty] : [ty, tx];
+  const longSet = new Set(long);
+  return short.every((t) => longSet.has(t));
+}
+
 const WINDOW_BEFORE = 2;
 const WINDOW_AFTER = 4;
 

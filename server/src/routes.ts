@@ -21,6 +21,7 @@ import { mountPost } from "./routes/postRoutes.js";
 import { mountRender } from "./routes/renderRoutes.js";
 import { mountMusic } from "./routes/musicRoutes.js";
 import { mountInstagram } from "./routes/instagramRoutes.js";
+import { mountMarketing } from "./routes/marketingRoutes.js";
 
 export function buildApi(deps: AppDeps): Hono {
   const api = new Hono();
@@ -133,6 +134,7 @@ export function buildApi(deps: AppDeps): Hono {
   mountRender(api, ctx);
   mountMusic(api, ctx);
   mountInstagram(api, ctx);
+  mountMarketing(api, ctx);
 
   return api;
 }

@@ -7,9 +7,12 @@ import { publishDraft } from "../services/publisher.js";
 import { publishInstagramJob } from "../services/instagramPublisher.js";
 
 // Publish scheduler, robust to crash/restart:
-//  - on start, recover posts stuck in PUBLISHING (never confirmed) -> SCHEDULED;
+//  - on start, recover posts stuck in PUBLISHING with no publish id -> FAILED (may already be live
+//    on the page: no automatic republish, the user decides) — see posts.recoverStalePublishing;
 //  - each tick, take due posts, atomically claim them (SCHEDULED->PUBLISHING), publish;
-//  - on error apply backoff and retry up to maxPublishAttempts, then FAILED.
+//  - on error apply backoff and retry up to maxPublishAttempts, then FAILED;
+//  - page token expired/revoked (code 190 / OAuthException): immediate FAIL (no retry) and in the
+//    current tick the other posts of the SAME page are skipped (left SCHEDULED, retried next tick).
 // IMPORTANT: DRAFT posts are NEVER published automatically; only SCHEDULED due posts.
 // Posts with an existing fb_post_id are never republished.
 
@@ -53,9 +56,12 @@ export class PublishScheduler {
   private async tick(): Promise<void> {
     await this.reconcileNative();
     const due = await posts.findDue(Date.now(), DUE_BATCH);
+    const deadTokenPages = new Set<string>();
     for (const post of due) {
+      if (deadTokenPages.has(post.pageId)) continue;
       if (await posts.claimForPublishing(post.id, Date.now())) {
-        await this.publish(post);
+        const tokenDead = await this.publish(post);
+        if (tokenDead) deadTokenPages.add(post.pageId);
       }
     }
   }
@@ -92,16 +98,16 @@ export class PublishScheduler {
     }
   }
 
-  private async publish(post: ScheduledPost): Promise<void> {
+  private async publish(post: ScheduledPost): Promise<boolean> {
     const page = await pages.find(post.pageId);
     if (!page) {
       await this.fail(post, `Pagina non trovata: ${post.pageId}`, false);
-      return;
+      return false;
     }
     const token = await keyring.get(page.tokenSecretKey);
     if (!token) {
       await this.fail(post, `Token mancante per la pagina ${post.pageId}`, false);
-      return;
+      return false;
     }
 
     try {
@@ -118,7 +124,7 @@ export class PublishScheduler {
         });
         // eslint-disable-next-line no-console
         console.log(`[scheduler] pubblicato post IG #${post.id} -> ig ${igMediaId}`);
-        return;
+        return false;
       }
 
       const fbId = await publishDraft(post, token);
@@ -131,11 +137,25 @@ export class PublishScheduler {
       });
       // eslint-disable-next-line no-console
       console.log(`[scheduler] pubblicato post #${post.id} -> fb ${fbId}`);
+      return false;
     } catch (e) {
       const err = e as fb.FacebookError;
+      if (fb.isTokenError(err)) {
+        await this.fail(
+          post,
+          "Token della pagina scaduto o revocato: riconnetti la pagina Facebook dalle Impostazioni",
+          false,
+        );
+        // eslint-disable-next-line no-console
+        console.error(
+          `[scheduler] token pagina ${post.pageId} scaduto/revocato: post #${post.id} FALLITO, salto gli altri di questa pagina nel tick`,
+        );
+        return true;
+      }
       const status = typeof err.httpStatus === "number" ? err.httpStatus : -1;
       const retryable = status < 0 || status >= 500 || status === 429;
       await this.fail(post, err.message, retryable);
+      return false;
     }
   }
 

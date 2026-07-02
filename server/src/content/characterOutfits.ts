@@ -49,6 +49,14 @@ const COLOR_FAMILIES: Record<string, string[]> = {
   bianco: ["bianc", "white", "blanc", "blanco", "weiß", "weiss", "avori", "ivory", "crema", "cream", "panna", "latte"],
 };
 
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function stemMatchesWord(hay: string, stem: string): boolean {
+  return new RegExp(`(^|[^\\p{L}])${escapeRegExp(stem)}`, "u").test(hay);
+}
+
 export function extractOutfitColors(o: CharacterOutfits | null | undefined): string[] {
   if (!o) return [];
   const hay = [o.default ?? "", o.signature ?? "", ...(o.contexts ?? []).map((c) => c.outfit ?? "")]
@@ -56,7 +64,7 @@ export function extractOutfitColors(o: CharacterOutfits | null | undefined): str
     .toLowerCase();
   const found: string[] = [];
   for (const [family, syn] of Object.entries(COLOR_FAMILIES)) {
-    if (syn.some((s) => hay.includes(s))) found.push(family);
+    if (syn.some((s) => stemMatchesWord(hay, s))) found.push(family);
   }
   return found;
 }

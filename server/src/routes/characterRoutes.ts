@@ -86,10 +86,17 @@ export function mountCharacters(api: Hono, ctx: RouteContext): void {
       updatedAt: now,
     });
     await books.setVisualExtras(id, { minors: minors.filter((_, i) => i !== index) });
+    let placementWarning: string | null = null;
+    const hasWhen = minor.when.trim() !== "";
     try {
-      await deps.chapterScenes.placeMinorInScenes(id, created.name, minor.when);
+      const placed = await deps.chapterScenes.placeMinorInScenes(id, created.name, minor.when);
+      if (!hasWhen || placed === 0) {
+        placementWarning =
+          "Nessuna scena combaciata: assegna i capitoli dalla scheda personaggio.";
+      }
     } catch (e) {
       console.error("[promote] placeMinorInScenes fallito:", e);
+      placementWarning = "Nessuna scena combaciata: assegna i capitoli dalla scheda personaggio.";
     }
     try {
       await deps.chapterScenes.recomputeCharacterChapters(id);
@@ -107,7 +114,8 @@ export function mountCharacters(api: Hono, ctx: RouteContext): void {
       console.error("[promote] stepOutfits fallito:", e);
     }
     const enriched = await characters.get(created.id);
-    return c.json(characterDto(enriched ?? created));
+    const dto = characterDto(enriched ?? created);
+    return c.json(placementWarning ? { ...dto, warning: placementWarning } : dto);
   });
 
   api.get("/books/:id/character-scene-appearances", async (c) => {

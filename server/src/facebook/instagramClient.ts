@@ -1,5 +1,5 @@
 import { appConfig } from "../config.js";
-import { FacebookError } from "./client.js";
+import { FacebookError, graphError } from "./client.js";
 
 // Client Instagram Graph API per pubblicare Reel/Storie (video 9:16) su un Instagram Business
 // account collegato a una Pagina Facebook. Il token usato è il TOKEN DI PAGINA (keyring
@@ -40,7 +40,7 @@ export async function getIgUserId(pageId: string, pageToken: string): Promise<st
   }
   if (resp.status >= 400 || body.error) {
     const msg = body?.error?.message ?? `HTTP ${resp.status}`;
-    throw new FacebookError(`Graph API instagram_business_account: ${msg}`, resp.status);
+    throw graphError(`Graph API instagram_business_account: ${msg}`, body, resp.status);
   }
   const igId = body?.instagram_business_account?.id;
   return igId == null ? null : String(igId);
@@ -85,7 +85,7 @@ export async function publishVideo(input: PublishVideoInput): Promise<string> {
   const createBody = await parseJson(createResp);
   if (createResp.status >= 400 || createBody.error) {
     const msg = createBody?.error?.message ?? `HTTP ${createResp.status}`;
-    throw new FacebookError(`Creazione container IG: ${msg}`, createResp.status);
+    throw graphError(`Creazione container IG: ${msg}`, createBody, createResp.status);
   }
   const containerId = createBody?.id;
   if (containerId == null) {
@@ -139,7 +139,7 @@ export async function publishVideo(input: PublishVideoInput): Promise<string> {
     const statusBody = await parseJson(statusResp);
     if (statusResp.status >= 400 || statusBody.error) {
       const msg = statusBody?.error?.message ?? `HTTP ${statusResp.status}`;
-      throw new FacebookError(`Polling container IG: ${msg}`, statusResp.status);
+      throw graphError(`Polling container IG: ${msg}`, statusBody, statusResp.status);
     }
     const code = String(statusBody?.status_code ?? "");
     if (code === "FINISHED") break;
@@ -163,7 +163,7 @@ export async function publishVideo(input: PublishVideoInput): Promise<string> {
   const pubBody = await parseJson(pubResp);
   if (pubResp.status >= 400 || pubBody.error) {
     const msg = pubBody?.error?.message ?? `HTTP ${pubResp.status}`;
-    throw new FacebookError(`Pubblicazione IG: ${msg}`, pubResp.status);
+    throw graphError(`Pubblicazione IG: ${msg}`, pubBody, pubResp.status);
   }
   const igMediaId = pubBody?.id;
   if (igMediaId == null) {
@@ -188,7 +188,7 @@ async function igRequest(url: string, init: RequestInit, ctx: string): Promise<a
   const body = await parseJson(resp);
   if (resp.status >= 400 || body.error) {
     const msg = body?.error?.message ?? `HTTP ${resp.status}`;
-    throw new FacebookError(`${ctx}: ${msg}`, resp.status);
+    throw graphError(`${ctx}: ${msg}`, body, resp.status);
   }
   return body;
 }

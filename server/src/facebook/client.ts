@@ -8,9 +8,25 @@ export class FacebookError extends Error {
   constructor(
     message: string,
     public readonly httpStatus: number,
+    public readonly code?: number,
+    public readonly type?: string,
   ) {
     super(message);
   }
+}
+
+export function graphError(message: string, body: any, status: number): FacebookError {
+  const code = typeof body?.error?.code === "number" ? body.error.code : undefined;
+  const type = typeof body?.error?.type === "string" ? body.error.type : undefined;
+  return new FacebookError(message, status, code, type);
+}
+
+export function isTokenError(e: unknown): boolean {
+  if (!(e instanceof FacebookError)) return false;
+  if (e.code === 190 || e.type === "OAuthException") return true;
+  return /error validating access token|session has expired|access token.*(expired|invalid|revoked)/i.test(
+    e.message,
+  );
 }
 
 export interface ManagedPage {
@@ -42,7 +58,7 @@ async function send(url: string, init: RequestInit, op: string): Promise<any> {
   }
   if (resp.status >= 400 || body.error) {
     const msg = body?.error?.message ?? `HTTP ${resp.status}`;
-    throw new FacebookError(`Graph API ${op}: ${msg}`, resp.status);
+    throw graphError(`Graph API ${op}: ${msg}`, body, resp.status);
   }
   return body;
 }
@@ -289,8 +305,9 @@ export async function uploadPagePhoto(
     }
   }
   if (resp.status >= 400 || body.error) {
-    throw new FacebookError(
+    throw graphError(
       `Graph API uploadPagePhoto: ${body?.error?.message ?? `HTTP ${resp.status}`}`,
+      body,
       resp.status,
     );
   }
@@ -499,8 +516,9 @@ export async function publishPhotoPost(
     }
   }
   if (resp.status >= 400 || body.error) {
-    throw new FacebookError(
+    throw graphError(
       `Graph API publishPhotoPost: ${body?.error?.message ?? `HTTP ${resp.status}`}`,
+      body,
       resp.status,
     );
   }

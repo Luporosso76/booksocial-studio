@@ -654,6 +654,18 @@ export const books = {
     ]);
   },
 
+  async setChapterScenesBulk(rows: { chapterId: number; scene: ChapterScene }[]): Promise<void> {
+    if (rows.length === 0) return;
+    await withTransaction(async (conn) => {
+      for (const r of rows) {
+        await conn.execute("UPDATE book_chapter SET scene_json=? WHERE id=?", [
+          JSON.stringify(r.scene),
+          r.chapterId,
+        ]);
+      }
+    });
+  },
+
   async clearChapterScenes(bookId: number): Promise<void> {
     await execute("UPDATE book_chapter SET scene_json=NULL WHERE book_id=?", [bookId]);
   },
@@ -877,6 +889,34 @@ export const quotes = {
       [bookId, chapterIndex],
     );
     return rows.map(mapQuote);
+  },
+
+  async get(id: number): Promise<BookQuote | null> {
+    const rows = await query("SELECT * FROM book_quote WHERE id=?", [id]);
+    return rows.length ? mapQuote(rows[0]) : null;
+  },
+
+  async updateFields(
+    id: number,
+    fields: { text?: string; speaker?: string | null },
+  ): Promise<void> {
+    const sets: string[] = [];
+    const args: (string | number | null)[] = [];
+    if (fields.text !== undefined) {
+      sets.push("text=?");
+      args.push(stripMdEscapes(fields.text));
+    }
+    if (fields.speaker !== undefined) {
+      sets.push("speaker=?");
+      args.push(fields.speaker == null ? null : stripMdEscapes(fields.speaker));
+    }
+    if (sets.length === 0) return;
+    args.push(id);
+    await execute(`UPDATE book_quote SET ${sets.join(", ")} WHERE id=?`, args);
+  },
+
+  async delete(id: number): Promise<void> {
+    await execute("DELETE FROM book_quote WHERE id=?", [id]);
   },
 
   async replaceForBook(
@@ -1325,8 +1365,12 @@ export const posts = {
 
   async recoverStalePublishing(now: number): Promise<number> {
     const r = await execute(
-      "UPDATE scheduled_post SET status='SCHEDULED', updated_at=? WHERE status='PUBLISHING' AND (fb_post_id IS NULL OR fb_post_id='')",
-      [now],
+      "UPDATE scheduled_post SET status='FAILED', last_error=?, updated_at=? " +
+        "WHERE status='PUBLISHING' AND (fb_post_id IS NULL OR fb_post_id='') AND (ig_media_id IS NULL OR ig_media_id='')",
+      [
+        "Pubblicazione interrotta: verificare sulla pagina se il post è uscito prima di riprogrammare",
+        now,
+      ],
     );
     return r.affectedRows;
   },

@@ -46,10 +46,32 @@ const VB_STEP_LABELS: Record<VBStepKey, string> = {
 
 const jobs = new Map<number, VBState>();
 
+const REAP_DELAY_MS = 30 * 60 * 1000;
+const reapTimers = new Map<number, NodeJS.Timeout>();
+
+function cancelReap(bookId: number): void {
+  const t = reapTimers.get(bookId);
+  if (t) {
+    clearTimeout(t);
+    reapTimers.delete(bookId);
+  }
+}
+
+function scheduleReap(bookId: number): void {
+  cancelReap(bookId);
+  const t = setTimeout(() => {
+    jobs.delete(bookId);
+    reapTimers.delete(bookId);
+  }, REAP_DELAY_MS);
+  if (t.unref) t.unref();
+  reapTimers.set(bookId, t);
+}
+
 // Crea (o sostituisce) lo stato del job per il libro: steps nei soli stepKeys richiesti, ordinati
 // secondo VB_STEP_ORDER, ciascuno 'pending' con contatori a zero.
 export function startVisualBible(bookId: number, stepKeys: VBStepKey[]): void {
   const now = Date.now();
+  cancelReap(bookId);
   const ordered = VB_STEP_ORDER.filter((k) => stepKeys.includes(k));
   jobs.set(bookId, {
     bookId,
@@ -103,6 +125,7 @@ export function finishVisualBible(bookId: number, error: string | null = null): 
   j.status = error ? "failed" : "done";
   j.error = error ?? j.error;
   j.updatedAt = Date.now();
+  scheduleReap(bookId);
 }
 
 export function getVisualBible(bookId: number): VBState | undefined {

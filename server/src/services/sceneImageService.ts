@@ -20,13 +20,7 @@ import { appConfig } from "../config.js";
 import type { ChapterSceneService } from "./chapterSceneService.js";
 import type { BookCharacter, ChapterScene, VisualDirective } from "../domain.js";
 import { anyKeywordMatches } from "../content/imageDomains.js";
-
-function namesMatch(a: string, b: string): boolean {
-  const x = a.toLowerCase().trim();
-  const y = b.toLowerCase().trim();
-  if (x === "" || y === "") return false;
-  return x === y || x.includes(y) || y.includes(x);
-}
+import { namesMatch } from "../content/characterText.js";
 
 const PHYSICS_TOKEN_STOP = new Set([
   "del",

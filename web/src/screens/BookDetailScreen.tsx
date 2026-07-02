@@ -68,6 +68,11 @@ import {
   updateChapterScene,
   getMediaRegenStatusGlobal,
   cancelAllMediaRegen,
+  listMarketingCards,
+  updateMarketingCard,
+  listQuotes,
+  updateQuote,
+  deleteQuote,
   listVisualDirectives,
   createVisualDirective,
   updateVisualDirective,
@@ -95,8 +100,11 @@ import type {
   BookCharacter,
   BookChapterFull,
   BookDetail,
+  BookQuote,
   BookVisualExtras,
   BookVisualProps,
+  ChapterMarketingCard,
+  ChapterMarketingCardData,
   ChapterScene,
   ChapterSceneKind,
   ChapterMoment,
@@ -351,6 +359,10 @@ export function BookDetailScreen() {
                   toast.success(t("book.baseHashtags.saved"));
                 }}
               />
+
+              <MarketingCardsCard bookId={id} />
+
+              <QuotesCard bookId={id} />
             </div>
           )}
 
@@ -911,6 +923,387 @@ function BaseHashtagsCard({
         </div>
       </CardBody>
     </Card>
+  );
+}
+
+function MarketingCardsCard({ bookId }: { bookId: string }) {
+  const { t } = useTranslation();
+  const [cards, setCards] = useState<ChapterMarketingCard[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  function load(signal?: AbortSignal) {
+    setLoading(true);
+    setLoadError(null);
+    listMarketingCards(bookId, signal)
+      .then((res) => {
+        setCards(res.cards);
+        setLoading(false);
+      })
+      .catch((err) => {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        setLoadError(errorMessage(err) || t("common.saveFailed"));
+        setLoading(false);
+      });
+  }
+
+  useEffect(() => {
+    const ctrl = new AbortController();
+    load(ctrl.signal);
+    return () => ctrl.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bookId]);
+
+  return (
+    <Card>
+      <CardHeader
+        title={t("bookDetail.marketingCardsTitle")}
+        description={t("bookDetail.marketingCardsDesc")}
+      />
+      <CardBody className="flex flex-col gap-2">
+        {loading && <Spinner className="h-4 w-4" />}
+        {loadError && <ErrorBanner message={loadError} onRetry={() => load()} />}
+        {!loading && !loadError && cards.length === 0 && (
+          <EmptyState
+            title={t("bookDetail.mcEmpty")}
+            description={t("bookDetail.mcEmptyDesc")}
+          />
+        )}
+        {!loading &&
+          cards.map((card) => (
+            <MarketingCardEditor
+              key={card.chapterIndex}
+              bookId={bookId}
+              card={card}
+              onSaved={(updated) =>
+                setCards((prev) =>
+                  prev.map((c) => (c.chapterIndex === updated.chapterIndex ? updated : c)),
+                )
+              }
+            />
+          ))}
+      </CardBody>
+    </Card>
+  );
+}
+
+const MC_SCALAR_FIELDS: {
+  key: keyof Pick<
+    ChapterMarketingCardData,
+    | "nonSpoilerSummary"
+    | "emotionalCore"
+    | "humanTruth"
+    | "readerQuestion"
+    | "mainTension"
+    | "visualMoment"
+  >;
+  labelKey: string;
+}[] = [
+  { key: "nonSpoilerSummary", labelKey: "bookDetail.mcNonSpoilerSummary" },
+  { key: "emotionalCore", labelKey: "bookDetail.mcEmotionalCore" },
+  { key: "humanTruth", labelKey: "bookDetail.mcHumanTruth" },
+  { key: "readerQuestion", labelKey: "bookDetail.mcReaderQuestion" },
+  { key: "mainTension", labelKey: "bookDetail.mcMainTension" },
+  { key: "visualMoment", labelKey: "bookDetail.mcVisualMoment" },
+];
+
+function MarketingCardEditor({
+  bookId,
+  card,
+  onSaved,
+}: {
+  bookId: string;
+  card: ChapterMarketingCard;
+  onSaved: (updated: ChapterMarketingCard) => void;
+}) {
+  const { t } = useTranslation();
+  const toast = useToast();
+  const [draft, setDraft] = useState<ChapterMarketingCardData>(card.data);
+  const [saving, setSaving] = useState(false);
+  useEffect(() => setDraft(card.data), [card]);
+  const dirty = JSON.stringify(draft) !== JSON.stringify(card.data);
+
+  function setScalar(key: keyof ChapterMarketingCardData, value: string) {
+    setDraft((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function setAngle(idx: number, patch: Partial<ChapterMarketingCardData["postAngles"][number]>) {
+    setDraft((prev) => ({
+      ...prev,
+      postAngles: prev.postAngles.map((a, i) => (i === idx ? { ...a, ...patch } : a)),
+    }));
+  }
+
+  async function save() {
+    setSaving(true);
+    try {
+      const updated = await updateMarketingCard(bookId, card.chapterIndex, draft);
+      onSaved(updated);
+      toast.success(t("bookDetail.mcSaved"));
+    } catch (err) {
+      toast.error(errorMessage(err) || t("common.saveFailed"));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const summary = draft.nonSpoilerSummary?.trim() || t("bookDetail.mcNoSummary");
+
+  return (
+    <Collapsible
+      title={t("bookDetail.mcChapter", { n: card.chapterIndex })}
+      summary={summary}
+      actions={
+        card.model === "USER" ? <Badge tone="accent">{t("bookDetail.mcEdited")}</Badge> : undefined
+      }
+      bodyClassName="flex flex-col gap-3"
+    >
+      <Field label={t("bookDetail.mcSpoilerLevel")}>
+        <select
+          className={selectClass}
+          value={draft.spoilerLevel}
+          onChange={(e) =>
+            setDraft((prev) => ({
+              ...prev,
+              spoilerLevel: e.target.value as ChapterMarketingCardData["spoilerLevel"],
+            }))
+          }
+        >
+          <option value="low">{t("bookDetail.mcSpoilerLow")}</option>
+          <option value="medium">{t("bookDetail.mcSpoilerMedium")}</option>
+          <option value="high">{t("bookDetail.mcSpoilerHigh")}</option>
+        </select>
+      </Field>
+
+      {MC_SCALAR_FIELDS.map((f) => (
+        <Field key={f.key} label={t(f.labelKey)}>
+          <Textarea
+            rows={2}
+            value={draft[f.key] ?? ""}
+            onChange={(e) => setScalar(f.key, e.target.value)}
+          />
+        </Field>
+      ))}
+
+      {draft.postAngles.length > 0 && (
+        <div className="flex flex-col gap-2">
+          <span className="text-xs font-medium text-content-secondary">
+            {t("bookDetail.mcPostAngles")}
+          </span>
+          {draft.postAngles.map((angle, i) => (
+            <div
+              key={i}
+              className="flex flex-col gap-1.5 rounded-lg border border-border-subtle bg-bg-inset px-3 py-2"
+            >
+              <Field label={t("bookDetail.mcAngleType")}>
+                <Input value={angle.type} onChange={(e) => setAngle(i, { type: e.target.value })} />
+              </Field>
+              <Field label={t("bookDetail.mcAngleHook")}>
+                <Textarea
+                  rows={2}
+                  value={angle.hook}
+                  onChange={(e) => setAngle(i, { hook: e.target.value })}
+                />
+              </Field>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <Collapsible title={t("bookDetail.mcRawData")} bodyClassName="p-0">
+        <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words p-3 text-2xs leading-snug text-content-tertiary">
+          {JSON.stringify(card.data, null, 2)}
+        </pre>
+      </Collapsible>
+
+      <div className="flex justify-end">
+        <Button
+          variant="primary"
+          size="sm"
+          loading={saving}
+          disabled={!dirty || saving}
+          onClick={save}
+        >
+          {t("common.save")}
+        </Button>
+      </div>
+    </Collapsible>
+  );
+}
+
+function QuotesCard({ bookId }: { bookId: string }) {
+  const { t } = useTranslation();
+  const [quotes, setQuotes] = useState<BookQuote[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  function load(signal?: AbortSignal) {
+    setLoading(true);
+    setLoadError(null);
+    listQuotes(bookId, signal)
+      .then((res) => {
+        setQuotes(res.quotes);
+        setLoading(false);
+      })
+      .catch((err) => {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        setLoadError(errorMessage(err) || t("common.saveFailed"));
+        setLoading(false);
+      });
+  }
+
+  useEffect(() => {
+    const ctrl = new AbortController();
+    load(ctrl.signal);
+    return () => ctrl.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bookId]);
+
+  return (
+    <Card>
+      <CardHeader title={t("bookDetail.quotesTitle")} description={t("bookDetail.quotesDesc")} />
+      <CardBody className="flex flex-col gap-2">
+        {loading && <Spinner className="h-4 w-4" />}
+        {loadError && <ErrorBanner message={loadError} onRetry={() => load()} />}
+        {!loading && !loadError && quotes.length === 0 && (
+          <EmptyState title={t("bookDetail.qEmpty")} description={t("bookDetail.qEmptyDesc")} />
+        )}
+        {!loading && quotes.length > 0 && (
+          <div className="flex max-h-[32rem] flex-col gap-2 overflow-y-auto">
+            {quotes.map((q) => (
+              <QuoteRow
+                key={q.id}
+                bookId={bookId}
+                quote={q}
+                onSaved={(updated) =>
+                  setQuotes((prev) => prev.map((x) => (x.id === updated.id ? updated : x)))
+                }
+                onDeleted={(quoteId) => setQuotes((prev) => prev.filter((x) => x.id !== quoteId))}
+              />
+            ))}
+          </div>
+        )}
+      </CardBody>
+    </Card>
+  );
+}
+
+function QuoteRow({
+  bookId,
+  quote,
+  onSaved,
+  onDeleted,
+}: {
+  bookId: string;
+  quote: BookQuote;
+  onSaved: (updated: BookQuote) => void;
+  onDeleted: (id: string) => void;
+}) {
+  const { t } = useTranslation();
+  const toast = useToast();
+  const [editing, setEditing] = useState(false);
+  const [text, setText] = useState(quote.text);
+  const [speaker, setSpeaker] = useState(quote.speaker ?? "");
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  function cancel() {
+    setText(quote.text);
+    setSpeaker(quote.speaker ?? "");
+    setEditing(false);
+  }
+
+  async function save() {
+    if (!text.trim()) {
+      toast.error(t("bookDetail.qTextRequired"));
+      return;
+    }
+    setSaving(true);
+    try {
+      const updated = await updateQuote(bookId, quote.id, {
+        text: text.trim(),
+        speaker: speaker.trim() || null,
+      });
+      onSaved(updated);
+      setEditing(false);
+      toast.success(t("bookDetail.qSaved"));
+    } catch (err) {
+      toast.error(errorMessage(err) || t("common.saveFailed"));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function remove() {
+    setDeleting(true);
+    try {
+      await deleteQuote(bookId, quote.id);
+      onDeleted(quote.id);
+      toast.success(t("bookDetail.qDeleted"));
+    } catch (err) {
+      toast.error(errorMessage(err) || t("common.removeFailed"));
+      setDeleting(false);
+    }
+  }
+
+  if (editing) {
+    return (
+      <div className="flex flex-col gap-2 rounded-lg border border-border-subtle bg-bg-inset px-3 py-2.5">
+        <Field label={t("bookDetail.qText")}>
+          <Textarea rows={3} value={text} onChange={(e) => setText(e.target.value)} />
+        </Field>
+        <Field label={t("bookDetail.qSpeaker")}>
+          <Input
+            value={speaker}
+            placeholder={t("bookDetail.qSpeakerPlaceholder")}
+            onChange={(e) => setSpeaker(e.target.value)}
+          />
+        </Field>
+        <div className="flex justify-end gap-2">
+          <Button variant="ghost" size="sm" onClick={cancel} disabled={saving}>
+            {t("common.cancel")}
+          </Button>
+          <Button variant="primary" size="sm" loading={saving} onClick={save}>
+            {t("common.save")}
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-start justify-between gap-3 rounded-lg border border-border-subtle bg-bg-inset px-3 py-2.5">
+      <div className="flex min-w-0 flex-col gap-1">
+        <p className="text-sm text-content-primary">{quote.text}</p>
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge tone="neutral">
+            {quote.kind === "dialogue"
+              ? t("bookDetail.qKindDialogue")
+              : t("bookDetail.qKindQuote")}
+          </Badge>
+          {quote.speaker && <span className="text-xs text-content-tertiary">{quote.speaker}</span>}
+        </div>
+      </div>
+      <div className="flex shrink-0 items-center gap-1">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setEditing(true)}
+          aria-label={t("common.edit")}
+        >
+          <Pencil className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          loading={deleting}
+          onClick={remove}
+          aria-label={t("common.delete")}
+        >
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      </div>
+    </div>
   );
 }
 
@@ -1893,18 +2286,21 @@ function MediaCard({
   useEffect(() => {
     let active = true;
     let controller: AbortController | null = null;
+    let timer: number | null = null;
+    const ACTIVE_MS = 3000;
+    const IDLE_MS = 5000;
     const tick = async () => {
       controller?.abort();
       controller = new AbortController();
+      let hasActive = false;
       try {
         const s = await getMediaRegenStatusGlobal(controller.signal);
         if (!active) return;
-        // id attivi ora (in corso + in coda).
         const nextActive = new Set<string>([
           ...(s.current ? [String(s.current.mediaId)] : []),
           ...s.queued.map((n) => String(n)),
         ]);
-        // Se un'immagine era attiva e ora non lo è più, è finita → ricarica i dati.
+        hasActive = nextActive.size > 0;
         let finished = false;
         for (const id of activeIdsRef.current) {
           if (!nextActive.has(id)) finished = true;
@@ -1914,15 +2310,15 @@ function MediaCard({
         if (finished) onChange();
       } catch (err) {
         if (err instanceof DOMException && err.name === "AbortError") return;
-        // Errore transitorio: riprova al prossimo giro.
+      } finally {
+        if (active) timer = window.setTimeout(() => void tick(), hasActive ? ACTIVE_MS : IDLE_MS);
       }
     };
     void tick();
-    const id = window.setInterval(() => void tick(), 3000);
     return () => {
       active = false;
       controller?.abort();
-      window.clearInterval(id);
+      if (timer !== null) window.clearTimeout(timer);
     };
   }, [onChange]);
 
@@ -3023,10 +3419,6 @@ function useVisualBibleStatus(bookId: string, onDone?: (s: VisualBibleStatus) =>
     }, 3000);
   }
 
-  // Aggancio iniziale + polling continuo mentre il pannello è montato: anche se il build
-  // parte DOPO l'apertura della pagina, gli step avanzano live senza F5. Il tick si ferma
-  // da solo quando lo stato diventa done/failed (vedi beginPolling); finché lo stato non è
-  // terminale, continua a interrogare il server ogni 3s.
   useEffect(() => {
     let active = true;
     const ctrl = new AbortController();
@@ -3034,15 +3426,12 @@ function useVisualBibleStatus(bookId: string, onDone?: (s: VisualBibleStatus) =>
       .then((s) => {
         if (!active) return;
         setStatus(s);
-        if (s.status === "running") sawRunningRef.current = true;
-        // Avvia sempre il polling: se lo stato è già terminale, il primo tick lo fermerà.
-        if (s.status !== "done" && s.status !== "failed") beginPolling();
+        if (s.status === "running") {
+          sawRunningRef.current = true;
+          beginPolling();
+        }
       })
-      .catch(() => {
-        // Nessuno stato disponibile al mount: avvia comunque il polling così, se un build
-        // parte più tardi, viene rilevato senza dover ricaricare la pagina.
-        if (active) beginPolling();
-      });
+      .catch(() => {});
     return () => {
       active = false;
       ctrl.abort();
@@ -3322,7 +3711,7 @@ function SceneGenSection({
       }
     };
     void check();
-    const id = window.setInterval(() => void check(), 3000);
+    const id = window.setInterval(() => void check(), 5000);
     return () => {
       active = false;
       window.clearInterval(id);

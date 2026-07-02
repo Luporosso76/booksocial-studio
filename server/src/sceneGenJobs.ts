@@ -36,6 +36,27 @@ export interface SceneGenState {
 
 const jobs = new Map<number, SceneGenState>();
 
+const REAP_DELAY_MS = 30 * 60 * 1000;
+const reapTimers = new Map<number, NodeJS.Timeout>();
+
+function cancelReap(bookId: number): void {
+  const t = reapTimers.get(bookId);
+  if (t) {
+    clearTimeout(t);
+    reapTimers.delete(bookId);
+  }
+}
+
+function scheduleReap(bookId: number): void {
+  cancelReap(bookId);
+  const t = setTimeout(() => {
+    jobs.delete(bookId);
+    reapTimers.delete(bookId);
+  }, REAP_DELAY_MS);
+  if (t.unref) t.unref();
+  reapTimers.set(bookId, t);
+}
+
 // Quante immagini produce un batch: count×capitoli se selezionati, altrimenti count (Auto).
 export function batchSize(b: SceneBatch): number {
   return b.chapters.length > 0 ? b.count * b.chapters.length : b.count;
@@ -47,6 +68,7 @@ export function enqueueSceneBatch(bookId: number, batch: SceneBatch): boolean {
   const now = Date.now();
   const j = jobs.get(bookId);
   if (!j || j.status !== "generating") {
+    cancelReap(bookId);
     jobs.set(bookId, {
       status: "generating",
       queue: [batch],
@@ -99,6 +121,7 @@ export function finishSceneGen(bookId: number, cancelled = false): void {
   j.current = null;
   j.queue = [];
   j.updatedAt = Date.now();
+  scheduleReap(bookId);
 }
 
 export function failSceneGen(bookId: number, error: string): void {
@@ -109,6 +132,7 @@ export function failSceneGen(bookId: number, error: string): void {
   j.current = null;
   j.queue = [];
   j.updatedAt = Date.now();
+  scheduleReap(bookId);
 }
 
 // Svuota la coda (Annulla): i batch non ancora iniziati non partiranno. Il batch corrente viene
