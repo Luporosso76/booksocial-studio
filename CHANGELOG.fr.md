@@ -5,6 +5,14 @@ Toutes les modifications notables apportées à ce projet sont documentées dans
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 et ce projet respecte le [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.1] - 2026-07-02
+
+### Modifié
+- **Distinction des couleurs dans la distribution** : la génération des tenues attribue désormais à chaque personnage une couleur dominante distincte au lieu de rabattre toute la distribution sur la même teinte (p. ex. tout le monde en bleu) ; les couleurs de vêtements indiquées par le livre restent respectées.
+
+### Corrigé
+- **Personnages secondaires promus** : ils sont désormais inscrits dans les fiches de scène des chapitres correspondants, de sorte que leur présence temporelle est calculée et qu'ils peuvent apparaître dans les images générées (auparavant ils restaient en dehors de toute scène).
+
 ## [0.7.0] - 2026-07-02
 
 ### Ajouté

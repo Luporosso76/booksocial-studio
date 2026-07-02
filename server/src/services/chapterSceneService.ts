@@ -1,6 +1,7 @@
 import { books, characters, visualDirectives } from "../db/repositories.js";
 import type { ContentEngine } from "../content/engine.js";
 import { extractChapterScene, type ExtractedChapterScene } from "../content/chapterScene.js";
+import { domainHaystack, resolveOutfitMatch } from "../content/imagePrompt.js";
 import { nameAppearsInText } from "../content/characterText.js";
 import { sha256 } from "../content/importer.js";
 import { SCENE_PROMPT_VERSION } from "../domain.js";
@@ -309,6 +310,52 @@ export class ChapterSceneService {
     };
     await books.setChapterScene(chapter.id, scene);
     return scene;
+  }
+
+  async placeMinorInScenes(bookId: number, name: string, when: string): Promise<void> {
+    const kws = when
+      .split(/[,;]/)
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
+    if (kws.length === 0) return;
+    const matchOutfits = { default: null, contexts: [{ when, outfit: "" }], signature: null };
+    const matches = (haystack: string): boolean =>
+      resolveOutfitMatch(matchOutfits, haystack).fromContext;
+    const chapters = await books.chapters(bookId);
+    for (const chapter of chapters) {
+      const scene = chapter.scene;
+      if (!scene) continue;
+      let changedMain = false;
+      let mainChars = scene.characters;
+      if (matches(domainHaystack(scene, chapter.text))) {
+        const next = reconcileMembership(mainChars, name, true);
+        if (next !== mainChars) {
+          mainChars = next;
+          changedMain = true;
+        }
+      }
+      let changedAlt = false;
+      const nextMoments = (scene.altMoments ?? []).map((moment) => {
+        const haystack = [
+          moment.location ?? "",
+          moment.environment ?? "",
+          ...moment.mainObjects,
+          ...moment.secondaryObjects,
+        ]
+          .join(" ")
+          .toLowerCase();
+        if (!matches(haystack)) return moment;
+        const next = reconcileMembership(moment.characters, name, true);
+        if (next === moment.characters) return moment;
+        changedAlt = true;
+        return { ...moment, characters: next };
+      });
+      if (!changedMain && !changedAlt) continue;
+      await this.save(bookId, chapter.index, {
+        ...(changedMain ? { characters: mainChars } : {}),
+        ...(changedAlt ? { altMoments: nextMoments } : {}),
+      });
+    }
   }
 }
 

@@ -5,6 +5,14 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.1] - 2026-07-02
+
+### Changed
+- **Cast colour distinction**: outfit generation now gives each character a distinct dominant colour instead of defaulting the whole cast to the same hue (e.g. everyone in blue); book-stated garment colours are still respected.
+
+### Fixed
+- **Promoted minor characters** are now written into the matching chapter scene cards, so their temporal presence is computed and they can be featured in generated images (previously they stayed outside every scene).
+
 ## [0.7.0] - 2026-07-02
 
 ### Added

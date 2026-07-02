@@ -32,6 +32,33 @@ export interface OutfitsInput {
   // specifiche (es. pratica spirituale/yoga/meditazione, cerimonia, sport). Se presenti, sono
   // AUTORITATIVE e devono diventare un contesto outfit dedicato. Opzionale.
   directives?: string | null;
+  avoidColors?: string[];
+}
+
+const COLOR_FAMILIES: Record<string, string[]> = {
+  blu: ["blu", "blue", "azzurr", "celest", "navy", "bleu", "azul", "blau", "cobalto", "indaco", "denim"],
+  rosso: ["ross", "red", "rouge", "rojo", "rot", "scarlatt", "cremisi", "bordeaux", "granata", "vermigli"],
+  verde: ["verde", "green", "vert", "grün", "grun", "oliva", "salvia", "smeraldo", "menta", "kaki", "khaki"],
+  giallo: ["giall", "yellow", "jaune", "amarill", "gelb", "senape", "ocra", "oro", "dorat", "gold", "ambra"],
+  arancione: ["arancio", "orange", "naranja", "terracotta", "ruggine", "rust", "corallo", "coral", "zucca"],
+  viola: ["viola", "purple", "violet", "morad", "lila", "lavand", "prugna", "melanzana", "malva", "glicine"],
+  rosa: ["rosa", "pink", "rose", "fucsia", "fuchsia", "magenta", "cipria", "salmone", "salmon", "pesca"],
+  marrone: ["marron", "brown", "brun", "marrón", "braun", "cammell", "camel", "cioccolat", "tabacco", "sabbia", "beige", "cuoio", "nocciola"],
+  grigio: ["grigi", "grey", "gray", "gris", "grau", "antracit", "fumo", "argent", "silver", "piombo"],
+  nero: ["ner", "black", "noir", "negro", "schwarz", "ebano", "carbone"],
+  bianco: ["bianc", "white", "blanc", "blanco", "weiß", "weiss", "avori", "ivory", "crema", "cream", "panna", "latte"],
+};
+
+export function extractOutfitColors(o: CharacterOutfits | null | undefined): string[] {
+  if (!o) return [];
+  const hay = [o.default ?? "", o.signature ?? "", ...(o.contexts ?? []).map((c) => c.outfit ?? "")]
+    .join(" ")
+    .toLowerCase();
+  const found: string[] = [];
+  for (const [family, syn] of Object.entries(COLOR_FAMILIES)) {
+    if (syn.some((s) => hay.includes(s))) found.push(family);
+  }
+  return found;
 }
 
 const MAX_CTX = 8;
@@ -112,6 +139,12 @@ RULES:
   appears. Each "when" is a few KEYWORDS taken FROM THE VOCABULARY of the SETTINGS below (so they will match
   the chapter scene cards), written in ${language} (e.g. "beach, sea, surf" or "meditation, yoga, mat"
   or "office, work"). Each "outfit" is the CONCRETE clothing suited to that context, coherent with its climate.${flashbackRule}${dreamRule}
+- CAST COLOUR DISTINCTION: these dominant colour families are ALREADY used by OTHER characters of this
+  book: ${(input.avoidColors ?? []).length > 0 ? (input.avoidColors ?? []).join(", ") : "(none yet)"}. Give
+  THIS character a DIFFERENT dominant colour identity — do NOT build this character's DEFAULT outfit and
+  SIGNATURE piece around those already-taken colour families; pick a distinct family so the cast doesn't
+  collapse onto one hue (e.g. not everyone in blue). EXCEPTION: if the BOOK PASSAGES explicitly assign a
+  colour to a garment of THIS character, always keep it even if it collides.
 - Realistic outfits, consistent with the character; no uniforms/costumes unless the role truly requires it
   (no gi/martial-arts outfit for a meditation scene). CLOTHING ONLY, no physical appearance.
 - LANGUAGE: write ALL string values (default, when, outfit, signature) in ${language}. Even though these

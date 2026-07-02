@@ -86,7 +86,28 @@ export function mountCharacters(api: Hono, ctx: RouteContext): void {
       updatedAt: now,
     });
     await books.setVisualExtras(id, { minors: minors.filter((_, i) => i !== index) });
-    return c.json(characterDto(created));
+    try {
+      await deps.chapterScenes.placeMinorInScenes(id, created.name, minor.when);
+    } catch (e) {
+      console.error("[promote] placeMinorInScenes fallito:", e);
+    }
+    try {
+      await deps.chapterScenes.recomputeCharacterChapters(id);
+    } catch (e) {
+      console.error("[promote] recomputeCharacterChapters fallito:", e);
+    }
+    try {
+      await stepAppearance(deps.engine, id, { onlyNames: [created.name] });
+    } catch (e) {
+      console.error("[promote] stepAppearance fallito:", e);
+    }
+    try {
+      await stepOutfits(deps.engine, id, { onlyNames: [created.name] });
+    } catch (e) {
+      console.error("[promote] stepOutfits fallito:", e);
+    }
+    const enriched = await characters.get(created.id);
+    return c.json(characterDto(enriched ?? created));
   });
 
   api.get("/books/:id/character-scene-appearances", async (c) => {

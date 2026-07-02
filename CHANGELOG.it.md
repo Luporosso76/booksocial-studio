@@ -5,6 +5,14 @@ Tutte le modifiche rilevanti a questo progetto sono documentate in questo file.
 Il formato è basato su [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 e questo progetto aderisce al [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.1] - 2026-07-02
+
+### Modificato
+- **Distinzione colore nel cast**: la generazione degli abiti ora assegna a ogni personaggio un colore dominante distinto invece di ripiegare tutto il cast sulla stessa tinta (es. tutti in blu); i colori dei capi dichiarati dal libro restano rispettati.
+
+### Corretto
+- **Personaggi minori promossi**: ora vengono inseriti nelle schede scena dei capitoli corrispondenti, così la loro presenza temporale viene calcolata e possono essere raffigurati nelle immagini generate (prima restavano fuori da ogni scena).
+
 ## [0.7.0] - 2026-07-02
 
 ### Aggiunto

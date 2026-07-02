@@ -12,7 +12,7 @@ import { books, characters, visualDirectives } from "../db/repositories.js";
 import type { ContentEngine } from "../content/engine.js";
 import type { ChapterSceneService } from "./chapterSceneService.js";
 import { generateAppearance } from "../content/characterAppearance.js";
-import { generateOutfits } from "../content/characterOutfits.js";
+import { generateOutfits, extractOutfitColors } from "../content/characterOutfits.js";
 import { generateVisualProps } from "../content/visualProps.js";
 import { extractMinorsForChapter } from "../content/minorCharacters.js";
 import { collectCharacterPassages } from "../content/characterText.js";
@@ -43,7 +43,7 @@ interface StepHooks {
 export async function stepAppearance(
   engine: ContentEngine,
   bookId: number,
-  opts: { onlyWeak?: boolean } = {},
+  opts: { onlyWeak?: boolean; onlyNames?: readonly string[] } = {},
   hooks: StepHooks = {},
 ): Promise<string[]> {
   const book = await books.get(bookId);
@@ -53,8 +53,16 @@ export async function stepAppearance(
   const chapters = await books.chapters(bookId);
   const cast = await characters.byBook(bookId);
   hooks.onTotal?.(cast.length);
+  const nameFilter =
+    opts.onlyNames && opts.onlyNames.length > 0
+      ? new Set(opts.onlyNames.map((n) => n.toLowerCase().trim()))
+      : null;
   const updated: string[] = [];
   for (const ch of cast) {
+    if (nameFilter && !nameFilter.has(ch.name.toLowerCase().trim())) {
+      hooks.onItem?.();
+      continue;
+    }
     const strong =
       (ch.physical ?? "").trim().length >= 80 &&
       (ch.age ?? "").trim() !== "" &&
@@ -97,6 +105,7 @@ export async function stepAppearance(
 export async function stepOutfits(
   engine: ContentEngine,
   bookId: number,
+  opts: { onlyNames?: readonly string[] } = {},
   hooks: StepHooks = {},
 ): Promise<string[]> {
   const book = await books.get(bookId);
@@ -123,8 +132,18 @@ export async function stepOutfits(
   const directives = alwaysOn.length > 0 ? alwaysOn.join("\n") : null;
   const cast = await characters.byBook(bookId);
   hooks.onTotal?.(cast.length);
+  const nameFilter =
+    opts.onlyNames && opts.onlyNames.length > 0
+      ? new Set(opts.onlyNames.map((n) => n.toLowerCase().trim()))
+      : null;
   const updated: string[] = [];
+  const usedColors = new Set<string>();
   for (const ch of cast) {
+    if (nameFilter && !nameFilter.has(ch.name.toLowerCase().trim())) {
+      for (const col of extractOutfitColors(ch.outfits)) usedColors.add(col);
+      hooks.onItem?.();
+      continue;
+    }
     const sourceText = collectCharacterPassages(chapters, ch.name);
     const nm = ch.name.toLowerCase().trim();
     const charSet = new Set<string>();
@@ -184,9 +203,11 @@ export async function stepOutfits(
       sourceText,
       country,
       directives,
+      avoidColors: [...usedColors],
     });
     if (outfits) {
       await characters.update({ ...ch, outfits, updatedAt: Date.now() });
+      for (const col of extractOutfitColors(outfits)) usedColors.add(col);
       updated.push(ch.name);
     }
     hooks.onItem?.();
@@ -330,7 +351,7 @@ export async function buildVisualBible(
           await stepSceneCards(deps.chapterScenes, bookId, hooks);
           break;
         case "outfits":
-          await stepOutfits(deps.engine, bookId, hooks);
+          await stepOutfits(deps.engine, bookId, {}, hooks);
           break;
         case "props":
           await stepProps(deps.engine, bookId, hooks);

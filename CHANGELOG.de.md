@@ -5,6 +5,14 @@ Alle wesentlichen Änderungen an diesem Projekt werden in dieser Datei dokumenti
 Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.1] - 2026-07-02
+
+### Geändert
+- **Farbunterscheidung im Ensemble**: Die Outfit-Generierung gibt nun jeder Figur eine eigene dominante Farbe, statt das ganze Ensemble auf denselben Ton zu bringen (z. B. alle in Blau); im Buch angegebene Kleidungsfarben werden weiterhin respektiert.
+
+### Behoben
+- **Beförderte Nebenfiguren** werden nun in die passenden Kapitel-Szenenkarten eingetragen, sodass ihre zeitliche Präsenz berechnet wird und sie in generierten Bildern erscheinen können (zuvor blieben sie außerhalb jeder Szene).
+
 ## [0.7.0] - 2026-07-02
 
 ### Hinzugefügt

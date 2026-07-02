@@ -5,6 +5,14 @@ Todos los cambios notables de este proyecto están documentados en este archivo.
 El formato se basa en [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 y este proyecto se adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.1] - 2026-07-02
+
+### Cambiado
+- **Distinción de color en el reparto**: la generación de vestuario ahora da a cada personaje un color dominante distinto en lugar de llevar todo el reparto al mismo tono (p. ej. todos de azul); los colores de prenda indicados por el libro se siguen respetando.
+
+### Corregido
+- **Personajes secundarios promovidos**: ahora se escriben en las fichas de escena de los capítulos correspondientes, de modo que su presencia temporal se calcula y pueden aparecer en las imágenes generadas (antes quedaban fuera de toda escena).
+
 ## [0.7.0] - 2026-07-02
 
 ### Añadido
