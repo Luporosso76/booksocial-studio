@@ -363,7 +363,8 @@ function mergeUserScene(
         : (prev?.secondaryObjects ?? []),
     characters: patch.characters !== undefined ? patch.characters : (prev?.characters ?? []),
     pov: patch.pov !== undefined ? patch.pov : (prev?.pov ?? null),
-    physicsRules: patch.physicsRules !== undefined ? patch.physicsRules : (prev?.physicsRules ?? []),
+    physicsRules:
+      patch.physicsRules !== undefined ? patch.physicsRules : (prev?.physicsRules ?? []),
     keyMoment: patch.keyMoment !== undefined ? patch.keyMoment : (prev?.keyMoment ?? null),
     kind: patch.kind !== undefined ? patch.kind : (prev?.kind ?? "waking"),
     altMoments: patch.altMoments !== undefined ? patch.altMoments : (prev?.altMoments ?? []),

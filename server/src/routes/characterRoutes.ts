@@ -91,8 +91,7 @@ export function mountCharacters(api: Hono, ctx: RouteContext): void {
     try {
       const placed = await deps.chapterScenes.placeMinorInScenes(id, created.name, minor.when);
       if (!hasWhen || placed === 0) {
-        placementWarning =
-          "Nessuna scena combaciata: assegna i capitoli dalla scheda personaggio.";
+        placementWarning = "Nessuna scena combaciata: assegna i capitoli dalla scheda personaggio.";
       }
     } catch (e) {
       console.error("[promote] placeMinorInScenes fallito:", e);

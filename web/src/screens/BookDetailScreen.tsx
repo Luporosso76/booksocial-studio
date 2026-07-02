@@ -964,10 +964,7 @@ function MarketingCardsCard({ bookId }: { bookId: string }) {
         {loading && <Spinner className="h-4 w-4" />}
         {loadError && <ErrorBanner message={loadError} onRetry={() => load()} />}
         {!loading && !loadError && cards.length === 0 && (
-          <EmptyState
-            title={t("bookDetail.mcEmpty")}
-            description={t("bookDetail.mcEmptyDesc")}
-          />
+          <EmptyState title={t("bookDetail.mcEmpty")} description={t("bookDetail.mcEmptyDesc")} />
         )}
         {!loading &&
           cards.map((card) => (
@@ -1277,9 +1274,7 @@ function QuoteRow({
         <p className="text-sm text-content-primary">{quote.text}</p>
         <div className="flex flex-wrap items-center gap-2">
           <Badge tone="neutral">
-            {quote.kind === "dialogue"
-              ? t("bookDetail.qKindDialogue")
-              : t("bookDetail.qKindQuote")}
+            {quote.kind === "dialogue" ? t("bookDetail.qKindDialogue") : t("bookDetail.qKindQuote")}
           </Badge>
           {quote.speaker && <span className="text-xs text-content-tertiary">{quote.speaker}</span>}
         </div>
@@ -5156,7 +5151,9 @@ function CharacterEditorModal({
   const [presentSel, setPresentSel] = useState<Set<number>>(new Set());
   const [flashbackSel, setFlashbackSel] = useState<Set<number>>(new Set());
   const [dreamSel, setDreamSel] = useState<Set<number>>(new Set());
-  const [initialMembership, setInitialMembership] = useState<CharacterSceneAppearances | null>(null);
+  const [initialMembership, setInitialMembership] = useState<CharacterSceneAppearances | null>(
+    null,
+  );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

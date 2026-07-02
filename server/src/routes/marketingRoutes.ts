@@ -166,9 +166,7 @@ export function mountMarketing(api: Hono, _ctx: RouteContext): void {
     }
     if ("speaker" in body) {
       fields.speaker =
-        typeof body.speaker === "string" && body.speaker.trim() !== ""
-          ? body.speaker.trim()
-          : null;
+        typeof body.speaker === "string" && body.speaker.trim() !== "" ? body.speaker.trim() : null;
     }
     if (fields.text === undefined && !("speaker" in fields))
       return c.json(err("Nessun campo editabile nel body"), 400);

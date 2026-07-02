@@ -115,7 +115,9 @@ export function parseOutfitsInput(v: unknown): CharacterOutfits {
           const c = (x ?? {}) as Record<string, unknown>;
           const age = typeof c.age === "string" && c.age.trim() !== "" ? c.age.trim() : null;
           const appearance =
-            typeof c.appearance === "string" && c.appearance.trim() !== "" ? c.appearance.trim() : null;
+            typeof c.appearance === "string" && c.appearance.trim() !== ""
+              ? c.appearance.trim()
+              : null;
           return {
             when: typeof c.when === "string" ? c.when.trim() : "",
             outfit: typeof c.outfit === "string" ? c.outfit.trim() : "",
