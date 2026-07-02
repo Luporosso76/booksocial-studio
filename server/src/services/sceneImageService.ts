@@ -6,6 +6,8 @@ import type { ContentEngine } from "../content/engine.js";
 import {
   buildSceneDescription,
   selectChapterScenes,
+  domainHaystack,
+  resolveOutfitMatch,
   type SceneFlashback,
   type SceneCharacter,
   type SceneSelection,
@@ -254,7 +256,8 @@ export function pickLeastRepeatedSceneSelection(
 
 function buildHardConstraints(
   depicted: readonly SceneCharacter[],
-  flashback?: SceneFlashback | null,
+  flashback: SceneFlashback | null | undefined,
+  haystack: string,
 ): string[] {
   const out: string[] = [];
   for (const c of depicted) {
@@ -262,16 +265,12 @@ function buildHardConstraints(
 
     let age = (c.age ?? "").trim();
     if (flashback) {
-      const nm = c.name.toLowerCase().trim();
-      const abs = (flashback.characterAges ?? []).find((a) => {
-        const x = (a.name ?? "").toLowerCase().trim();
-        return x !== "" && (x === nm || x.includes(nm) || nm.includes(x));
-      });
-      if (abs) {
-        age = `about ${abs.age}`;
-      } else if (flashback.youngerYears && flashback.youngerYears > 0) {
-        const canon = parseInt(age.replace(/[^0-9]/g, ""), 10);
-        age = Number.isFinite(canon) ? `about ${Math.max(0, canon - flashback.youngerYears)}` : "";
+      const m = resolveOutfitMatch(c.outfits, haystack);
+      const ctxAge = m.fromContext && m.context ? (m.context.age ?? "").trim() : "";
+      if (ctxAge !== "") {
+        age = ctxAge;
+      } else if ((c.temporalPresence ?? "present") !== "present") {
+        age = (c.age ?? "").trim();
       } else {
         age = "";
       }
@@ -445,8 +444,6 @@ export class SceneImageService {
             physicsRules: chosenMoment.physicsRules,
             keyMoment: chosenMoment.keyMoment,
             kind: chosenMoment.type,
-            youngerYears: chosenMoment.youngerYears,
-            characterAges: chosenMoment.characterAges,
             altMoments: [],
           }
         : baseCard;
@@ -520,8 +517,10 @@ export class SceneImageService {
           };
         }
         if (card) {
+          const selKind = sel.momentType === "memory" ? "flashback" : sel.momentType;
           twoPassCard = {
             ...card,
+            kind: selKind,
             keyMoment: sel.brief || card.keyMoment,
             mainObjects: sel.objects.length > 0 ? sel.objects : card.mainObjects,
             secondaryObjects: [],
@@ -538,13 +537,12 @@ export class SceneImageService {
           angle = [angle, sel.framing].filter((s) => s && s.trim() !== "").join("; ");
       }
     }
+    const effectiveKind = twoPassCard?.kind ?? card?.kind;
     const resolvedFlashback =
       opts?.flashback ??
-      (opts?.forceFlashback || card?.kind === "flashback"
+      (opts?.forceFlashback || effectiveKind === "flashback"
         ? {
-            youngerYears: card?.youngerYears ?? undefined,
-            setting: card?.location ?? undefined,
-            characterAges: card?.characterAges ?? undefined,
+            setting: twoPassCard?.location ?? card?.location ?? undefined,
           }
         : null);
     const imageProfile = imagePromptProfile();
@@ -558,6 +556,7 @@ export class SceneImageService {
         ethnicity: c.ethnicity,
         role: c.role,
         outfits: c.outfits,
+        temporalPresence: c.temporalPresence,
       })),
       bookTitle: book?.title ?? null,
       angle,
@@ -573,12 +572,16 @@ export class SceneImageService {
         .join("\n\n"),
 
       flashback: resolvedFlashback,
-      dream: card?.kind === "dream",
+      dream: effectiveKind === "dream",
       imageProfile,
     });
     if (!scene) return null;
 
-    const hardConstraints = buildHardConstraints(scene.depicted, resolvedFlashback);
+    const hardConstraints = buildHardConstraints(
+      scene.depicted,
+      resolvedFlashback,
+      domainHaystack(twoPassCard, twoPassExcerpt ?? ""),
+    );
     return {
       description: scene.description,
       tags: scene.tags,

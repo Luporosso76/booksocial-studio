@@ -277,7 +277,6 @@
       "charChapters": "Kap. {{chapters}}",
       "charNoChapter": "kein Kap.",
       "flashbackToggle": "Erinnerung / Flashback (Szene aus der Vergangenheit)",
-      "youngerYears": "Jahre jünger",
       "flashbackSettingPlaceholder": "Setting/Epoche: z. B. «Strand am Meer, Jugend»",
       "regenerateFromChapterTitle": "Rekonstruiert den Prompt aus dem Kapiteltext unter Anwendung aktueller Regeln (Physik, Windsurfen etc.)",
       "regenerateAsMemory": "Als Erinnerung neu generieren (jünger, historische Kleidung)",
@@ -400,10 +399,7 @@
       "kindFlashback": "Rückblende",
       "momentMemory": "Erinnerung",
       "momentFlashback": "Rückblende",
-      "momentWhoseLabel": "Von wem (Traum/Erinnerung)",
-      "momentYoungerYearsLabel": "Jahre jünger",
-      "flashbackAgesLabel": "Alter der Figuren in der Rückblende",
-      "flashbackAgesHint": "Lege das Alter jeder Figur in dieser Vergangenheitsszene fest: überschreibt das kanonische Alter und „Jahre jünger\". Leer lassen, um Jahre-jünger zu verwenden."
+      "momentWhoseLabel": "Von wem (Traum/Erinnerung)"
     },
     "characters": {
       "title": "Charaktere",
@@ -453,7 +449,21 @@
       "ethnicityPlaceholder": "z. B. dominikanisch, hellbraune Haut",
       "signatureOutfitLabel": "Markenzeichen (immer getragen)",
       "signatureOutfitPlaceholder": "z. B. Strohhut, runde Brille",
-      "signatureOutfitHint": "Accessoire/Kleidungsstück, das die Figur in JEDER Szene über jeder Kleidung trägt. Leer lassen, wenn keins."
+      "signatureOutfitHint": "Accessoire/Kleidungsstück, das die Figur in JEDER Szene über jeder Kleidung trägt. Leer lassen, wenn keins.",
+      "contextAgePlaceholder": "Alter in der Erinnerung/im Traum (z. B. etwa 25)",
+      "contextAppearancePlaceholder": "Aussehen des früheren Ichs (Gesicht/Haut/graue Haare)",
+      "contextFlashbackHint": "Alter und Aussehen NUR für Erinnerungs-/Rückblenden- oder Traumkontexte; für die Gegenwart leer lassen.",
+      "temporalPresenceLabel": "Zeitliche Präsenz",
+      "temporalPresenceComputed": "Berechnet:",
+      "sceneMembershipPresent": "Kapitel — Gegenwart",
+      "sceneMembershipFlashback": "Kapitel — Rückblende",
+      "sceneMembershipDream": "Kapitel — Traum",
+      "sceneMembershipHint": "Wähle die Kapitel, in denen die Figur vorkommt; beim Speichern werden die Szenenkarten aktualisiert.",
+      "tpAuto": "Auto (neu berechnet)",
+      "tpPresent": "Gegenwart",
+      "tpFlashbackOnly": "Nur Rückblende",
+      "tpDreamOnly": "Nur Traum",
+      "tpPastDreamOnly": "Vergangenheit + Traum"
     },
     "visualBible": {
       "title": "Analyse / Visuelle Bibel",
@@ -1416,8 +1426,6 @@
     "reindexNlp": "Zitate neu extrahieren (NLP)",
     "reindexNlpDone": "{{count}} Zitate aus dem Buch extrahiert",
     "reindexNlpFailed": "Zitat-Extraktion fehlgeschlagen.",
-    "characterChaptersLabel": "Kapitel mit Auftritt",
-    "characterChaptersHint": "Wähle die Kapitel, in denen die Figur vorkommt: bestimmt die verfügbaren Figuren beim Neugenerieren der Bilder.",
     "sceneGenChaptersTitle": "Kapitel",
     "sceneGenCharactersTitle": "Charaktere",
     "sceneGenHelp": "Wähle die Kapitel aus und lege fest, wie viele Bilder <strong>pro Kapitel</strong> erstellt werden sollen; ohne Auswahl gilt «Auto» (verschiedene Kapitel). Du kannst mehrere Anfragen <strong>in die Warteschlange einreihen</strong> (z. B. erst 9:16, dann Format auf 1:1 ändern und erneut hinzufügen): Die Warteschlange wird nacheinander abgearbeitet, bis du auf <strong>Abbrechen</strong> klickst. Die Generierung ist langsam (einige Minuten pro Bild) und läuft lokal: Der Server muss eingeschaltet bleiben.",

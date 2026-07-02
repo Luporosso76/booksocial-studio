@@ -5,6 +5,25 @@ Todos los cambios notables de este proyecto están documentados en este archivo.
 El formato se basa en [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 y este proyecto se adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2026-07-02
+
+### Añadido
+- **Presencia temporal por personaje**: cada personaje se clasifica como presente, solo-flashback, solo-sueño o pasado+sueño, editable en la ficha de personaje con una anulación manual que sobrevive a las regeneraciones de la biblia visual.
+- **Pertenencia a escenas por tipo, seleccionable**: la ficha de personaje muestra tres grupos de capítulos seleccionables — Presente, Flashback y Sueño — y al guardar la modificación se escribe directamente en las fichas de escena del capítulo.
+- **Yo pasado/onírico en los contextos de vestuario**: los contextos de vestuario de recuerdo y sueño ahora llevan la edad absoluta y el aspecto visible del personaje para esa escena.
+
+### Cambiado
+- **Nuevo motor de renderizado de flashback**: la edad y el aspecto de una escena provienen del contexto de vestuario coincidente del personaje y de su presencia temporal; se eliminaron las anulaciones manuales de edad por escena.
+- **Extracción de escenas con ancla temporal**: la sinopsis del libro ancla el presente narrativo, de modo que una escena anterior a él se clasifica como flashback aunque se narre como acción ordinaria; los personajes principales de una escena se limitan a su momento principal.
+- **La selección de imágenes en dos pasadas respeta la naturaleza del momento elegido** (presente/flashback/sueño), corrigiendo las escenas-recuerdo antes renderizadas como presente.
+
+### Corregido
+- Los personajes que aparecen solo en el flashback o el sueño de un capítulo ahora cuentan para ese capítulo, de modo que los lotes de imágenes dirigidos al personaje cubren esas escenas.
+- El panel de progreso de la biblia visual se puede cerrar; los nombres de los pasos son robustos ante claves desconocidas.
+
+### Migraciones
+- Añadidas las columnas `temporal_presence` y `temporal_presence_locked` en `book_character`.
+
 ## [0.6.0] - 2026-07-01
 
 ### Añadido

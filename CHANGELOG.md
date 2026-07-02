@@ -5,6 +5,25 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2026-07-02
+
+### Added
+- **Per-character temporal presence**: each character is classified as present, flashback-only, dream-only or past+dream, editable in the character sheet with a manual override that survives visual-bible rebuilds.
+- **Selectable scene membership by kind**: the character sheet shows three selectable chapter groups — Present, Flashback and Dream — and saving writes the change through to the chapter scene cards.
+- **Past/dream self in outfit contexts**: memory and dream outfit contexts now carry the character's absolute age and visible appearance for that scene.
+
+### Changed
+- **New flashback rendering engine**: a scene's age and look come from the character's matched outfit context and temporal presence; the old manual per-scene age overrides were removed.
+- **Temporal-frame scene extraction**: the book synopsis anchors the narrative present, so a scene set before it is classified as a flashback even when narrated as ordinary action; a scene's top-level characters are scoped to its main moment.
+- **Two-pass image selection honors the chosen moment's nature** (present/flashback/dream), fixing memory scenes previously rendered as present.
+
+### Fixed
+- Characters appearing only in a chapter's flashback or dream now count toward that chapter, so character-targeted image batches cover those scenes.
+- The visual-bible progress panel can be dismissed; step labels are robust to unknown keys.
+
+### Migrations
+- Added `temporal_presence` and `temporal_presence_locked` columns on `book_character`.
+
 ## [0.6.0] - 2026-07-01
 
 ### Added

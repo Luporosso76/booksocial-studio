@@ -265,19 +265,6 @@ export function mountVisualBible(api: Hono, ctx: RouteContext): void {
     };
     const arr = (v: unknown): string[] | undefined =>
       Array.isArray(v) ? v.map((x) => String(x).trim()).filter((x) => x.length > 0) : undefined;
-    const agesFrom = (v: unknown): { name: string; age: number }[] => {
-      if (!Array.isArray(v)) return [];
-      const out: { name: string; age: number }[] = [];
-      for (const x of v) {
-        if (x == null || typeof x !== "object") continue;
-        const a = x as Record<string, unknown>;
-        const name = String(a.name ?? "").trim();
-        const age = Number(a.age);
-        if (name !== "" && Number.isFinite(age) && age > 0)
-          out.push({ name, age: Math.round(age) });
-      }
-      return out;
-    };
     const scene = await deps.chapterScenes.save(id, idx, {
       ...(body.location !== undefined ? { location: str(body.location) } : {}),
       ...(body.environment !== undefined ? { environment: str(body.environment) } : {}),
@@ -292,15 +279,6 @@ export function mountVisualBible(api: Hono, ctx: RouteContext): void {
       ...(body.kind === "waking" || body.kind === "dream" || body.kind === "flashback"
         ? { kind: body.kind }
         : {}),
-      ...("youngerYears" in body
-        ? {
-            youngerYears:
-              Number.isFinite(Number(body.youngerYears)) && Number(body.youngerYears) > 0
-                ? Number(body.youngerYears)
-                : null,
-          }
-        : {}),
-      ...(Array.isArray(body.characterAges) ? { characterAges: agesFrom(body.characterAges) } : {}),
       ...(Array.isArray(body.altMoments)
         ? {
             altMoments: (body.altMoments as unknown[])
@@ -315,7 +293,6 @@ export function mountVisualBible(api: Hono, ctx: RouteContext): void {
                       : null;
                 const km = str(m.keyMoment);
                 if (!type || !km) return null;
-                const yy = Number(m.youngerYears);
                 return {
                   type,
                   location: str(m.location),
@@ -326,8 +303,6 @@ export function mountVisualBible(api: Hono, ctx: RouteContext): void {
                   physicsRules: arr(m.physicsRules) ?? [],
                   keyMoment: km,
                   whose: str(m.whose),
-                  youngerYears: Number.isFinite(yy) && yy > 0 ? yy : null,
-                  characterAges: agesFrom(m.characterAges),
                 };
               })
               .filter((m): m is ChapterMoment => m !== null),

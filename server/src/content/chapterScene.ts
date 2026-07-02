@@ -1,5 +1,5 @@
 import type { ContentEngine } from "./engine.js";
-import type { CharacterAge, ChapterMoment, ChapterSceneKind } from "../domain.js";
+import type { ChapterMoment, ChapterSceneKind } from "../domain.js";
 import { ContentError } from "./engine.js";
 import { parseModelJson } from "./modelJson.js";
 import { languageName } from "./language.js";
@@ -17,6 +17,7 @@ export interface ChapterSceneInput {
   // DIRETTIVE VISIVE del libro (autoriali): possono evidenziare oggetti/luoghi/dettagli importanti
   // (es. design fisso di un oggetto ricorrente) da nominare con precisione nella scheda. Opzionale.
   directives?: string | null;
+  synopsis?: string | null;
 }
 
 // Risultato grezzo dell'estrazione (senza i campi di persistenza source/model/updatedAt).
@@ -34,8 +35,6 @@ export interface ExtractedChapterScene {
   keyMoment: string | null;
   // Natura della scena principale: 'waking' reale, 'dream' onirica, 'flashback' del passato.
   kind: ChapterSceneKind;
-  youngerYears: number | null; // solo kind='flashback': anni più giovani dei personaggi
-  characterAges: CharacterAge[];
   // Momenti sogno/flashback SECONDARI del capitolo (vuoto se non presenti). Vedi ChapterMoment.
   altMoments: ChapterMoment[];
 }
@@ -121,8 +120,6 @@ function mergeScenes(parts: ExtractedChapterScene[]): ExtractedChapterScene {
         physicsRules: p.physicsRules,
         keyMoment: p.keyMoment ?? "",
         whose: null,
-        youngerYears: p.youngerYears,
-        characterAges: p.characterAges,
       }))
     : [];
   return {
@@ -135,8 +132,6 @@ function mergeScenes(parts: ExtractedChapterScene[]): ExtractedChapterScene {
     physicsRules: union(mainParts, (p) => p.physicsRules, 10),
     keyMoment: mainParts.map((p) => p.keyMoment).find((m) => m != null && m.trim() !== "") ?? null,
     kind: hasWaking ? "waking" : mainRef.kind,
-    youngerYears: hasWaking ? 0 : mainRef.youngerYears,
-    characterAges: hasWaking ? [] : mainRef.characterAges,
     altMoments: (() => {
       const seen = new Set<string>();
       const out: ChapterMoment[] = [];
@@ -253,8 +248,6 @@ function ensurePresentFilled(scene: ExtractedChapterScene): ExtractedChapterScen
       keyMoment: first!.keyMoment,
       // Il momento promosso diventa la NATURA del presente (così è reso come sogno/flashback).
       kind: first!.type,
-      youngerYears: first!.youngerYears,
-      characterAges: first!.characterAges,
       altMoments: rest,
     };
   }
@@ -282,6 +275,7 @@ async function extractOnePass(
   if (text === "") return null;
   const cast = input.knownCharacters.length > 0 ? input.knownCharacters.join(", ") : "(none known)";
   const language = languageName(input.language);
+  const synopsis = (input.synopsis ?? "").trim();
 
   const prompt = `You are an assistant preparing VISUAL CARDS of chapters to generate illustrations.
 From the chapter below extract ONLY what is VISUAL and CONCRETE (no plot or spoilers), to help draw images
@@ -296,11 +290,9 @@ Reply with ONLY a valid JSON object, no text before or after, in this shape:
   "characters": ["ONLY the characters PHYSICALLY PRESENT in this chapter's scenes (see rule below)"],
   "pov": "the NAME (from the KNOWN CHARACTERS list) of the chapter's point-of-view / narrating character. For a FIRST-PERSON chapter, map the 'I'/narrator to the matching cast name. Use '' if the chapter is omniscient, has no clear single POV, or you cannot map it to a known character. Return ONLY a name that is in KNOWN CHARACTERS, or ''",
   "physics_rules": ["3-8 CONCRETE physics/realism constraints to illustrate scenes of THIS chapter"],
-  "key_moment": "the chapter's MAIN drawable scene — the single dominant moment of the chapter's WAKING REALITY (one short, non-spoiler sentence: who does what, where). ALWAYS fill this; never empty. The MAIN scene is the chapter's real/present action WHENEVER the chapter contains ANY real waking events. A dream/memory/flashback is the MAIN scene ONLY when the ENTIRE chapter happens inside it, with NO waking scene at all (the character never lives a real moment in this chapter). If the character BOTH lives real events AND dreams/remembers/flashes back (VERY COMMON: lives the day then falls asleep and dreams; or is somewhere and recalls the past), the WAKING part is the main scene here and the dream/memory/flashback goes in alt_moments — output BOTH. NEVER decide this from the chapter TITLE (a chapter titled 'The Dream' is usually still mostly real life around the dream) — judge ONLY from the narrated body. When unsure, treat the waking reality as the main scene. Example A: the protagonist lives ordinary daytime events, has dinner, then falls asleep and has a nightmare → key_moment = a waking scene (e.g. the protagonist during their daytime activity / at the dinner), kind='waking', and the nightmare goes in alt_moments. Example B: the chapter is ENTIRELY a character's childhood with no present frame → key_moment = that childhood scene, kind='flashback', alt_moments stays []",
-  "kind": "waking | dream | flashback — the NATURE of the MAIN scene in key_moment. 'waking' = it really happens in the story's present (THIS IS THE DEFAULT and the answer for almost every chapter). 'dream' or 'flashback' ONLY when the WHOLE chapter is a single dream/flashback with NO waking scene at all. If the chapter has ANY real waking action, kind is ALWAYS 'waking' and any dream/memory/flashback inside it goes in alt_moments instead — do NOT set kind='dream'/'flashback' merely because a dream or memory appears in the chapter, nor because of the chapter's title. Cues like 'ho sognato'/'I dreamt' or 'years before'/'as a child' mark the SEGMENT that becomes an alt_moment; they flip the top-level kind only if they cover the entire chapter.",
-  "younger_years": 0,
-  "character_ages": [{ "name": "character name", "age": 0 }],
-  "alt_moments": [{ "type": "dream | flashback", "location": "place/era of this moment (for flashback: the PAST)", "environment": "indoor/outdoor, light, atmosphere of this moment", "main_objects": ["iconic subjects/objects of THIS moment"], "secondary_objects": ["minor objects of this moment"], "characters": ["characters appearing INSIDE this moment"], "physics_rules": ["concrete physics/realism constraints for this moment"], "key_moment": "the VISUAL action of this dream/flashback (one short sentence)", "whose": "name of the character who dreams/relives it (or '')", "younger_years": 0, "character_ages": [{ "name": "character name", "age": 0 }] }]
+  "key_moment": "the chapter's MAIN drawable scene — its single dominant moment (one short, non-spoiler sentence: who does what, where). ALWAYS fill this; never empty. Pick the dominant moment REGARDLESS of its time; its nature (present vs past vs dream) is recorded separately in 'kind'. A SECONDARY dream/memory/flashback — one that happens AROUND a present main scene (VERY COMMON: the character lives the present day then falls asleep and dreams, or is in the present and briefly recalls the past) — is NOT the main scene: put the present action in key_moment (kind='waking') and the dream/memory in alt_moments — output BOTH. But when the ENTIRE chapter is set in ONE other time or mode — a whole dream, OR a whole PAST scene that predates the BOOK NARRATIVE PRESENT (a reconstructed memory that fills the chapter, even if narrated as ordinary real action) — then THAT scene IS the key_moment and 'kind' is 'dream'/'flashback' accordingly, with alt_moments []. NEVER decide from the chapter TITLE — judge from the narrated body plus the temporal frame. Example A: the protagonist lives ordinary daytime events, then has a nightmare → key_moment = the daytime scene, kind='waking', nightmare in alt_moments. Example B: the chapter is ENTIRELY a character's childhood with no present frame → key_moment = that childhood scene, kind='flashback', alt_moments []. Example C: the present frame is a father grieving his late daughter, and THIS chapter is entirely a remembered day when she was still alive → key_moment = that remembered scene, kind='flashback', alt_moments []",
+  "kind": "waking | dream | flashback — the NATURE of the MAIN scene in key_moment. 'waking' = it really happens in the STORY'S PRESENT (the 'now' defined by the BOOK NARRATIVE PRESENT above). 'dream' = an oniric/unreal scene. 'flashback' = a real scene set in the PAST relative to that present (a memory / earlier time), EVEN if it is narrated vividly as ordinary real action. TEMPORAL RULE (decisive): first place the chapter's MAIN scene on the timeline against the BOOK NARRATIVE PRESENT. If the whole main scene happens EARLIER than that present — it reconstructs a past the present frame treats as already over (e.g. events with a person/situation the synopsis presents as lost, gone, deceased, ended, or belonging to 'before') — then kind='flashback', NOT 'waking', even though nobody is dreaming and the prose feels present-tense. 'waking' is ONLY for action that sits in the story's actual present. A dream/memory that is SECONDARY to a present main scene still goes in alt_moments (kind stays 'waking'). Do NOT flip kind from the chapter TITLE alone. When the synopsis is '(not available)' or the chapter clearly sits in the present, default to 'waking'.",
+  "alt_moments": [{ "type": "dream | flashback", "location": "place/era of this moment (for flashback: the PAST)", "environment": "indoor/outdoor, light, atmosphere of this moment", "main_objects": ["iconic subjects/objects of THIS moment"], "secondary_objects": ["minor objects of this moment"], "characters": ["characters appearing INSIDE this moment"], "physics_rules": ["concrete physics/realism constraints for this moment"], "key_moment": "the VISUAL action of this dream/flashback (one short sentence)", "whose": "name of the character who dreams/relives it (or '')" }]
 }
 
 RULES:
@@ -335,9 +327,15 @@ RULES:
   A KNOWN CAST member is NEVER an "incidental extra": if a character from the KNOWN CAST appears in a scene of
   this chapter, INCLUDE them — EVEN when they are working or serving (a waiter, bartender, waitress, clerk,
   driver, guide). The incidental-extra exclusion below applies ONLY to UNNAMED people who are NOT in the cast.
-  FLASHBACKS / SHOWN MEMORIES: if the chapter NARRATES a SCENE of the past (a flashback, a memory told as a
-  scene, a shown dream) in which a character APPEARS and ACTS — you could draw them INSIDE that scene —
-  then that character IS PRESENT: INCLUDE them.
+  SCOPE — TOP-LEVEL "characters" = the MAIN scene (key_moment) ONLY. A character who appears ONLY inside a
+  SECONDARY dream/memory/flashback of this chapter (i.e. inside an alt_moments entry, while the MAIN scene is
+  a different, waking moment) MUST NOT be listed here: put them in THAT alt_moment's own "characters" instead.
+  Listing someone here means they are physically in the MAIN drawn scene. This matters for people who are gone
+  from the story's present (dead, absent, belonging to the past): if the main scene is in the present they are
+  NOT in it — they only belong to the flashback where they are shown.
+  WHOLE-CHAPTER MEMORY: if instead the chapter's MAIN scene IS itself the flashback/dream (kind='flashback'/
+  'dream' — the whole chapter is that past/oniric scene), then the characters shown INSIDE it ARE the main
+  scene's characters: INCLUDE them here.
   EXCLUDE instead anyone merely NAMED, EVOKED, EXPECTED or who is TALKED ABOUT or THOUGHT OF WITHOUT a scene
   that shows them (e.g. a person cited in a dialogue or a thought, someone absent or far away who is only
   spoken of). A NAME in the text is NOT enough: presence in a scene is required — even past or remembered,
@@ -364,17 +362,6 @@ RULES:
   location/environment/main_objects/characters/physics_rules/key_moment). "type": "dream" | "flashback" —
   there are only TWO: a 'flashback' is a real PAST scene (a memory/flashback are the SAME thing), a 'dream' is
   an oniric/unreal scene. "whose" = the character who dreams/relives it (the narrator / POV when first-person).
-- YOUNGER YEARS (rejuvenation): for EVERY 'flashback' — both the top-level "younger_years" when kind='flashback'
-  AND each flashback in alt_moments — estimate how many years YOUNGER the characters are in that past scene and
-  put that NUMBER in younger_years (e.g. a childhood scene of an adult ≈ 30; "ten years ago" ≈ 10). Never leave
-  a flashback's younger_years at 0. For 'dream' and 'waking', younger_years is 0. Put a flashback's era/place
-  in "location".
-- CHARACTER AGES (flashbacks with MIXED ages): fill "character_ages" — both the top-level one (ONLY when
-  kind='flashback') AND each 'flashback' in alt_moments — ONLY when, in that PAST scene, the characters are at
-  CLEARLY DIFFERENT ages from one another (e.g. one shown as a child while another is at their present-day age).
-  Give an ABSOLUTE age PER character: [{ "name": "Character A", "age": 8 }], using the cast NAME. Leave it [] for
-  'waking'/'dream', and ALSO for a flashback where everyone is simply younger by the same amount (younger_years
-  already covers that uniform case). No guessing: fill ONLY when the text makes the differing ages clear.
 - Concrete and visual: no abstract emotions, no events/plot, no spoilers. Only what you SEE.
 - If a field cannot be determined, use "" (empty string) or [] (empty list). No inventions.
 - LANGUAGE: write ALL string values in ${language}. Even though these instructions are in English, the values
@@ -383,6 +370,8 @@ RULES:
 KNOWN CHARACTERS (for matching): ${cast}
 BOOK ART DIRECTION (object/detail hints, if any): ${input.directives?.trim() || "(none)"}
 CHAPTER TITLE: ${input.chapterTitle?.trim() || "(none)"}
+=== BOOK NARRATIVE PRESENT (temporal frame — the story's "now"; use it ONLY to decide waking vs flashback) ===
+${synopsis || "(not available — when absent, judge kind from the chapter body alone as usual)"}
 === CHAPTER TEXT ===
 ${text}`;
 
@@ -409,19 +398,6 @@ ${text}`;
       const s = String(v).trim();
       return s === "" ? null : s.slice(0, 200);
     };
-    const ageArr = (v: unknown): CharacterAge[] => {
-      if (!Array.isArray(v)) return [];
-      const out: CharacterAge[] = [];
-      for (const x of v) {
-        if (x == null || typeof x !== "object") continue;
-        const a = x as Record<string, unknown>;
-        const name = String(a.name ?? "").trim();
-        const age = Number(a.age);
-        if (name !== "" && Number.isFinite(age) && age > 0)
-          out.push({ name: name.slice(0, 120), age: Math.round(age) });
-      }
-      return out.slice(0, 40);
-    };
     const altArr = (v: unknown): ChapterMoment[] => {
       if (!Array.isArray(v)) return [];
       const out: ChapterMoment[] = [];
@@ -436,7 +412,6 @@ ${text}`;
               : null;
         const km = str(m.key_moment);
         if (!type || !km) continue;
-        const yy = Number(m.younger_years);
         out.push({
           type,
           location: str(m.location),
@@ -447,8 +422,6 @@ ${text}`;
           physicsRules: ruleArr(m.physics_rules),
           keyMoment: km,
           whose: str(m.whose),
-          youngerYears: Number.isFinite(yy) && yy > 0 ? yy : null,
-          characterAges: ageArr(m.character_ages),
         });
       }
       return out.slice(0, 6);
@@ -463,11 +436,6 @@ ${text}`;
       physicsRules: ruleArr(j.physics_rules),
       keyMoment: str(j.key_moment),
       kind: j.kind === "dream" || j.kind === "flashback" ? j.kind : "waking",
-      youngerYears: (() => {
-        const y = Number(j.younger_years);
-        return Number.isFinite(y) && y > 0 ? y : null;
-      })(),
-      characterAges: ageArr(j.character_ages),
       altMoments: altArr(j.alt_moments),
     };
   } catch (e) {

@@ -5,6 +5,25 @@ Tutte le modifiche rilevanti a questo progetto sono documentate in questo file.
 Il formato è basato su [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 e questo progetto aderisce al [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2026-07-02
+
+### Aggiunto
+- **Presenza temporale per personaggio**: ogni personaggio è classificato come presente, solo-flashback, solo-sogno o passato+sogno, modificabile nella scheda personaggio con un override manuale che sopravvive alle rigenerazioni della bibbia visiva.
+- **Appartenenza alle scene per tipo, selezionabile**: la scheda personaggio mostra tre gruppi di capitoli selezionabili — Presente, Flashback e Sogno — e il salvataggio scrive la modifica direttamente nelle schede scena del capitolo.
+- **Sé passato/onirico negli abiti di contesto**: i contesti d'abito di ricordo e sogno ora portano l'età assoluta e l'aspetto visibile del personaggio per quella scena.
+
+### Modificato
+- **Nuovo motore di resa flashback**: l'età e l'aspetto di una scena derivano dal contesto d'abito combaciato del personaggio e dalla sua presenza temporale; gli override manuali dell'età per-scena sono stati rimossi.
+- **Estrazione scene con àncora temporale**: la sinossi del libro àncora il presente narrativo, così una scena ambientata prima di esso è classificata come flashback anche se narrata come azione ordinaria; i personaggi principali di una scena sono limitati al suo momento principale.
+- **La selezione immagini a due passi rispetta la natura del momento scelto** (presente/flashback/sogno), correggendo le scene-ricordo prima rese come presente.
+
+### Corretto
+- I personaggi che compaiono solo nel flashback o nel sogno di un capitolo ora contano per quel capitolo, così i batch immagini mirati sul personaggio coprono quelle scene.
+- Il pannello di avanzamento della bibbia visiva è chiudibile; i nomi degli step sono robusti a chiavi sconosciute.
+
+### Migrazioni
+- Aggiunte le colonne `temporal_presence` e `temporal_presence_locked` su `book_character`.
+
 ## [0.6.0] - 2026-07-01
 
 ### Aggiunto

@@ -33,8 +33,6 @@ describe("selectChapterScenes directive guidance", () => {
       physicsRules: [],
       keyMoment: "The windsurfer sails offshore.",
       kind: "waking",
-      youngerYears: null,
-      characterAges: [],
       altMoments: [],
       source: "USER",
       model: null,

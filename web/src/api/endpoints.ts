@@ -12,6 +12,9 @@ import type {
   BookLink,
   CharacterInput,
   CharacterOutfits,
+  CharacterSceneAppearances,
+  SceneKindChapters,
+  TemporalPresence,
   CoverageTrend,
   Demographics,
   IgAccountResponse,
@@ -246,7 +249,7 @@ export const regenerateMediaImage = (
     characters?: string[];
     // Override FLASHBACK/ricordo: rende i personaggi più giovani e vestiti d'epoca (scavalca età e
     // outfit canonici). Forza la ricostruzione dal capitolo lato server.
-    flashback?: { youngerYears?: number; setting?: string; note?: string };
+    flashback?: { setting?: string; note?: string };
     verify?: boolean;
   },
 ) =>
@@ -418,8 +421,6 @@ export const updateChapterScene = (
       | "physicsRules"
       | "keyMoment"
       | "kind"
-      | "youngerYears"
-      | "characterAges"
       | "altMoments"
     >
   >,
@@ -472,6 +473,7 @@ export const updateCharacter = (
     physical?: string | null;
     outfits?: CharacterOutfits;
     chapters?: number[];
+    temporalPresence?: TemporalPresence | "auto" | null;
   },
 ) => apiPut<BookCharacter>(`/characters/${characterId}`, patch);
 
@@ -482,6 +484,21 @@ export const deleteCharacter = (characterId: string) =>
 // almeno una chiamata GPT per capitolo). Ritorna il cast aggiornato (stesso shape di getCharacters).
 export const recomputeCharacterChapters = (bookId: string) =>
   apiPost<{ characters: BookCharacter[] }>(`/books/${bookId}/recompute-character-chapters`);
+
+export const getCharacterSceneAppearances = (bookId: string, signal?: AbortSignal) =>
+  apiGet<Record<string, CharacterSceneAppearances>>(
+    `/books/${bookId}/character-scene-appearances`,
+    signal,
+  );
+
+export const getSceneKinds = (bookId: string, signal?: AbortSignal) =>
+  apiGet<SceneKindChapters>(`/books/${bookId}/scene-kinds`, signal);
+
+export const setCharacterSceneMembership = (
+  bookId: string,
+  characterId: string,
+  body: SceneKindChapters,
+) => apiPut<BookCharacter>(`/books/${bookId}/characters/${characterId}/scene-membership`, body);
 
 export const promoteMinor = (bookId: string, index: number) =>
   apiPost<BookCharacter>(`/books/${bookId}/minors/promote`, { index });

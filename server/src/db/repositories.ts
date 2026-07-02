@@ -11,6 +11,7 @@ import {
   type BookQuote,
   type QuoteKind,
   type CharacterSource,
+  type TemporalPresence,
   type CharacterOutfit,
   type CharacterOutfits,
   type BookVisualProps,
@@ -104,18 +105,6 @@ function parseChapterScene(raw: unknown): ChapterScene | null {
     const s = String(v).trim();
     return s === "" ? null : s;
   };
-  const parseAges = (v: unknown): { name: string; age: number }[] => {
-    if (!Array.isArray(v)) return [];
-    const out: { name: string; age: number }[] = [];
-    for (const x of v) {
-      if (x == null || typeof x !== "object") continue;
-      const a = x as Record<string, unknown>;
-      const name = String(a.name ?? "").trim();
-      const age = Number(a.age);
-      if (name !== "" && Number.isFinite(age) && age > 0) out.push({ name, age: Math.round(age) });
-    }
-    return out;
-  };
   const parseAltMoments = (v: unknown): ChapterMoment[] => {
     if (!Array.isArray(v)) return [];
     const out: ChapterMoment[] = [];
@@ -130,7 +119,6 @@ function parseChapterScene(raw: unknown): ChapterScene | null {
             : null;
       const km = str(m.keyMoment);
       if (!type || !km) continue;
-      const yy = Number(m.youngerYears);
       out.push({
         type,
         location: str(m.location),
@@ -141,8 +129,6 @@ function parseChapterScene(raw: unknown): ChapterScene | null {
         physicsRules: strArr(m.physicsRules),
         keyMoment: km,
         whose: str(m.whose),
-        youngerYears: Number.isFinite(yy) && yy > 0 ? yy : null,
-        characterAges: parseAges(m.characterAges),
       });
     }
     return out;
@@ -161,11 +147,6 @@ function parseChapterScene(raw: unknown): ChapterScene | null {
     keyMoment: str(o.keyMoment),
 
     kind: o.kind === "dream" || o.kind === "flashback" ? o.kind : "waking",
-    youngerYears:
-      Number.isFinite(Number(o.youngerYears)) && Number(o.youngerYears) > 0
-        ? Number(o.youngerYears)
-        : null,
-    characterAges: parseAges(o.characterAges),
 
     altMoments: parseAltMoments(o.altMoments),
     source: o.source === "USER" ? "USER" : "AI",
@@ -300,6 +281,8 @@ function mapCharacter(r: Row): BookCharacter {
             .map((x) => Number(x.trim()))
             .filter((x) => Number.isFinite(x))
         : [],
+    temporalPresence: (r.temporal_presence as TemporalPresence | null) ?? null,
+    temporalPresenceLocked: Number(r.temporal_presence_locked) === 1,
     outfits: parseOutfits(r.outfits_json as string | null),
     createdAt: Number(r.created_at),
     updatedAt: Number(r.updated_at),
@@ -310,7 +293,19 @@ function serializeOutfits(o: CharacterOutfits | null | undefined): string | null
   if (!o) return null;
   const def = (o.default ?? "").trim();
   const sig = (o.signature ?? "").trim();
-  const contexts = (o.contexts ?? []).filter((x) => x.when.trim() !== "" && x.outfit.trim() !== "");
+  const contexts = (o.contexts ?? [])
+    .filter((x) => x.when.trim() !== "" && x.outfit.trim() !== "")
+    .map((x) => {
+      const age = typeof x.age === "string" && x.age.trim() !== "" ? x.age.trim() : null;
+      const appearance =
+        typeof x.appearance === "string" && x.appearance.trim() !== "" ? x.appearance.trim() : null;
+      return {
+        when: x.when.trim(),
+        outfit: x.outfit.trim(),
+        ...(age ? { age } : {}),
+        ...(appearance ? { appearance } : {}),
+      };
+    });
   if (def === "" && sig === "" && contexts.length === 0) return null;
   return JSON.stringify({
     default: def === "" ? null : def,
@@ -332,7 +327,14 @@ function parseOutfits(raw: string | null): CharacterOutfits {
             (x): x is CharacterOutfit =>
               !!x && typeof x.when === "string" && typeof x.outfit === "string",
           )
-          .map((x) => ({ when: x.when.trim(), outfit: x.outfit.trim() }))
+          .map((x) => {
+            const age = typeof x.age === "string" && x.age.trim() !== "" ? x.age.trim() : null;
+            const appearance =
+              typeof x.appearance === "string" && x.appearance.trim() !== ""
+                ? x.appearance.trim()
+                : null;
+            return { when: x.when.trim(), outfit: x.outfit.trim(), age, appearance };
+          })
           .filter((x) => x.when !== "" && x.outfit !== "")
       : [];
     return { default: def, contexts, signature: sig };
@@ -723,8 +725,8 @@ export const characters = {
   async insert(c: Omit<BookCharacter, "id">): Promise<BookCharacter> {
     const r = await execute(
       `INSERT INTO book_character(book_id, name, role, occupation, personality, physical,
-              age, ethnicity, notes, source, sort_order, outfits_json, created_at, updated_at)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+              age, ethnicity, notes, source, sort_order, temporal_presence, temporal_presence_locked, outfits_json, created_at, updated_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       [
         c.bookId,
         c.name,
@@ -737,6 +739,8 @@ export const characters = {
         c.notes,
         c.source,
         c.sortOrder,
+        c.temporalPresence ?? null,
+        c.temporalPresenceLocked ? 1 : 0,
         serializeOutfits(c.outfits),
         c.createdAt,
         c.updatedAt,
@@ -750,7 +754,7 @@ export const characters = {
   async update(c: BookCharacter): Promise<void> {
     await execute(
       `UPDATE book_character SET name=?, role=?, occupation=?, personality=?, physical=?,
-              age=?, ethnicity=?, notes=?, source=?, sort_order=?, outfits_json=?, updated_at=? WHERE id=?`,
+              age=?, ethnicity=?, notes=?, source=?, sort_order=?, temporal_presence=?, temporal_presence_locked=?, outfits_json=?, updated_at=? WHERE id=?`,
       [
         c.name,
         c.role,
@@ -762,6 +766,8 @@ export const characters = {
         c.notes,
         c.source,
         c.sortOrder,
+        c.temporalPresence ?? null,
+        c.temporalPresenceLocked ? 1 : 0,
         serializeOutfits(c.outfits),
         c.updatedAt,
         c.id,
@@ -838,12 +844,17 @@ export const characters = {
     await execute("UPDATE book_character SET chapters=? WHERE id=?", [csv, characterId]);
   },
 
-  async setChaptersBulk(rows: { characterId: number; chapters: number[] }[]): Promise<void> {
+  async setChaptersBulk(
+    rows: { characterId: number; chapters: number[]; temporalPresence?: TemporalPresence | null }[],
+  ): Promise<void> {
     if (rows.length === 0) return;
     await withTransaction(async (conn) => {
       for (const r of rows) {
         const csv = [...r.chapters].sort((a, b) => a - b).join(",");
-        await conn.execute("UPDATE book_character SET chapters=? WHERE id=?", [csv, r.characterId]);
+        await conn.execute(
+          "UPDATE book_character SET chapters=?, temporal_presence=CASE WHEN temporal_presence_locked=1 THEN temporal_presence ELSE ? END WHERE id=?",
+          [csv, r.temporalPresence ?? null, r.characterId],
+        );
       }
     });
   },

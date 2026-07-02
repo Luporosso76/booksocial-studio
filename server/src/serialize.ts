@@ -149,6 +149,8 @@ export function characterDto(c: BookCharacter) {
     // (chapters.length) e il FILTRO per capitolo (chapters.includes(idx)) in rigenerazione.
     chapters: c.chapters,
     sortOrder: c.sortOrder,
+    temporalPresence: c.temporalPresence ?? null,
+    temporalPresenceLocked: c.temporalPresenceLocked ?? false,
     outfits: c.outfits,
     createdAt: c.createdAt,
     updatedAt: c.updatedAt,

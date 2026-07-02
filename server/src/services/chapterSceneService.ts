@@ -4,7 +4,13 @@ import { extractChapterScene, type ExtractedChapterScene } from "../content/chap
 import { nameAppearsInText } from "../content/characterText.js";
 import { sha256 } from "../content/importer.js";
 import { SCENE_PROMPT_VERSION } from "../domain.js";
-import type { BookChapter, BookCharacter, ChapterScene } from "../domain.js";
+import type {
+  BookChapter,
+  BookCharacter,
+  ChapterScene,
+  ChapterSceneKind,
+  TemporalPresence,
+} from "../domain.js";
 
 // Orchestratore della SCHEDA VISIVA per capitolo: estrae on-demand dal testo e mette in
 // cache su book_chapter.scene_json. Usata sia dalla generazione immagini (grounding del prompt)
@@ -57,10 +63,6 @@ export class ChapterSceneService {
         patch.physicsRules !== undefined ? patch.physicsRules : (prev?.physicsRules ?? []),
       keyMoment: patch.keyMoment !== undefined ? patch.keyMoment : (prev?.keyMoment ?? null),
       kind: patch.kind !== undefined ? patch.kind : (prev?.kind ?? "waking"),
-      youngerYears:
-        patch.youngerYears !== undefined ? patch.youngerYears : (prev?.youngerYears ?? null),
-      characterAges:
-        patch.characterAges !== undefined ? patch.characterAges : (prev?.characterAges ?? []),
       altMoments: patch.altMoments !== undefined ? patch.altMoments : (prev?.altMoments ?? []),
       source: "USER",
       model: prev?.model ?? null,
@@ -91,7 +93,11 @@ export class ChapterSceneService {
 
     // Indici di presenza accumulati per id personaggio.
     const presence = new Map<number, Set<number>>();
-    for (const c of cast) presence.set(c.id, new Set<number>());
+    const sceneKinds = new Map<number, Set<ChapterSceneKind>>();
+    for (const c of cast) {
+      presence.set(c.id, new Set<number>());
+      sceneKinds.set(c.id, new Set<ChapterSceneKind>());
+    }
 
     // Per ogni capitolo: scheda visiva (cache o estrazione GPT on-demand) → match al cast.
     // Presente = combacia con un personaggio FISICAMENTE in scena secondo la scheda GPT.
@@ -111,12 +117,28 @@ export class ChapterSceneService {
           nameAppearsInText(c.name, chapter.text)
         ) {
           presence.get(c.id)!.add(chapter.index);
+          sceneKinds.get(c.id)!.add(card.kind);
+        }
+      }
+      for (const moment of card.altMoments ?? []) {
+        const momentNames = moment.characters.map((n) => n.trim()).filter((n) => n.length > 0);
+        for (const c of cast) {
+          if (
+            momentNames.some((n) => namesMatch(c.name, n)) &&
+            nameAppearsInText(c.name, chapter.text)
+          ) {
+            presence.get(c.id)!.add(chapter.index);
+            sceneKinds.get(c.id)!.add(moment.type);
+          }
         }
       }
       const pov = (card.pov ?? "").trim();
       if (pov !== "") {
         for (const c of cast) {
-          if (namesMatch(c.name, pov)) presence.get(c.id)!.add(chapter.index);
+          if (namesMatch(c.name, pov)) {
+            presence.get(c.id)!.add(chapter.index);
+            sceneKinds.get(c.id)!.add(card.kind);
+          }
         }
       }
     }
@@ -133,9 +155,124 @@ export class ChapterSceneService {
 
     // Persisti in bulk (transazione) e ritorna il cast aggiornato.
     await characters.setChaptersBulk(
-      cast.map((c) => ({ characterId: c.id, chapters: [...presence.get(c.id)!] })),
+      cast.map((c) => ({
+        characterId: c.id,
+        chapters: [...presence.get(c.id)!],
+        temporalPresence: classifyTemporalPresence(sceneKinds.get(c.id)!),
+      })),
     );
     return characters.byBook(bookId);
+  }
+
+  async sceneAppearances(
+    bookId: number,
+  ): Promise<Record<number, { present: number[]; flashback: number[]; dream: number[] }>> {
+    const cast = await characters.byBook(bookId);
+    const chapters = await books.chapters(bookId);
+    const acc = new Map<
+      number,
+      { present: Set<number>; flashback: Set<number>; dream: Set<number> }
+    >();
+    for (const c of cast) {
+      acc.set(c.id, {
+        present: new Set<number>(),
+        flashback: new Set<number>(),
+        dream: new Set<number>(),
+      });
+    }
+    const bucketForKind = (kind: ChapterSceneKind): "present" | "flashback" | "dream" =>
+      kind === "waking" ? "present" : kind === "flashback" ? "flashback" : "dream";
+    const add = (names: string[], bucket: "present" | "flashback" | "dream", idx: number): void => {
+      const clean = names.map((n) => n.trim()).filter((n) => n.length > 0);
+      for (const c of cast) {
+        if (clean.some((n) => namesMatch(c.name, n))) acc.get(c.id)![bucket].add(idx);
+      }
+    };
+    for (const chapter of chapters) {
+      const scene = chapter.scene;
+      if (!scene) continue;
+      add(scene.characters, bucketForKind(scene.kind), chapter.index);
+      for (const moment of scene.altMoments ?? []) {
+        add(moment.characters, moment.type === "flashback" ? "flashback" : "dream", chapter.index);
+      }
+    }
+    const sorted = (s: Set<number>): number[] => [...s].sort((a, b) => a - b);
+    const out: Record<number, { present: number[]; flashback: number[]; dream: number[] }> = {};
+    for (const [id, sets] of acc) {
+      out[id] = {
+        present: sorted(sets.present),
+        flashback: sorted(sets.flashback),
+        dream: sorted(sets.dream),
+      };
+    }
+    return out;
+  }
+
+  async sceneKindChapters(
+    bookId: number,
+  ): Promise<{ present: number[]; flashback: number[]; dream: number[] }> {
+    const chapters = await books.chapters(bookId);
+    const present = new Set<number>();
+    const flashback = new Set<number>();
+    const dream = new Set<number>();
+    for (const chapter of chapters) {
+      const scene = chapter.scene;
+      if (!scene) continue;
+      if (scene.kind === "waking") present.add(chapter.index);
+      else if (scene.kind === "flashback") flashback.add(chapter.index);
+      else if (scene.kind === "dream") dream.add(chapter.index);
+      for (const moment of scene.altMoments ?? []) {
+        if (moment.type === "flashback") flashback.add(chapter.index);
+        else if (moment.type === "dream") dream.add(chapter.index);
+      }
+    }
+    const sorted = (s: Set<number>): number[] => [...s].sort((a, b) => a - b);
+    return { present: sorted(present), flashback: sorted(flashback), dream: sorted(dream) };
+  }
+
+  async setSceneMembership(
+    bookId: number,
+    characterId: number,
+    desired: { present: number[]; flashback: number[]; dream: number[] },
+  ): Promise<void> {
+    const character = await characters.get(characterId);
+    if (!character) return;
+    const name = character.name;
+    const want = {
+      waking: new Set(desired.present),
+      flashback: new Set(desired.flashback),
+      dream: new Set(desired.dream),
+    };
+    const chapters = await books.chapters(bookId);
+    for (const chapter of chapters) {
+      const scene = chapter.scene;
+      if (!scene) continue;
+      const idx = chapter.index;
+      let changedMain = false;
+      let changedAlt = false;
+      let mainChars = scene.characters;
+      if (scene.kind === "waking" || scene.kind === "flashback" || scene.kind === "dream") {
+        const next = reconcileMembership(mainChars, name, want[scene.kind].has(idx));
+        if (next !== mainChars) {
+          mainChars = next;
+          changedMain = true;
+        }
+      }
+      const moments = scene.altMoments ?? [];
+      const nextMoments = moments.map((moment) => {
+        if (moment.type !== "flashback" && moment.type !== "dream") return moment;
+        const next = reconcileMembership(moment.characters, name, want[moment.type].has(idx));
+        if (next === moment.characters) return moment;
+        changedAlt = true;
+        return { ...moment, characters: next };
+      });
+      if (!changedMain && !changedAlt) continue;
+      await this.save(bookId, idx, {
+        ...(changedMain ? { characters: mainChars } : {}),
+        ...(changedAlt ? { altMoments: nextMoments } : {}),
+      });
+    }
+    await this.recomputeCharacterChapters(bookId);
   }
 
   private async buildAndSave(bookId: number, chapter: BookChapter): Promise<ChapterScene | null> {
@@ -146,12 +283,15 @@ export class ChapterSceneService {
       .filter((d) => d.enabled && d.triggers.length === 0)
       .map((d) => (d.body ?? "").trim())
       .filter((s) => s !== "");
+    const profile = await books.currentProfile(bookId);
+    const synopsis = (profile?.synopsisLong ?? profile?.synopsisShort ?? "").trim() || null;
     const extracted = await extractChapterScene(this.deps.engine, {
       chapterText: chapter.text,
       chapterTitle: chapter.title,
       language: book.language,
       knownCharacters: cast.map((c) => c.name),
       directives: alwaysOn.length > 0 ? alwaysOn.join("\n") : null,
+      synopsis,
     });
     if (!extracted) return null;
     const pov = (extracted.pov ?? "").trim();
@@ -176,6 +316,19 @@ function isSceneFresh(scene: ChapterScene, chapterText: string): boolean {
   return scene.promptVersion === SCENE_PROMPT_VERSION && scene.sourceHash === sha256(chapterText);
 }
 
+export function classifyTemporalPresence(
+  kinds: ReadonlySet<ChapterSceneKind>,
+): TemporalPresence | null {
+  if (kinds.size === 0) return null;
+  if (kinds.has("waking")) return "present";
+  const hasFlashback = kinds.has("flashback");
+  const hasDream = kinds.has("dream");
+  if (hasFlashback && hasDream) return "past_dream_only";
+  if (hasFlashback) return "flashback_only";
+  if (hasDream) return "dream_only";
+  return null;
+}
+
 // Confronto lasco fra nomi, ma per TOKEN INTERI (no sottostringhe): "Marco" combacia con
 // "Marco Romidi", mentre "Anna" NON combacia con "Marianna" né "Sara" con "Rosaria". Combaciano
 // se i token del nome più corto sono tutti presenti, come parole intere, nell'altro (così due
@@ -190,6 +343,13 @@ function namesMatch(a: string, b: string): boolean {
   const [short, long] = tx.length <= ty.length ? [tx, ty] : [ty, tx];
   const longSet = new Set(long);
   return short.every((t) => longSet.has(t));
+}
+
+function reconcileMembership(names: string[], name: string, shouldBePresent: boolean): string[] {
+  const present = names.some((n) => namesMatch(name, n));
+  if (shouldBePresent && !present) return [...names, name];
+  if (!shouldBePresent && present) return names.filter((n) => !namesMatch(name, n));
+  return names;
 }
 
 // Canonicalizza i nomi dei personaggi estratti dal GPT sul cast del libro: quando un nome estratto

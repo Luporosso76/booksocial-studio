@@ -277,7 +277,6 @@
       "charChapters": "ch. {{chapters}}",
       "charNoChapter": "no chapter",
       "flashbackToggle": "Memory / flashback (scene from the past)",
-      "youngerYears": "Years younger",
       "flashbackSettingPlaceholder": "Setting/era: e.g. \"beach by the sea, youth\"",
       "regenerateFromChapterTitle": "Rebuilds the prompt from the chapter text applying current rules (physics, windsurf, etc.)",
       "regenerateAsMemory": "Regenerate as memory (younger, period clothing)",
@@ -400,10 +399,7 @@
       "kindFlashback": "Flashback",
       "momentMemory": "Memory",
       "momentFlashback": "Flashback",
-      "momentWhoseLabel": "Whose (dream/memory)",
-      "momentYoungerYearsLabel": "Years younger",
-      "flashbackAgesLabel": "Character ages in the flashback",
-      "flashbackAgesHint": "Set each character's age in this past scene: overrides the canonical age and 'years younger'. Leave empty to use years-younger."
+      "momentWhoseLabel": "Whose (dream/memory)"
     },
     "characters": {
       "title": "Characters",
@@ -453,7 +449,21 @@
       "ethnicityPlaceholder": "e.g. Dominican, light-brown skin",
       "signatureOutfitLabel": "Signature item (always worn)",
       "signatureOutfitPlaceholder": "e.g. straw hat, round glasses",
-      "signatureOutfitHint": "An accessory/garment the character wears in EVERY scene, on top of any outfit. Leave empty if none."
+      "signatureOutfitHint": "An accessory/garment the character wears in EVERY scene, on top of any outfit. Leave empty if none.",
+      "contextAgePlaceholder": "age in the memory/dream (e.g. around 25)",
+      "contextAppearancePlaceholder": "past self's look (face/skin/grey hair)",
+      "contextFlashbackHint": "Age and appearance ONLY for memory/flashback or dream contexts; leave empty for the present.",
+      "temporalPresenceLabel": "Temporal presence",
+      "temporalPresenceComputed": "Computed:",
+      "sceneMembershipPresent": "Chapters — Present",
+      "sceneMembershipFlashback": "Chapters — Flashback",
+      "sceneMembershipDream": "Chapters — Dream",
+      "sceneMembershipHint": "Select the chapters where the character appears; saving updates the scene cards.",
+      "tpAuto": "Auto (recomputed)",
+      "tpPresent": "Present",
+      "tpFlashbackOnly": "Flashback only",
+      "tpDreamOnly": "Dream only",
+      "tpPastDreamOnly": "Past + dream"
     },
     "visualBible": {
       "title": "Analysis / Visual bible",
@@ -1416,8 +1426,6 @@
     "reindexNlp": "Re-extract quotes (NLP)",
     "reindexNlpDone": "{{count}} quotes extracted from the book",
     "reindexNlpFailed": "Quote extraction failed.",
-    "characterChaptersLabel": "Chapters where present",
-    "characterChaptersHint": "Select the chapters where the character appears: it determines the characters available when regenerating images.",
     "sceneGenChaptersTitle": "Chapters",
     "sceneGenCharactersTitle": "Characters",
     "sceneGenHelp": "Select the chapters and choose how many images to create <strong>for each chapter</strong>; without selection it is «Auto» (various chapters). You can <strong>queue</strong> multiple requests (e.g., first in 9:16, then change format to 1:1 and add again): the queue runs in sequence without stopping until you press <strong>Cancel</strong>. Generation is slow (a few minutes per image) and runs locally: the server must stay on.",

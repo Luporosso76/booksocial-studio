@@ -277,7 +277,6 @@
       "charChapters": "chap. {{chapters}}",
       "charNoChapter": "aucun chap.",
       "flashbackToggle": "Souvenir / flashback (scène du passé)",
-      "youngerYears": "Années en moins",
       "flashbackSettingPlaceholder": "Décor/époque : ex. « plage à la mer, jeunesse »",
       "regenerateFromChapterTitle": "Reconstruit le prompt à partir du texte du chapitre en appliquant les règles actuelles (physique, windsurf, etc.)",
       "regenerateAsMemory": "Régénérer comme souvenir (plus jeune, vêtements d'époque)",
@@ -400,10 +399,7 @@
       "kindFlashback": "Flashback",
       "momentMemory": "Souvenir",
       "momentFlashback": "Flashback",
-      "momentWhoseLabel": "De qui (rêve/souvenir)",
-      "momentYoungerYearsLabel": "Années de moins",
-      "flashbackAgesLabel": "Âge des personnages dans le flashback",
-      "flashbackAgesHint": "Définissez l'âge de chaque personnage dans cette scène du passé : remplace l'âge canonique et « années de moins ». Laissez vide pour utiliser les années de moins."
+      "momentWhoseLabel": "De qui (rêve/souvenir)"
     },
     "characters": {
       "title": "Personnages",
@@ -453,7 +449,21 @@
       "ethnicityPlaceholder": "p. ex. dominicaine, peau brun clair",
       "signatureOutfitLabel": "Pièce signature (toujours portée)",
       "signatureOutfitPlaceholder": "p. ex. chapeau de paille, lunettes rondes",
-      "signatureOutfitHint": "Accessoire/vêtement que le personnage porte dans CHAQUE scène, par-dessus toute tenue. Laissez vide s'il n'y en a pas."
+      "signatureOutfitHint": "Accessoire/vêtement que le personnage porte dans CHAQUE scène, par-dessus toute tenue. Laissez vide s'il n'y en a pas.",
+      "contextAgePlaceholder": "âge dans le souvenir/rêve (ex. environ 25)",
+      "contextAppearancePlaceholder": "apparence du soi passé (visage/peau/cheveux gris)",
+      "contextFlashbackHint": "Âge et apparence UNIQUEMENT pour les contextes de souvenir/flashback ou de rêve ; laissez vide pour le présent.",
+      "temporalPresenceLabel": "Présence temporelle",
+      "temporalPresenceComputed": "Calculée :",
+      "sceneMembershipPresent": "Chapitres — Présent",
+      "sceneMembershipFlashback": "Chapitres — Flashback",
+      "sceneMembershipDream": "Chapitres — Rêve",
+      "sceneMembershipHint": "Sélectionnez les chapitres où le personnage apparaît ; l'enregistrement met à jour les fiches de scène.",
+      "tpAuto": "Auto (recalculée)",
+      "tpPresent": "Présent",
+      "tpFlashbackOnly": "Flashback uniquement",
+      "tpDreamOnly": "Rêve uniquement",
+      "tpPastDreamOnly": "Passé + rêve"
     },
     "visualBible": {
       "title": "Analyse / Bible visuelle",
@@ -1416,8 +1426,6 @@
     "reindexNlp": "Ré-extraire les citations (NLP)",
     "reindexNlpDone": "{{count}} citations extraites du livre",
     "reindexNlpFailed": "Échec de l’extraction des citations.",
-    "characterChaptersLabel": "Chapitres où il apparaît",
-    "characterChaptersHint": "Sélectionnez les chapitres où le personnage apparaît : cela détermine les personnages disponibles lors de la régénération des images.",
     "sceneGenChaptersTitle": "Chapitres",
     "sceneGenCharactersTitle": "Personnages",
     "sceneGenHelp": "Sélectionnez les chapitres et choisissez combien d'images créer <strong>pour chaque chapitre</strong> ; sans sélection, c'est « Auto » (chapitres variés). Vous pouvez <strong>mettre en file d'attente</strong> plusieurs requêtes (ex. d'abord en 9:16, puis vous changez le format en 1:1 et ajoutez de nouveau) : la file d'attente tourne en séquence sans s'arrêter jusqu'à ce que vous cliquiez sur <strong>Annuler</strong>. La génération est lente (quelques minutes par image) et tourne en local : le serveur doit rester allumé.",

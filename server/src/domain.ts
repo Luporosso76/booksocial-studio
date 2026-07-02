@@ -101,10 +101,6 @@ export interface ChapterScene {
 
   kind: ChapterSceneKind;
 
-  youngerYears: number | null;
-
-  characterAges: CharacterAge[];
-
   altMoments: ChapterMoment[];
   source: CharacterSource;
   model: string | null;
@@ -115,11 +111,6 @@ export interface ChapterScene {
 }
 
 export const SCENE_PROMPT_VERSION = 5;
-
-export interface CharacterAge {
-  name: string;
-  age: number;
-}
 
 export type ChapterSceneKind = "waking" | "dream" | "flashback";
 
@@ -135,15 +126,17 @@ export interface ChapterMoment {
   physicsRules: string[];
   keyMoment: string | null;
   whose: string | null;
-  youngerYears: number | null;
-  characterAges: CharacterAge[];
 }
 
 export type CharacterSource = "AI" | "USER";
 
+export type TemporalPresence = "present" | "flashback_only" | "dream_only" | "past_dream_only";
+
 export interface CharacterOutfit {
   when: string;
   outfit: string;
+  age?: string | null;
+  appearance?: string | null;
 }
 export interface CharacterOutfits {
   default: string | null;
@@ -169,6 +162,9 @@ export interface BookCharacter {
 
   mentions: number | null;
   chapters: number[];
+
+  temporalPresence?: TemporalPresence | null;
+  temporalPresenceLocked?: boolean;
 
   outfits: CharacterOutfits;
   createdAt: number;

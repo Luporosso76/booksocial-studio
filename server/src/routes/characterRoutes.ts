@@ -89,6 +89,45 @@ export function mountCharacters(api: Hono, ctx: RouteContext): void {
     return c.json(characterDto(created));
   });
 
+  api.get("/books/:id/character-scene-appearances", async (c) => {
+    const id = Number(c.req.param("id"));
+    const book = await books.get(id);
+    if (!book) return c.json(err("Libro non trovato"), 404);
+    return c.json(await deps.chapterScenes.sceneAppearances(id));
+  });
+
+  api.get("/books/:id/scene-kinds", async (c) => {
+    const id = Number(c.req.param("id"));
+    const book = await books.get(id);
+    if (!book) return c.json(err("Libro non trovato"), 404);
+    return c.json(await deps.chapterScenes.sceneKindChapters(id));
+  });
+
+  api.put("/books/:id/characters/:cid/scene-membership", async (c) => {
+    const id = Number(c.req.param("id"));
+    const cid = Number(c.req.param("cid"));
+    const book = await books.get(id);
+    if (!book) return c.json(err("Libro non trovato"), 404);
+    const existing = await characters.get(cid);
+    if (!existing || existing.bookId !== id) return c.json(err("Personaggio non trovato"), 404);
+    const body = await jsonBody(c);
+    const idxList = (v: unknown): number[] =>
+      Array.isArray(v)
+        ? [
+            ...new Set(
+              (v as unknown[]).map((x) => Number(x)).filter((n) => Number.isInteger(n) && n >= 0),
+            ),
+          ].sort((a, b) => a - b)
+        : [];
+    await deps.chapterScenes.setSceneMembership(id, cid, {
+      present: idxList(body.present),
+      flashback: idxList(body.flashback),
+      dream: idxList(body.dream),
+    });
+    const fresh = await characters.get(cid);
+    return c.json(fresh ? characterDto(fresh) : err("Personaggio non trovato"));
+  });
+
   // Aggiorna i campi forniti; marca source='USER' (e' un'edit manuale).
   api.put("/characters/:id", async (c) => {
     const id = Number(c.req.param("id"));
@@ -97,8 +136,30 @@ export function mountCharacters(api: Hono, ctx: RouteContext): void {
     const body = await jsonBody(c);
     const str = (v: unknown): string | null =>
       typeof v === "string" && v.trim() !== "" ? v : null;
+    const TEMPORAL_PRESENCE_VALUES = [
+      "present",
+      "flashback_only",
+      "dream_only",
+      "past_dream_only",
+    ] as const;
+    type TemporalPresenceValue = (typeof TEMPORAL_PRESENCE_VALUES)[number];
+    const isTemporalPresence = (v: unknown): v is TemporalPresenceValue =>
+      typeof v === "string" && (TEMPORAL_PRESENCE_VALUES as readonly string[]).includes(v);
+    let temporalPresence = existing.temporalPresence ?? null;
+    let temporalPresenceLocked = existing.temporalPresenceLocked ?? false;
+    if ("temporalPresence" in body) {
+      const raw = body.temporalPresence;
+      if (isTemporalPresence(raw)) {
+        temporalPresence = raw;
+        temporalPresenceLocked = true;
+      } else if (raw === null || raw === "auto") {
+        temporalPresenceLocked = false;
+      }
+    }
     const updated = {
       ...existing,
+      temporalPresence,
+      temporalPresenceLocked,
       name:
         typeof body.name === "string" && body.name.trim() !== "" ? body.name.trim() : existing.name,
       role: "role" in body ? str(body.role) : existing.role,

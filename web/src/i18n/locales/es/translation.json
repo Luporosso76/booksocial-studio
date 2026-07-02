@@ -277,7 +277,6 @@
       "charChapters": "cap. {{chapters}}",
       "charNoChapter": "ningún cap.",
       "flashbackToggle": "Recuerdo / flashback (escena del pasado)",
-      "youngerYears": "Años más joven",
       "flashbackSettingPlaceholder": "Ambientación/época: ej. «playa en el mar, juventud»",
       "regenerateFromChapterTitle": "Reconstruye el prompt del texto del capítulo aplicando las reglas actuales (física, windsurf, etc.)",
       "regenerateAsMemory": "Regenerar como recuerdo (más joven, ropa de época)",
@@ -400,10 +399,7 @@
       "kindFlashback": "Flashback",
       "momentMemory": "Recuerdo",
       "momentFlashback": "Flashback",
-      "momentWhoseLabel": "De quién (sueño/recuerdo)",
-      "momentYoungerYearsLabel": "Años más joven",
-      "flashbackAgesLabel": "Edad de los personajes en el flashback",
-      "flashbackAgesHint": "Define la edad de cada personaje en esta escena del pasado: anula la edad canónica y los \"años más joven\". Déjalo vacío para usar los años más joven."
+      "momentWhoseLabel": "De quién (sueño/recuerdo)"
     },
     "characters": {
       "title": "Personajes",
@@ -453,7 +449,21 @@
       "ethnicityPlaceholder": "p. ej. dominicana, piel morena clara",
       "signatureOutfitLabel": "Prenda distintiva (siempre puesta)",
       "signatureOutfitPlaceholder": "p. ej. sombrero de paja, gafas redondas",
-      "signatureOutfitHint": "Accesorio/prenda que el personaje lleva en CADA escena, sobre cualquier atuendo. Déjalo vacío si no tiene."
+      "signatureOutfitHint": "Accesorio/prenda que el personaje lleva en CADA escena, sobre cualquier atuendo. Déjalo vacío si no tiene.",
+      "contextAgePlaceholder": "edad en el recuerdo/sueño (p. ej. unos 25)",
+      "contextAppearancePlaceholder": "aspecto del yo pasado (cara/piel/canas)",
+      "contextFlashbackHint": "Edad y aspecto SOLO para contextos de recuerdo/flashback o sueño; déjalos vacíos para el presente.",
+      "temporalPresenceLabel": "Presencia temporal",
+      "temporalPresenceComputed": "Calculada:",
+      "sceneMembershipPresent": "Capítulos — Presente",
+      "sceneMembershipFlashback": "Capítulos — Flashback",
+      "sceneMembershipDream": "Capítulos — Sueño",
+      "sceneMembershipHint": "Selecciona los capítulos en los que aparece el personaje; al guardar se actualizan las fichas de escena.",
+      "tpAuto": "Auto (recalculada)",
+      "tpPresent": "Presente",
+      "tpFlashbackOnly": "Solo flashback",
+      "tpDreamOnly": "Solo sueño",
+      "tpPastDreamOnly": "Pasado + sueño"
     },
     "visualBible": {
       "title": "Análisis / Biblia visual",
@@ -1416,8 +1426,6 @@
     "reindexNlp": "Reextraer frases (NLP)",
     "reindexNlpDone": "{{count}} frases extraídas del libro",
     "reindexNlpFailed": "Error al extraer las frases.",
-    "characterChaptersLabel": "Capítulos en los que aparece",
-    "characterChaptersHint": "Selecciona los capítulos donde aparece el personaje: determina los personajes disponibles al regenerar imágenes.",
     "sceneGenChaptersTitle": "Capítulos",
     "sceneGenCharactersTitle": "Personajes",
     "sceneGenHelp": "Selecciona los capítulos y elige cuántas imágenes hacer <strong>para cada capítulo</strong>; sin selección es «Auto» (capítulos varios). Puedes <strong>poner en cola</strong> más solicitudes (ej. primero en 9:16, luego cambias formato a 1:1 y añades de nuevo): la cola gira en secuencia sin detenerse hasta que pulses <strong>Cancelar</strong>. La generación es lenta (algunos minutos por imagen) y se ejecuta en local: el servidor debe seguir encendido.",

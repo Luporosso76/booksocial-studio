@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Trans, useTranslation } from "react-i18next";
 import {
@@ -61,6 +61,9 @@ import {
   getBook,
   getChapters,
   getCharacters,
+  getCharacterSceneAppearances,
+  getSceneKinds,
+  setCharacterSceneMembership,
   setChapterExcluded,
   updateChapterScene,
   getMediaRegenStatusGlobal,
@@ -98,9 +101,11 @@ import type {
   ChapterSceneKind,
   ChapterMoment,
   ChapterMomentType,
-  CharacterAge,
   CharacterInput,
   CharacterOutfit,
+  CharacterSceneAppearances,
+  SceneKindChapters,
+  TemporalPresence,
   DrivingSide,
   FacebookPage,
   LinkUsagePolicy,
@@ -2529,7 +2534,6 @@ function MediaLightbox({
   // FLASHBACK/ricordo per la «Rigenera dal capitolo»: se attivo, rigenera QUESTA immagine come scena
   // del passato (personaggi più giovani, vestiti d'epoca), scavalcando età e outfit canonici.
   const [fbOn, setFbOn] = useState(false);
-  const [fbYears, setFbYears] = useState(20);
   const [fbSetting, setFbSetting] = useState("");
 
   function addTag() {
@@ -2596,7 +2600,6 @@ function MediaLightbox({
         ...(fbOn
           ? {
               flashback: {
-                ...(fbYears > 0 ? { youngerYears: fbYears } : {}),
                 ...(fbSettingTrim ? { setting: fbSettingTrim } : {}),
               },
             }
@@ -2918,22 +2921,6 @@ function MediaLightbox({
                         </label>
                         {fbOn && (
                           <div className="mt-2 flex flex-col gap-2">
-                            <label className="flex items-center gap-2 text-2xs text-content-tertiary">
-                              <span className="w-28 shrink-0">
-                                {t("book.lightbox.youngerYears")}
-                              </span>
-                              <Input
-                                type="number"
-                                min={1}
-                                max={120}
-                                value={fbYears}
-                                onChange={(e) => {
-                                  const n = Number(e.target.value);
-                                  if (Number.isFinite(n))
-                                    setFbYears(Math.min(120, Math.max(1, Math.round(n))));
-                                }}
-                              />
-                            </label>
                             <Input
                               type="text"
                               value={fbSetting}
@@ -3099,17 +3086,32 @@ function useVisualBibleStatus(bookId: string, onDone?: (s: VisualBibleStatus) =>
  */
 function VisualBiblePanel({ status }: { status: VisualBibleStatus | null }) {
   const { t } = useTranslation();
+  const [dismissed, setDismissed] = useState(false);
+  useEffect(() => {
+    if (status?.status === "running") setDismissed(false);
+  }, [status?.status]);
   const hasSteps = status != null && status.status !== "idle" && status.steps.length > 0;
   const isFailed = status?.status === "failed" && !!status.error;
   if (!hasSteps && !isFailed) return null;
+  if (dismissed) return null;
 
   return (
     <div className="flex flex-col gap-3 rounded-lg border border-accent/20 bg-accent-soft/40 p-4 animate-fade-in">
-      <div className="flex items-center gap-2">
-        <Sparkles className="h-4 w-4 text-accent" />
-        <h4 className="text-sm font-semibold text-content-primary">
-          {t("book.visualBible.buildPanelTitle")}
-        </h4>
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <Sparkles className="h-4 w-4 text-accent" />
+          <h4 className="text-sm font-semibold text-content-primary">
+            {t("book.visualBible.buildPanelTitle")}
+          </h4>
+        </div>
+        <button
+          type="button"
+          aria-label={t("common.close")}
+          onClick={() => setDismissed(true)}
+          className="text-content-tertiary hover:text-content-primary"
+        >
+          <X className="h-4 w-4" />
+        </button>
       </div>
 
       {hasSteps && (
@@ -3135,7 +3137,9 @@ function VisualBiblePanel({ status }: { status: VisualBibleStatus | null }) {
                     <span className="h-2 w-2 rounded-full bg-content-faint" />
                   )}
                 </span>
-                <span className="flex-1 truncate">{t("visualBible.step." + step.key)}</span>
+                <span className="flex-1 truncate">
+                  {t("visualBible.step." + step.key, { defaultValue: step.label || step.key })}
+                </span>
                 {step.total > 1 && (
                   <span className="text-xs tabular-nums text-content-tertiary">
                     {step.done}/{step.total}
@@ -4017,8 +4021,6 @@ type MomentForm = {
   physicsRules: string;
   keyMoment: string;
   whose: string;
-  youngerYears: string;
-  characterAges: CharacterAge[];
 };
 
 const momentToForm = (m: ChapterMoment): MomentForm => ({
@@ -4031,54 +4033,7 @@ const momentToForm = (m: ChapterMoment): MomentForm => ({
   physicsRules: (m.physicsRules ?? []).join("\n"),
   keyMoment: m.keyMoment ?? "",
   whose: m.whose ?? "",
-  youngerYears: m.youngerYears != null ? String(m.youngerYears) : "",
-  characterAges: m.characterAges ?? [],
 });
-
-function FlashbackAges({
-  names,
-  value,
-  onChange,
-}: {
-  names: string[];
-  value: CharacterAge[];
-  onChange: (next: CharacterAge[]) => void;
-}) {
-  const { t } = useTranslation();
-  if (names.length === 0) return null;
-  const ageOf = (name: string): string => {
-    const hit = value.find((a) => a.name === name);
-    return hit ? String(hit.age) : "";
-  };
-  const setAge = (name: string, raw: string) => {
-    const rest = value.filter((a) => a.name !== name);
-    const n = Number(raw.trim());
-    onChange(
-      raw.trim() && Number.isFinite(n) && n > 0 ? [...rest, { name, age: Math.round(n) }] : rest,
-    );
-  };
-  return (
-    <Field label={t("book.scene.flashbackAgesLabel")}>
-      <div className="flex flex-col gap-2">
-        {names.map((name) => (
-          <div key={name} className="flex items-center gap-2">
-            <span className="min-w-0 flex-1 truncate text-sm text-content-secondary">{name}</span>
-            <Input
-              type="number"
-              min={0}
-              className="w-24"
-              value={ageOf(name)}
-              onChange={(e) => setAge(name, e.target.value)}
-            />
-          </div>
-        ))}
-      </div>
-      <p className="mt-1.5 text-2xs leading-relaxed text-content-tertiary">
-        {t("book.scene.flashbackAgesHint")}
-      </p>
-    </Field>
-  );
-}
 
 function ChapterSceneEditor({
   bookId,
@@ -4113,10 +4068,6 @@ function ChapterSceneEditor({
   const [keyMoment, setKeyMoment] = useState(initial?.keyMoment ?? "");
   // Natura della scena presente: normale, sogno o flashback (personaggi più giovani).
   const [kind, setKind] = useState<ChapterSceneKind>(initial?.kind ?? "waking");
-  const [youngerYears, setYoungerYears] = useState(
-    initial?.youngerYears != null ? String(initial.youngerYears) : "",
-  );
-  const [presentAges, setPresentAges] = useState<CharacterAge[]>(initial?.characterAges ?? []);
   const [altForms, setAltForms] = useState<MomentForm[]>(
     (initial?.altMoments ?? []).map(momentToForm),
   );
@@ -4132,8 +4083,6 @@ function ChapterSceneEditor({
     setPhysicsRules((s.physicsRules ?? []).join("\n"));
     setKeyMoment(s.keyMoment ?? "");
     setKind(s.kind ?? "waking");
-    setYoungerYears(s.youngerYears != null ? String(s.youngerYears) : "");
-    setPresentAges(s.characterAges ?? []);
     setAltForms((s.altMoments ?? []).map(momentToForm));
     setDirty(false); // appena salvato/rigenerato: niente modifiche pendenti
   };
@@ -4172,8 +4121,6 @@ function ChapterSceneEditor({
     physicsRules: parseLines(f.physicsRules),
     keyMoment: f.keyMoment.trim() || null,
     whose: f.whose.trim() || null,
-    youngerYears: f.youngerYears.trim() ? Number(f.youngerYears.trim()) : null,
-    characterAges: f.type === "flashback" ? f.characterAges : [],
   });
 
   const generate = async () => {
@@ -4206,9 +4153,6 @@ function ChapterSceneEditor({
               physicsRules: parseLines(physicsRules),
               keyMoment: keyMoment.trim() || null,
               kind,
-              youngerYears:
-                kind === "flashback" && youngerYears.trim() ? Number(youngerYears.trim()) : null,
-              characterAges: kind === "flashback" ? presentAges : [],
             }
           : { altMoments: altForms.map(formToMoment) };
       const { scene: s } = await updateChapterScene(bookId, chapterIndex, patch);
@@ -4376,26 +4320,6 @@ function ChapterSceneEditor({
                 </select>
               </Field>
             )}
-            {isPresent && kind === "flashback" && (
-              <Field label={t("book.scene.momentYoungerYearsLabel")}>
-                <Input
-                  type="number"
-                  min={0}
-                  value={youngerYears}
-                  onChange={(e) => editField(setYoungerYears)(e.target.value)}
-                />
-              </Field>
-            )}
-            {isPresent && kind === "flashback" && (
-              <FlashbackAges
-                names={parseCsv(characters)}
-                value={presentAges}
-                onChange={(next) => {
-                  setPresentAges(next);
-                  setDirty(true);
-                }}
-              />
-            )}
             {!isPresent && cur && cur.type === "dream" && (
               <Field label={t("book.scene.momentWhoseLabel")}>
                 <Input
@@ -4403,28 +4327,6 @@ function ChapterSceneEditor({
                   onChange={(e) => editAlt(activeIdx, "whose")(e.target.value)}
                 />
               </Field>
-            )}
-            {!isPresent && cur && cur.type === "flashback" && (
-              <Field label={t("book.scene.momentYoungerYearsLabel")}>
-                <Input
-                  type="number"
-                  min={0}
-                  value={cur.youngerYears}
-                  onChange={(e) => editAlt(activeIdx, "youngerYears")(e.target.value)}
-                />
-              </Field>
-            )}
-            {!isPresent && cur && cur.type === "flashback" && (
-              <FlashbackAges
-                names={parseCsv(cur.characters)}
-                value={cur.characterAges}
-                onChange={(next) => {
-                  setAltForms((prev) =>
-                    prev.map((f, i) => (i === activeIdx ? { ...f, characterAges: next } : f)),
-                  );
-                  setDirty(true);
-                }}
-              />
             )}
             <Field label={t("book.scene.place")}>
               <Input
@@ -4789,6 +4691,48 @@ function CharacterCard({
   );
 }
 
+function SceneMembershipSection({
+  label,
+  universe,
+  selected,
+  onToggle,
+  chapterTitle,
+}: {
+  label: string;
+  universe: number[];
+  selected: Set<number>;
+  onToggle: (idx: number) => void;
+  chapterTitle: (idx: number) => string | undefined;
+}) {
+  if (universe.length === 0) return null;
+  return (
+    <Field label={label}>
+      <div className="flex flex-wrap gap-1.5">
+        {universe.map((idx) => {
+          const on = selected.has(idx);
+          return (
+            <button
+              key={idx}
+              type="button"
+              onClick={() => onToggle(idx)}
+              title={chapterTitle(idx)}
+              aria-pressed={on}
+              className={cn(
+                "inline-flex h-8 min-w-8 items-center justify-center rounded-lg border px-2 text-xs font-medium tabular-nums transition-colors duration-150 ease-out-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-ring",
+                on
+                  ? "border-accent bg-accent/15 text-content-primary"
+                  : "border-border-subtle text-content-tertiary hover:bg-bg-hover hover:text-content-secondary",
+              )}
+            >
+              {idx}
+            </button>
+          );
+        })}
+      </div>
+    </Field>
+  );
+}
+
 function CharacterEditorModal({
   bookId,
   character,
@@ -4816,22 +4760,49 @@ function CharacterEditorModal({
   const [outfitContexts, setOutfitContexts] = useState<CharacterOutfit[]>(
     character?.outfits?.contexts ?? [],
   );
-  const [chapterSet, setChapterSet] = useState<Set<number>>(
-    () => new Set(character?.chapters ?? []),
+  const [temporalPresence, setTemporalPresence] = useState<TemporalPresence | "auto">(
+    character?.temporalPresenceLocked ? (character?.temporalPresence ?? "auto") : "auto",
   );
+  const [sceneKinds, setSceneKinds] = useState<SceneKindChapters | null>(null);
+  const [presentSel, setPresentSel] = useState<Set<number>>(new Set());
+  const [flashbackSel, setFlashbackSel] = useState<Set<number>>(new Set());
+  const [dreamSel, setDreamSel] = useState<Set<number>>(new Set());
+  const [initialMembership, setInitialMembership] = useState<CharacterSceneAppearances | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const isNew = character === null;
 
-  function toggleChapter(idx: number) {
-    setChapterSet((prev) => {
+  useEffect(() => {
+    if (!character) return;
+    const controller = new AbortController();
+    Promise.all([
+      getCharacterSceneAppearances(bookId, controller.signal),
+      getSceneKinds(bookId, controller.signal),
+    ])
+      .then(([map, kinds]) => {
+        const mine = map[character.id] ?? { present: [], flashback: [], dream: [] };
+        setSceneKinds(kinds);
+        setPresentSel(new Set(mine.present));
+        setFlashbackSel(new Set(mine.flashback));
+        setDreamSel(new Set(mine.dream));
+        setInitialMembership(mine);
+      })
+      .catch(() => {});
+    return () => controller.abort();
+  }, [bookId, character]);
+
+  function toggleIn(setter: Dispatch<SetStateAction<Set<number>>>, idx: number) {
+    setter((prev) => {
       const next = new Set(prev);
       if (next.has(idx)) next.delete(idx);
       else next.add(idx);
       return next;
     });
   }
+
+  const chapterTitle = (idx: number): string | undefined =>
+    chapters.find((ch) => ch.index === idx)?.title ?? undefined;
 
   function addContext() {
     setOutfitContexts((prev) => [...prev, { when: "", outfit: "" }]);
@@ -4855,7 +4826,12 @@ function CharacterEditorModal({
     setError(null);
     const trimmedPhysical = physical.trim();
     const cleanContexts = outfitContexts
-      .map((c) => ({ when: c.when.trim(), outfit: c.outfit.trim() }))
+      .map((c) => ({
+        when: c.when.trim(),
+        outfit: c.outfit.trim(),
+        age: c.age?.trim() ? c.age.trim() : null,
+        appearance: c.appearance?.trim() ? c.appearance.trim() : null,
+      }))
       .filter((c) => c.when !== "" || c.outfit !== "");
     const payload: CharacterInput = {
       name: trimmedName,
@@ -4878,8 +4854,22 @@ function CharacterEditorModal({
             contexts: cleanContexts,
             signature: outfitSignature.trim() === "" ? null : outfitSignature.trim(),
           },
-          chapters: [...chapterSet].sort((a, b) => a - b),
+          temporalPresence: temporalPresence === "auto" ? "auto" : temporalPresence,
         });
+        const sortNums = (s: Set<number>): number[] => [...s].sort((a, b) => a - b);
+        const eq = (a: number[], b: number[]): boolean =>
+          a.length === b.length && a.every((v, i) => v === b[i]);
+        const present = sortNums(presentSel);
+        const flashback = sortNums(flashbackSel);
+        const dream = sortNums(dreamSel);
+        const changed =
+          initialMembership !== null &&
+          (!eq(present, initialMembership.present) ||
+            !eq(flashback, initialMembership.flashback) ||
+            !eq(dream, initialMembership.dream));
+        if (changed) {
+          await setCharacterSceneMembership(bookId, character.id, { present, flashback, dream });
+        }
       }
       onSaved();
     } catch (err) {
@@ -4953,34 +4943,66 @@ function CharacterEditorModal({
         <Field label={t("book.characters.physicalLabel")}>
           <Textarea value={physical} onChange={(e) => setPhysical(e.target.value)} rows={3} />
         </Field>
-        {!isNew && chapters.length > 0 && (
-          <Field label={t("bookDetail.characterChaptersLabel")}>
-            <p className="mb-2 text-xs text-content-tertiary">
-              {t("bookDetail.characterChaptersHint")}
-            </p>
-            <div className="flex flex-wrap gap-1.5">
-              {chapters.map((ch) => {
-                const on = chapterSet.has(ch.index);
-                return (
-                  <button
-                    key={ch.id}
-                    type="button"
-                    onClick={() => toggleChapter(ch.index)}
-                    title={ch.title ?? undefined}
-                    aria-pressed={on}
-                    className={cn(
-                      "inline-flex h-8 min-w-8 items-center justify-center rounded-lg border px-2 text-xs font-medium tabular-nums transition-colors duration-150 ease-out-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-ring",
-                      on
-                        ? "border-accent bg-accent/15 text-content-primary"
-                        : "border-border-subtle text-content-tertiary hover:bg-bg-hover hover:text-content-secondary",
-                    )}
-                  >
-                    {ch.index}
-                  </button>
-                );
-              })}
-            </div>
+        {!isNew && (
+          <Field label={t("book.characters.temporalPresenceLabel")}>
+            <select
+              className={selectClass}
+              value={temporalPresence}
+              onChange={(e) => setTemporalPresence(e.target.value as TemporalPresence | "auto")}
+            >
+              <option value="auto">{t("book.characters.tpAuto")}</option>
+              <option value="present">{t("book.characters.tpPresent")}</option>
+              <option value="flashback_only">{t("book.characters.tpFlashbackOnly")}</option>
+              <option value="dream_only">{t("book.characters.tpDreamOnly")}</option>
+              <option value="past_dream_only">{t("book.characters.tpPastDreamOnly")}</option>
+            </select>
+            {temporalPresence === "auto" && (
+              <p className="mt-1 text-xs text-content-tertiary">
+                {t("book.characters.temporalPresenceComputed")}{" "}
+                {character?.temporalPresence
+                  ? t(
+                      `book.characters.tp${
+                        character.temporalPresence === "present"
+                          ? "Present"
+                          : character.temporalPresence === "flashback_only"
+                            ? "FlashbackOnly"
+                            : character.temporalPresence === "dream_only"
+                              ? "DreamOnly"
+                              : "PastDreamOnly"
+                      }`,
+                    )
+                  : "—"}
+              </p>
+            )}
           </Field>
+        )}
+        {!isNew && sceneKinds && (
+          <div className="flex flex-col gap-3">
+            <p className="text-xs text-content-tertiary">
+              {t("book.characters.sceneMembershipHint")}
+            </p>
+            <SceneMembershipSection
+              label={t("book.characters.sceneMembershipPresent")}
+              universe={sceneKinds.present}
+              selected={presentSel}
+              onToggle={(idx) => toggleIn(setPresentSel, idx)}
+              chapterTitle={chapterTitle}
+            />
+            <SceneMembershipSection
+              label={t("book.characters.sceneMembershipFlashback")}
+              universe={sceneKinds.flashback}
+              selected={flashbackSel}
+              onToggle={(idx) => toggleIn(setFlashbackSel, idx)}
+              chapterTitle={chapterTitle}
+            />
+            <SceneMembershipSection
+              label={t("book.characters.sceneMembershipDream")}
+              universe={sceneKinds.dream}
+              selected={dreamSel}
+              onToggle={(idx) => toggleIn(setDreamSel, idx)}
+              chapterTitle={chapterTitle}
+            />
+          </div>
         )}
         {!isNew && (
           <div className="flex flex-col gap-3 rounded-lg border border-border-subtle bg-bg-inset p-3">
@@ -5007,25 +5029,45 @@ function CharacterEditorModal({
             {outfitContexts.length > 0 && (
               <div className="flex flex-col gap-2">
                 {outfitContexts.map((c, idx) => (
-                  <div key={idx} className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_2fr_auto]">
-                    <Input
-                      value={c.when}
-                      onChange={(e) => updateContext(idx, { when: e.target.value })}
-                      placeholder={t("book.characters.contextPlaceholder")}
-                    />
-                    <Input
-                      value={c.outfit}
-                      onChange={(e) => updateContext(idx, { outfit: e.target.value })}
-                      placeholder={t("book.characters.outfitContextPlaceholder")}
-                    />
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => removeContext(idx)}
-                      aria-label={t("book.characters.removeContextAria")}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
+                  <div
+                    key={idx}
+                    className="flex flex-col gap-2 rounded-lg border border-border-subtle p-2"
+                  >
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_2fr_auto]">
+                      <Input
+                        value={c.when}
+                        onChange={(e) => updateContext(idx, { when: e.target.value })}
+                        placeholder={t("book.characters.contextPlaceholder")}
+                      />
+                      <Input
+                        value={c.outfit}
+                        onChange={(e) => updateContext(idx, { outfit: e.target.value })}
+                        placeholder={t("book.characters.outfitContextPlaceholder")}
+                      />
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeContext(idx)}
+                        aria-label={t("book.characters.removeContextAria")}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_2fr]">
+                      <Input
+                        value={c.age ?? ""}
+                        onChange={(e) => updateContext(idx, { age: e.target.value })}
+                        placeholder={t("book.characters.contextAgePlaceholder")}
+                      />
+                      <Input
+                        value={c.appearance ?? ""}
+                        onChange={(e) => updateContext(idx, { appearance: e.target.value })}
+                        placeholder={t("book.characters.contextAppearancePlaceholder")}
+                      />
+                    </div>
+                    <p className="text-xs text-content-tertiary">
+                      {t("book.characters.contextFlashbackHint")}
+                    </p>
                   </div>
                 ))}
               </div>

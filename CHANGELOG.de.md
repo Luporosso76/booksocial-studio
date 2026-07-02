@@ -5,6 +5,25 @@ Alle wesentlichen Änderungen an diesem Projekt werden in dieser Datei dokumenti
 Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2026-07-02
+
+### Hinzugefügt
+- **Zeitliche Präsenz pro Figur**: Jede Figur wird als Gegenwart, nur-Rückblende, nur-Traum oder Vergangenheit+Traum klassifiziert, in der Figurenkarte bearbeitbar mit einer manuellen Übersteuerung, die Neuaufbauten der visuellen Bibel übersteht.
+- **Auswählbare Szenenzugehörigkeit nach Art**: Die Figurenkarte zeigt drei auswählbare Kapitelgruppen — Gegenwart, Rückblende und Traum — und beim Speichern wird die Änderung direkt in die Szenenkarten des Kapitels geschrieben.
+- **Vergangenes/Traum-Selbst in den Kontext-Outfits**: Erinnerungs- und Traum-Outfitkontexte tragen nun das absolute Alter und das sichtbare Aussehen der Figur für diese Szene.
+
+### Geändert
+- **Neue Rückblenden-Rendering-Engine**: Alter und Aussehen einer Szene stammen aus dem passenden Outfitkontext der Figur und ihrer zeitlichen Präsenz; die alten manuellen Alter-Übersteuerungen pro Szene wurden entfernt.
+- **Szenenextraktion mit zeitlichem Anker**: Die Buch-Synopsis verankert die erzählerische Gegenwart, sodass eine davor angesiedelte Szene als Rückblende klassifiziert wird, auch wenn sie als gewöhnliche Handlung erzählt wird; die Hauptfiguren einer Szene werden auf ihren Hauptmoment beschränkt.
+- **Die zweistufige Bildauswahl respektiert die Natur des gewählten Moments** (Gegenwart/Rückblende/Traum) und behebt Erinnerungsszenen, die zuvor als Gegenwart gerendert wurden.
+
+### Behoben
+- Figuren, die nur in der Rückblende oder im Traum eines Kapitels vorkommen, zählen nun für dieses Kapitel, sodass figurenbezogene Bild-Stapel diese Szenen abdecken.
+- Das Fortschrittspanel der visuellen Bibel kann geschlossen werden; die Schrittnamen sind robust gegenüber unbekannten Schlüsseln.
+
+### Migrationen
+- Spalten `temporal_presence` und `temporal_presence_locked` zu `book_character` hinzugefügt.
+
 ## [0.6.0] - 2026-07-01
 
 ### Hinzugefügt

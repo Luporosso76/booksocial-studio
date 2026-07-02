@@ -175,6 +175,7 @@ export async function stepOutfits(
       occupation: ch.occupation,
       personality: ch.personality,
       physical: ch.physical,
+      presentAge: ch.age,
       bookTitle: book.title,
       language: lang,
       settings: charSettings,

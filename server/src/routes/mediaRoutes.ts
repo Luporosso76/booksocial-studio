@@ -325,14 +325,11 @@ export function mountMedia(api: Hono, ctx: RouteContext): void {
     let regenFlashback: SceneFlashback | undefined;
     const rfbRaw = body.flashback as Record<string, unknown> | null | undefined;
     if (rfbRaw && typeof rfbRaw === "object") {
-      const yy = Math.floor(Number(rfbRaw.youngerYears));
       const fbSetting =
         typeof rfbRaw.setting === "string" ? rfbRaw.setting.trim().slice(0, 200) : "";
       const fbNote = typeof rfbRaw.note === "string" ? rfbRaw.note.trim().slice(0, 300) : "";
-      const hasYears = Number.isInteger(yy) && yy > 0 && yy <= 120;
-      if (hasYears || fbSetting || fbNote) {
+      if (fbSetting || fbNote) {
         regenFlashback = {
-          ...(hasYears ? { youngerYears: yy } : {}),
           ...(fbSetting ? { setting: fbSetting } : {}),
           ...(fbNote ? { note: fbNote } : {}),
         };

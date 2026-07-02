@@ -60,6 +60,8 @@ export interface Book {
 export interface CharacterOutfit {
   when: string;
   outfit: string;
+  age?: string | null;
+  appearance?: string | null;
 }
 export interface CharacterOutfits {
   default: string | null;
@@ -399,17 +401,10 @@ export interface ChapterScene {
   physicsRules: string[];
   keyMoment: string | null;
   kind: ChapterSceneKind;
-  youngerYears: number | null;
-  characterAges?: CharacterAge[];
   altMoments?: ChapterMoment[];
   source: "AI" | "USER";
   model: string | null;
   updatedAt: number;
-}
-
-export interface CharacterAge {
-  name: string;
-  age: number;
 }
 
 export type ChapterSceneKind = "waking" | "dream" | "flashback";
@@ -425,8 +420,6 @@ export interface ChapterMoment {
   physicsRules: string[];
   keyMoment: string | null;
   whose: string | null;
-  youngerYears: number | null;
-  characterAges?: CharacterAge[];
 }
 
 export interface BookChapter {
@@ -454,6 +447,16 @@ export interface BookChapterFull {
 
 export type CharacterSource = "AI" | "USER";
 
+export type TemporalPresence = "present" | "flashback_only" | "dream_only" | "past_dream_only";
+
+export interface CharacterSceneAppearances {
+  present: number[];
+  flashback: number[];
+  dream: number[];
+}
+
+export type SceneKindChapters = CharacterSceneAppearances;
+
 // Personaggio del libro (tab "Personaggi"). I campi descrittivi sono opzionali:
 // l'estrazione AI puo' lasciarli vuoti e l'utente puo' compilarli a mano.
 export interface BookCharacter {
@@ -472,6 +475,8 @@ export interface BookCharacter {
   sortOrder?: number;
   // Indici (0-based) dei capitoli in cui il personaggio compare; chapters.length = conteggio.
   chapters: number[];
+  temporalPresence?: TemporalPresence | null;
+  temporalPresenceLocked?: boolean;
 }
 
 // Campi modificabili di un personaggio (create/update).

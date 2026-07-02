@@ -15,6 +15,7 @@ export interface OutfitsInput {
   occupation?: string | null;
   personality?: string | null;
   physical?: string | null;
+  presentAge?: string | null;
   bookTitle?: string | null;
   language: string;
   // Ambientazioni/contesti ricorrenti del libro (da luoghi+ambienti delle schede capitolo): aiutano
@@ -42,6 +43,7 @@ export async function generateOutfits(
   const settings =
     input.settings.length > 0 ? input.settings.slice(0, 24).join("; ") : "(not available)";
   const language = languageName(input.language);
+  const presentAge = input.presentAge?.trim() ?? "";
   const flashbackSettings = (input.flashbackSettings ?? [])
     .map((s) => s.trim())
     .filter((s) => s !== "")
@@ -55,11 +57,11 @@ export async function generateOutfits(
   const flashbackRule =
     flashbackSettings === ""
       ? ""
-      : `\n- FLASHBACK / MEMORY OUTFITS (DEDICATED, MANDATORY): this character appears in one or more MEMORY/PAST (flashback) scenes set in: ${flashbackSettings}. You MUST add to "contexts" one or more DEDICATED entries for these. For each: "when" = the SETTING words of that memory PLUS the words for "flashback, memory, past" written in ${language}; "outfit" = clothing coherent with THAT era/memory — a YOUNGER version of the character wearing the garments of that time/place — NOT today's clothes. Never leave a flashback dressed in the present-day default; this fixes the memory outfit so it stays consistent across renders.`;
+      : `\n- FLASHBACK / MEMORY OUTFITS (DEDICATED, MANDATORY): this character appears in one or more MEMORY/PAST (flashback) scenes set in: ${flashbackSettings}. You MUST add to "contexts" one or more DEDICATED entries for these. For each: "when" = the SETTING words of that memory PLUS the words for "flashback, memory, past" written in ${language}; "outfit" = clothing coherent with THAT era/memory — a YOUNGER version of the character wearing the garments of that time/place — NOT today's clothes. For these flashback/memory entries ONLY, you MUST ALSO fill: "age" = the character's APPARENT age IN that memory, ABSOLUTE (not a difference/delta) and grounded in that memory's text (e.g. "circa 25", "adolescente ~16"). HARD CONSTRAINT: a memory happens in the PAST, so this age MUST be STRICTLY LOWER than the character's PRESENT AGE (${presentAge || "unknown"}) — never equal, never higher; estimate how many years back the memory is and subtract from the present age; "appearance" = the VISIBLE differences of the past self vs the canonical present look (e.g. "viso più giovane, guance più piene, niente capelli grigi, pelle più liscia, meno rughe"), acting on FACE / SKIN / amount-of-greying only — NEVER change the HAIR COLOUR stated for the character. Never leave a flashback dressed in the present-day default; this fixes the memory outfit + past self so they stay consistent across renders.`;
   const dreamRule =
     dreamSettings === ""
       ? ""
-      : `\n- DREAM OUTFITS (DEDICATED): this character appears in one or more DREAM scenes set in: ${dreamSettings}. Add to "contexts" one or more DEDICATED entries for these. For each: "when" = the SETTING words of that dream PLUS the word for "dream" written in ${language}; "outfit" = the concrete clothing of that dreamlike scene, so the dream look stays consistent across renders.`;
+      : `\n- DREAM OUTFITS (DEDICATED): this character appears in one or more DREAM scenes set in: ${dreamSettings}. Add to "contexts" one or more DEDICATED entries for these. For each: "when" = the SETTING words of that dream PLUS the word for "dream" written in ${language}; "outfit" = the concrete clothing of that dreamlike scene. For these dream entries ONLY, you MUST ALSO fill: "age" = the character's APPARENT age IN that dream, ABSOLUTE and grounded in that dream's text (e.g. "circa 30"); anchor it to the PRESENT AGE (${presentAge || "unknown"}) — usually LOWER OR EQUAL to it, and only higher if the dream's text clearly shows an older/future self; "appearance" = the VISIBLE differences of the dream self vs the canonical present look (face / skin / amount-of-greying only), NEVER changing the HAIR COLOUR stated for the character. This keeps the dream look + dream self consistent across renders.`;
 
   const prompt = `Define a character's CANONICAL WARDROBE for CONSISTENT illustrations: the character must
 ALWAYS dress the same way in the same situation. Given the character, write a DEFAULT outfit plus a few
@@ -69,7 +71,7 @@ Reply with ONLY a valid JSON object, no text before or after:
 {
   "default": "the character's typical everyday outfit (concrete garments + colors)",
   "contexts": [
-    { "when": "2-5 CONTEXT keywords (places/activities) separated by commas, written in ${language}", "outfit": "concrete, coherent clothing for that context" }
+    { "when": "2-5 CONTEXT keywords (places/activities) separated by commas, written in ${language}", "outfit": "concrete, coherent clothing for that context", "age": "ONLY for flashback/memory or dream contexts: the character's ABSOLUTE apparent age in that scene (e.g. \\"circa 25\\"); omit or null otherwise", "appearance": "ONLY for flashback/memory or dream contexts: visible past/dream-self differences vs the present look (face/skin/greying only, never recolour hair); omit or null otherwise" }
   ],
   "signature": "a SINGLE item the book says this character ALWAYS wears (a straw hat, particular glasses, a signature cap, a specific necklace), or \\"\\" if the book gives none"
 }
@@ -120,6 +122,7 @@ CHARACTER: ${input.name}
 ROLE: ${input.role?.trim() || "(unspecified)"}
 OCCUPATION: ${input.occupation?.trim() || "(unspecified)"}
 APPEARANCE (for consistency, do NOT describe it in the outfits): ${input.physical?.trim() || "(none)"}
+PRESENT AGE (canonical, today — anchor for any flashback/dream age; a memory MUST be younger than this): ${presentAge || "(unspecified)"}
 BOOK: ${input.bookTitle?.trim() || "(untitled)"} — country/setting: ${input.country?.trim() || "(not stated)"}
 RECURRING SETTINGS OF THE BOOK (use these words for the "when" keywords): ${settings}
 FLASHBACK/MEMORY SETTINGS where this character appears (need a dedicated past-era outfit): ${flashbackSettings || "(none)"}
@@ -146,7 +149,12 @@ ${input.sourceText?.trim() || "(no passage available)"}`;
             const o = (x ?? {}) as Record<string, unknown>;
             const when = typeof o.when === "string" ? o.when.trim() : "";
             const outfit = typeof o.outfit === "string" ? o.outfit.trim() : "";
-            return { when: when.slice(0, 80), outfit: outfit.slice(0, 200) };
+            const age = typeof o.age === "string" && o.age.trim() !== "" ? o.age.trim().slice(0, 60) : null;
+            const appearance =
+              typeof o.appearance === "string" && o.appearance.trim() !== ""
+                ? o.appearance.trim().slice(0, 300)
+                : null;
+            return { when: when.slice(0, 80), outfit: outfit.slice(0, 200), age, appearance };
           })
           .filter((x) => x.when !== "" && x.outfit !== "")
           .slice(0, MAX_CTX)

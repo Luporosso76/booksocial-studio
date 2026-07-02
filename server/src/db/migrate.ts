@@ -376,6 +376,16 @@ const MIGRATIONS: Migration[] = [
       `CREATE INDEX IF NOT EXISTS ix_visual_directive_book ON visual_directive(book_id)`,
     ],
   },
+  {
+    version: 10,
+    statements: [`ALTER TABLE book_character ADD COLUMN temporal_presence TEXT NULL`],
+  },
+  {
+    version: 11,
+    statements: [
+      `ALTER TABLE book_character ADD COLUMN temporal_presence_locked INTEGER NOT NULL DEFAULT 0`,
+    ],
+  },
 ];
 
 async function currentVersion(): Promise<number> {

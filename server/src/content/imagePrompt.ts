@@ -3,10 +3,12 @@ import { ContentError } from "./engine.js";
 import { translateImagePromptToEnglishPreserveStructure } from "./translate.js";
 import type {
   ChapterScene,
+  CharacterOutfit,
   CharacterOutfits,
   BookVisualProps,
   BookVisualExtras,
   VisualDirective,
+  TemporalPresence,
 } from "../domain.js";
 import { anyKeywordMatches } from "./imageDomains.js";
 
@@ -60,14 +62,12 @@ export interface SceneCharacter {
   ethnicity?: string | null;
   role?: string | null;
   outfits?: CharacterOutfits;
+  temporalPresence?: TemporalPresence | null;
 }
 
 export interface SceneFlashback {
-  youngerYears?: number | null;
   setting?: string | null;
   note?: string | null;
-
-  characterAges?: { name: string; age: number }[] | null;
 }
 
 export interface SceneDescriptionInput {
@@ -153,7 +153,7 @@ OUT the rest. Never cram every character or object into one picture.
 ${lines.join("\n")}`;
 }
 
-function domainHaystack(card: ChapterScene | null | undefined, passage: string): string {
+export function domainHaystack(card: ChapterScene | null | undefined, passage: string): string {
   if (card) {
     return [
       card.location ?? "",
@@ -192,20 +192,21 @@ function extraInstructionsBlock(extra: string | null | undefined): string {
 ${e}`;
 }
 
-function resolveOutfitMatch(
+export function resolveOutfitMatch(
   outfits: CharacterOutfits | undefined,
   haystack: string,
-): { outfit: string | null; fromContext: boolean } {
-  if (!outfits) return { outfit: null, fromContext: false };
+): { outfit: string | null; fromContext: boolean; context: CharacterOutfit | null } {
+  if (!outfits) return { outfit: null, fromContext: false, context: null };
 
   for (const ctx of outfits.contexts) {
     const kws = ctx.when
       .split(/[,;]/)
       .map((s) => s.trim())
       .filter((s) => s.length > 0);
-    if (anyKeywordMatches(haystack, kws)) return { outfit: ctx.outfit, fromContext: true };
+    if (anyKeywordMatches(haystack, kws))
+      return { outfit: ctx.outfit, fromContext: true, context: ctx };
   }
-  return { outfit: outfits.default ?? null, fromContext: false };
+  return { outfit: outfits.default ?? null, fromContext: false, context: null };
 }
 
 function propsBlock(
@@ -307,30 +308,50 @@ export interface SceneDescription {
   depicted: SceneCharacter[];
 }
 
-function flashbackBlock(fb: SceneFlashback | null | undefined): string {
+export function flashbackBlock(
+  fb: SceneFlashback | null | undefined,
+  chars: readonly SceneCharacter[] = [],
+  contextAges: ReadonlyMap<string, { age: string | null; appearance: string | null }> = new Map(),
+): string {
   if (!fb) return "";
   const setting = (fb.setting ?? "").trim();
   const note = (fb.note ?? "").trim();
-  const ages = (fb.characterAges ?? []).filter(
-    (a) =>
-      a &&
-      typeof a.name === "string" &&
-      a.name.trim() !== "" &&
-      Number.isFinite(a.age) &&
-      a.age > 0,
-  );
-
+  const contextClauses: string[] = [];
+  const contextAgeNames = new Set<string>();
+  for (const c of chars) {
+    const key = c.name.trim().toLowerCase();
+    if (key === "") continue;
+    const ctx = contextAges.get(key);
+    const ctxAge = (ctx?.age ?? "").trim();
+    if (ctxAge === "") continue;
+    contextAgeNames.add(key);
+    const app = (ctx?.appearance ?? "").trim();
+    contextClauses.push(`${c.name.trim()} is ${ctxAge} years old${app ? `, ${app}` : ""}`);
+  }
+  const alreadyPastNames = chars
+    .filter((c) => (c.temporalPresence ?? "present") !== "present")
+    .map((c) => c.name.trim())
+    .filter((n) => n !== "" && !contextAgeNames.has(n.toLowerCase()));
+  const keepAsIsClause =
+    alreadyPastNames.length > 0
+      ? ` EXCEPTION — do NOT change the age of ${joinNames(alreadyPastNames)}: their CAST age ALREADY is their age in this memory, so render ${
+          alreadyPastNames.length > 1 ? "them" : "that character"
+        } at EXACTLY the age stated in the CAST, NOT younger.`
+      : "";
+  const absoluteClauses = contextClauses;
   const ageDirective =
-    ages.length > 0
-      ? `In THIS past scene each character has the EXACT age stated here, which OVERRIDES the age in their CAST description: ${ages
-          .map((a) => `${a.name.trim()} is ${Math.round(a.age)} years old`)
-          .join("; ")}. Render every other person younger than today too.`
-      : `Render EVERY named character from the CAST ${
-          typeof fb.youngerYears === "number" && fb.youngerYears > 0
-            ? `about ${Math.round(fb.youngerYears)} years`
-            : "clearly"
-        } YOUNGER than the age stated in their description.`;
-  return `FLASHBACK / MEMORY OVERRIDE (this image only — it OVERRIDES the AGE rule and the WARDROBE CONSISTENCY rule above): this scene is a MEMORY set in the PAST. ${ageDirective} Keep each character's IDENTITY unmistakable: SAME hair colour, SAME eye colour, SAME face structure and proportions, clearly the same person at that age. Dress them for the time and place of this memory${setting ? `: ${setting}` : ""}: IF the CAST gives a specific period outfit for this character (a "wears:" note), use EXACTLY that; otherwise dress them coherently with the era and the activity — NOT in their canonical present-day outfit.${note ? ` ${note}` : ""}`;
+    absoluteClauses.length > 0
+      ? ` In THIS past scene each of these characters has the EXACT age stated here, which OVERRIDES the age in their CAST description: ${absoluteClauses.join(
+          "; ",
+        )}.`
+      : "";
+  return `FLASHBACK / MEMORY OVERRIDE (this image only — it OVERRIDES the AGE rule and the WARDROBE CONSISTENCY rule above): this scene is a MEMORY set in the PAST.${ageDirective}${keepAsIsClause} Keep each character's IDENTITY unmistakable: SAME hair colour, SAME eye colour, SAME face structure and proportions, clearly the same person at that age. Dress them for the time and place of this memory${setting ? `: ${setting}` : ""}: IF the CAST gives a specific period outfit for this character (a "wears:" note), use EXACTLY that; otherwise dress them coherently with the era and the activity — NOT in their canonical present-day outfit.${note ? ` ${note}` : ""}`;
+}
+
+function joinNames(names: readonly string[]): string {
+  if (names.length === 0) return "";
+  if (names.length === 1) return names[0]!;
+  return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]!}`;
 }
 
 function dreamBlock(isDream: boolean | undefined): string {
@@ -1018,7 +1039,19 @@ export async function buildSceneDescription(
   if (passage === "" && input.characters.length === 0 && !input.bookTitle) return null;
 
   const haystack = domainHaystack(input.sceneCard, passage);
-  const flashback = flashbackBlock(input.flashback);
+  const flashbackContextAges = new Map<string, { age: string | null; appearance: string | null }>();
+  if (input.flashback) {
+    for (const c of input.characters) {
+      const m = resolveOutfitMatch(c.outfits, haystack);
+      if (m.fromContext && m.context && (m.context.age ?? "").trim() !== "") {
+        flashbackContextAges.set(c.name.trim().toLowerCase(), {
+          age: m.context.age ?? null,
+          appearance: m.context.appearance ?? null,
+        });
+      }
+    }
+  }
+  const flashback = flashbackBlock(input.flashback, input.characters, flashbackContextAges);
   const dream = dreamBlock(input.dream);
 
   const cast = castBlock(input.characters, haystack, !!input.flashback);
