@@ -73,10 +73,21 @@ export class ChapterSceneService {
     // Indici di presenza accumulati per id personaggio.
     const presence = new Map<number, Set<number>>();
     const sceneKinds = new Map<number, Set<ChapterSceneKind>>();
+    const membershipPresent = new Map<number, Set<number>>();
+    const membershipFlashback = new Map<number, Set<number>>();
+    const membershipDream = new Map<number, Set<number>>();
     for (const c of cast) {
       presence.set(c.id, new Set<number>());
       sceneKinds.set(c.id, new Set<ChapterSceneKind>());
+      membershipPresent.set(c.id, new Set<number>());
+      membershipFlashback.set(c.id, new Set<number>());
+      membershipDream.set(c.id, new Set<number>());
     }
+    const addMembership = (charId: number, kind: ChapterSceneKind, idx: number): void => {
+      if (kind === "waking") membershipPresent.get(charId)!.add(idx);
+      else if (kind === "flashback") membershipFlashback.get(charId)!.add(idx);
+      else if (kind === "dream") membershipDream.get(charId)!.add(idx);
+    };
 
     // Per ogni capitolo: scheda visiva (cache o estrazione GPT on-demand) → match al cast.
     // Presente = combacia con un personaggio FISICAMENTE in scena secondo la scheda GPT.
@@ -97,6 +108,7 @@ export class ChapterSceneService {
         ) {
           presence.get(c.id)!.add(chapter.index);
           sceneKinds.get(c.id)!.add(card.kind);
+          addMembership(c.id, card.kind, chapter.index);
         }
       }
       for (const moment of card.altMoments ?? []) {
@@ -108,6 +120,7 @@ export class ChapterSceneService {
           ) {
             presence.get(c.id)!.add(chapter.index);
             sceneKinds.get(c.id)!.add(moment.type);
+            addMembership(c.id, moment.type, chapter.index);
           }
         }
       }
@@ -117,6 +130,7 @@ export class ChapterSceneService {
           if (namesMatch(c.name, pov)) {
             presence.get(c.id)!.add(chapter.index);
             sceneKinds.get(c.id)!.add(card.kind);
+            addMembership(c.id, card.kind, chapter.index);
           }
         }
       }
@@ -129,10 +143,23 @@ export class ChapterSceneService {
         for (const idx of c.chapters) {
           if (failedChapters.has(idx)) presence.get(c.id)!.add(idx);
         }
+        const prev = c.temporalMembership;
+        if (prev) {
+          for (const idx of prev.present) {
+            if (failedChapters.has(idx)) membershipPresent.get(c.id)!.add(idx);
+          }
+          for (const idx of prev.flashback) {
+            if (failedChapters.has(idx)) membershipFlashback.get(c.id)!.add(idx);
+          }
+          for (const idx of prev.dream) {
+            if (failedChapters.has(idx)) membershipDream.get(c.id)!.add(idx);
+          }
+        }
       }
     }
 
     // Persisti in bulk (transazione) e ritorna il cast aggiornato.
+    const sortedIdx = (s: Set<number>): number[] => [...s].sort((a, b) => a - b);
     await characters.setChaptersBulk(
       cast.map((c) => {
         const chapterSet = presence.get(c.id)!;
@@ -142,6 +169,11 @@ export class ChapterSceneService {
           characterId: c.id,
           chapters: [...chapterSet],
           temporalPresence: resolveTemporalPresence(computed, c.temporalPresence ?? null, inFailed),
+          temporalMembership: {
+            present: sortedIdx(membershipPresent.get(c.id)!),
+            flashback: sortedIdx(membershipFlashback.get(c.id)!),
+            dream: sortedIdx(membershipDream.get(c.id)!),
+          },
         };
       }),
     );
@@ -153,12 +185,12 @@ export class ChapterSceneService {
   ): Promise<Record<number, { present: number[]; flashback: number[]; dream: number[] }>> {
     const cast = await characters.byBook(bookId);
     const chapters = await books.chapters(bookId);
-    const acc = new Map<
+    const derived = new Map<
       number,
       { present: Set<number>; flashback: Set<number>; dream: Set<number> }
     >();
     for (const c of cast) {
-      acc.set(c.id, {
+      derived.set(c.id, {
         present: new Set<number>(),
         flashback: new Set<number>(),
         dream: new Set<number>(),
@@ -169,7 +201,7 @@ export class ChapterSceneService {
     const add = (names: string[], bucket: "present" | "flashback" | "dream", idx: number): void => {
       const clean = names.map((n) => n.trim()).filter((n) => n.length > 0);
       for (const c of cast) {
-        if (clean.some((n) => namesMatch(c.name, n))) acc.get(c.id)![bucket].add(idx);
+        if (clean.some((n) => namesMatch(c.name, n))) derived.get(c.id)![bucket].add(idx);
       }
     };
     for (const chapter of chapters) {
@@ -181,13 +213,24 @@ export class ChapterSceneService {
       }
     }
     const sorted = (s: Set<number>): number[] => [...s].sort((a, b) => a - b);
+    const uniqSort = (a: number[]): number[] => [...new Set(a)].sort((x, y) => x - y);
     const out: Record<number, { present: number[]; flashback: number[]; dream: number[] }> = {};
-    for (const [id, sets] of acc) {
-      out[id] = {
-        present: sorted(sets.present),
-        flashback: sorted(sets.flashback),
-        dream: sorted(sets.dream),
-      };
+    for (const c of cast) {
+      const m = c.temporalMembership;
+      if (m) {
+        out[c.id] = {
+          present: uniqSort(m.present),
+          flashback: uniqSort(m.flashback),
+          dream: uniqSort(m.dream),
+        };
+      } else {
+        const sets = derived.get(c.id)!;
+        out[c.id] = {
+          present: sorted(sets.present),
+          flashback: sorted(sets.flashback),
+          dream: sorted(sets.dream),
+        };
+      }
     }
     return out;
   }
@@ -196,70 +239,34 @@ export class ChapterSceneService {
     bookId: number,
   ): Promise<{ present: number[]; flashback: number[]; dream: number[] }> {
     const chapters = await books.chapters(bookId);
-    const present = new Set<number>();
-    const flashback = new Set<number>();
-    const dream = new Set<number>();
-    for (const chapter of chapters) {
-      const scene = chapter.scene;
-      if (!scene) continue;
-      if (scene.kind === "waking") present.add(chapter.index);
-      else if (scene.kind === "flashback") flashback.add(chapter.index);
-      else if (scene.kind === "dream") dream.add(chapter.index);
-      for (const moment of scene.altMoments ?? []) {
-        if (moment.type === "flashback") flashback.add(chapter.index);
-        else if (moment.type === "dream") dream.add(chapter.index);
-      }
-    }
-    const sorted = (s: Set<number>): number[] => [...s].sort((a, b) => a - b);
-    return { present: sorted(present), flashback: sorted(flashback), dream: sorted(dream) };
+    const all = chapters.map((c) => c.index).sort((a, b) => a - b);
+    return { present: [...all], flashback: [...all], dream: [...all] };
   }
 
   async setSceneMembership(
-    bookId: number,
+    _bookId: number,
     characterId: number,
     desired: { present: number[]; flashback: number[]; dream: number[] },
   ): Promise<void> {
     const character = await characters.get(characterId);
     if (!character) return;
-    const name = character.name;
-    const want = {
-      waking: new Set(desired.present),
-      flashback: new Set(desired.flashback),
-      dream: new Set(desired.dream),
-    };
-    const chapters = await books.chapters(bookId);
-    const pending: { chapterId: number; scene: ChapterScene }[] = [];
-    for (const chapter of chapters) {
-      const scene = chapter.scene;
-      if (!scene) continue;
-      const idx = chapter.index;
-      let changedMain = false;
-      let changedAlt = false;
-      let mainChars = scene.characters;
-      if (scene.kind === "waking" || scene.kind === "flashback" || scene.kind === "dream") {
-        const next = reconcileMembership(mainChars, name, want[scene.kind].has(idx));
-        if (next !== mainChars) {
-          mainChars = next;
-          changedMain = true;
-        }
-      }
-      const moments = scene.altMoments ?? [];
-      const nextMoments = moments.map((moment) => {
-        if (moment.type !== "flashback" && moment.type !== "dream") return moment;
-        const next = reconcileMembership(moment.characters, name, want[moment.type].has(idx));
-        if (next === moment.characters) return moment;
-        changedAlt = true;
-        return { ...moment, characters: next };
-      });
-      if (!changedMain && !changedAlt) continue;
-      const updated = mergeUserScene(scene, chapter.text, {
-        ...(changedMain ? { characters: mainChars } : {}),
-        ...(changedAlt ? { altMoments: nextMoments } : {}),
-      });
-      pending.push({ chapterId: chapter.id, scene: updated });
-    }
-    await books.setChapterScenesBulk(pending);
-    await this.recomputeCharacterChapters(bookId);
+    const uniqSort = (a: number[]) => [...new Set(a)].sort((x, y) => x - y);
+    const present = uniqSort(desired.present);
+    const flashback = uniqSort(desired.flashback);
+    const dream = uniqSort(desired.dream);
+    const union = uniqSort([...present, ...flashback, ...dream]);
+    const kinds = new Set<ChapterSceneKind>();
+    if (present.length) kinds.add("waking");
+    if (flashback.length) kinds.add("flashback");
+    if (dream.length) kinds.add("dream");
+    await characters.setChaptersBulk([
+      {
+        characterId,
+        chapters: union,
+        temporalPresence: classifyTemporalPresence(kinds),
+        temporalMembership: { present, flashback, dream },
+      },
+    ]);
   }
 
   private async buildAndSave(bookId: number, chapter: BookChapter): Promise<ChapterScene | null> {

@@ -12,6 +12,7 @@ import {
   type QuoteKind,
   type CharacterSource,
   type TemporalPresence,
+  type TemporalMembership,
   type CharacterOutfit,
   type CharacterOutfits,
   type BookVisualProps,
@@ -283,6 +284,7 @@ function mapCharacter(r: Row): BookCharacter {
         : [],
     temporalPresence: (r.temporal_presence as TemporalPresence | null) ?? null,
     temporalPresenceLocked: Number(r.temporal_presence_locked) === 1,
+    temporalMembership: parseTemporalMembership(r.temporal_membership_json),
     outfits: parseOutfits(r.outfits_json as string | null),
     createdAt: Number(r.created_at),
     updatedAt: Number(r.updated_at),
@@ -312,6 +314,18 @@ function serializeOutfits(o: CharacterOutfits | null | undefined): string | null
     contexts,
     signature: sig === "" ? null : sig,
   });
+}
+
+function parseTemporalMembership(raw: unknown): TemporalMembership | null {
+  if (typeof raw !== "string" || raw.trim() === "") return null;
+  try {
+    const o = JSON.parse(raw) as Partial<Record<"present" | "flashback" | "dream", unknown>>;
+    const list = (v: unknown): number[] =>
+      Array.isArray(v) ? v.map((x) => Number(x)).filter((n) => Number.isFinite(n)) : [];
+    return { present: list(o.present), flashback: list(o.flashback), dream: list(o.dream) };
+  } catch {
+    return null;
+  }
 }
 
 function parseOutfits(raw: string | null): CharacterOutfits {
@@ -857,15 +871,25 @@ export const characters = {
   },
 
   async setChaptersBulk(
-    rows: { characterId: number; chapters: number[]; temporalPresence?: TemporalPresence | null }[],
+    rows: {
+      characterId: number;
+      chapters: number[];
+      temporalPresence?: TemporalPresence | null;
+      temporalMembership?: TemporalMembership | null;
+    }[],
   ): Promise<void> {
     if (rows.length === 0) return;
     await withTransaction(async (conn) => {
       for (const r of rows) {
         const csv = [...r.chapters].sort((a, b) => a - b).join(",");
         await conn.execute(
-          "UPDATE book_character SET chapters=?, temporal_presence=CASE WHEN temporal_presence_locked=1 THEN temporal_presence ELSE ? END WHERE id=?",
-          [csv, r.temporalPresence ?? null, r.characterId],
+          "UPDATE book_character SET chapters=?, temporal_presence=CASE WHEN temporal_presence_locked=1 THEN temporal_presence ELSE ? END, temporal_membership_json=? WHERE id=?",
+          [
+            csv,
+            r.temporalPresence ?? null,
+            r.temporalMembership ? JSON.stringify(r.temporalMembership) : null,
+            r.characterId,
+          ],
         );
       }
     });

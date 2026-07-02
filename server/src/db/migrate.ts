@@ -393,6 +393,10 @@ const MIGRATIONS: Migration[] = [
       `CREATE INDEX IF NOT EXISTS ix_generation_book ON generation_record(book_id, created_at)`,
     ],
   },
+  {
+    version: 13,
+    statements: [`ALTER TABLE book_character ADD COLUMN temporal_membership_json TEXT NULL`],
+  },
 ];
 
 async function currentVersion(): Promise<number> {

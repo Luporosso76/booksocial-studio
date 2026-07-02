@@ -279,6 +279,16 @@ function buildHardConstraints(
   return out;
 }
 
+function inMembership(c: BookCharacter, chapterIndex: number): boolean {
+  const m = c.temporalMembership;
+  if (!m) return false;
+  return !!(
+    m.present?.includes(chapterIndex) ||
+    m.flashback?.includes(chapterIndex) ||
+    m.dream?.includes(chapterIndex)
+  );
+}
+
 function pickCastForChapter(
   chars: BookCharacter[],
   chapterIndex: number,
@@ -293,7 +303,9 @@ function pickCastForChapter(
   const cardNames = (card?.characters ?? []).map((n) => n.trim()).filter((n) => n.length > 0);
 
   let picked: BookCharacter[];
-  if (cardNames.length > 0) {
+  if (chars.some((c) => c.temporalMembership)) {
+    picked = chars.filter((c) => inMembership(c, chapterIndex));
+  } else if (cardNames.length > 0) {
     picked = chars.filter((c) => cardNames.some((n) => namesMatch(c.name, n)));
   } else {
     const haveNlp = chars.some((c) => c.chapters.length > 0);

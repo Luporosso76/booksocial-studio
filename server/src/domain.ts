@@ -132,6 +132,12 @@ export type CharacterSource = "AI" | "USER";
 
 export type TemporalPresence = "present" | "flashback_only" | "dream_only" | "past_dream_only";
 
+export interface TemporalMembership {
+  present: number[];
+  flashback: number[];
+  dream: number[];
+}
+
 export interface CharacterOutfit {
   when: string;
   outfit: string;
@@ -165,6 +171,7 @@ export interface BookCharacter {
 
   temporalPresence?: TemporalPresence | null;
   temporalPresenceLocked?: boolean;
+  temporalMembership?: TemporalMembership | null;
 
   outfits: CharacterOutfits;
   createdAt: number;

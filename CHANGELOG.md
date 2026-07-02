@@ -5,6 +5,14 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] - 2026-07-02
+
+### Changed
+- **Character temporal presence — reworked architecture**: per-character temporal membership (Present / Flashback / Dream) is now stored explicitly per chapter and is the source of truth. Each of the three groups lists **all** chapters of the book as selectable — not only the chapters whose scene is of that kind — so a character can be assigned to any chapter. This membership drives which characters appear in each chapter's generated images (chapter scene cards are now only a fallback). Rebuilding the visual bible recomputes membership from the scenes and overwrites manual edits.
+
+### Added
+- Progress counts on the **"world objects"** and **"character presence"** visual-bible steps, consistent with the other steps.
+
 ## [0.7.1] - 2026-07-02
 
 ### Changed

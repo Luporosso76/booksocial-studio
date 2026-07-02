@@ -5,6 +5,14 @@ Alle wesentlichen Änderungen an diesem Projekt werden in dieser Datei dokumenti
 Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 und dieses Projekt hält sich an [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] - 2026-07-02
+
+### Geändert
+- **Zeitliche Präsenz der Figuren – überarbeitete Architektur**: Die zeitliche Zugehörigkeit je Figur (Gegenwart / Rückblende / Traum) wird nun explizit pro Kapitel gespeichert und ist die Quelle der Wahrheit. Jede der drei Gruppen listet **alle** Kapitel des Buches als auswählbar auf – nicht mehr nur jene, deren Szene von diesem Typ ist –, sodass eine Figur jedem Kapitel zugeordnet werden kann. Diese Zugehörigkeit bestimmt, welche Figuren in den generierten Bildern jedes Kapitels erscheinen (die Szenenkarten dienen nur noch als Rückfall). Ein Neuaufbau der visuellen Bibel berechnet die Zugehörigkeit aus den Szenen neu und überschreibt manuelle Änderungen.
+
+### Hinzugefügt
+- Fortschrittszähler bei den Schritten **„Weltobjekte“** und **„Figurenpräsenz“** der visuellen Bibel, konsistent mit den übrigen Schritten.
+
 ## [0.7.1] - 2026-07-02
 
 ### Geändert

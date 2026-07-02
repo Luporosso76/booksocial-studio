@@ -5,6 +5,14 @@ Tutte le modifiche rilevanti a questo progetto sono documentate in questo file.
 Il formato è basato su [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 e questo progetto aderisce al [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] - 2026-07-02
+
+### Modificato
+- **Presenza temporale dei personaggi — architettura rivista**: la membership temporale per personaggio (Presente / Flashback / Sogno) è ora memorizzata esplicitamente per capitolo ed è la fonte di verità. Ognuno dei tre gruppi elenca **tutti** i capitoli del libro come selezionabili — non più solo quelli la cui scena è di quel tipo — così un personaggio può essere assegnato a qualsiasi capitolo. Questa membership determina quali personaggi compaiono nelle immagini generate di ciascun capitolo (le schede scena sono ora solo un fallback). La rigenerazione della bibbia visiva ricalcola la membership dalle scene e sovrascrive le modifiche manuali.
+
+### Aggiunto
+- Conteggio di avanzamento sugli step **«oggetti del mondo»** e **«presenza personaggi»** della bibbia visiva, coerente con gli altri step.
+
 ## [0.7.1] - 2026-07-02
 
 ### Modificato

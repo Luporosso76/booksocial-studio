@@ -5,6 +5,14 @@ Todos los cambios notables de este proyecto están documentados en este archivo.
 El formato se basa en [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 y este proyecto se adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] - 2026-07-02
+
+### Cambiado
+- **Presencia temporal de los personajes: arquitectura rediseñada**: la pertenencia temporal por personaje (Presente / Flashback / Sueño) ahora se almacena de forma explícita por capítulo y es la fuente de verdad. Cada uno de los tres grupos enumera **todos** los capítulos del libro como seleccionables —no solo aquellos cuya escena es de ese tipo—, de modo que un personaje puede asignarse a cualquier capítulo. Esta pertenencia determina qué personajes aparecen en las imágenes generadas de cada capítulo (las fichas de escena son ahora solo un recurso de reserva). Regenerar la biblia visual recalcula la pertenencia a partir de las escenas y sobrescribe las ediciones manuales.
+
+### Añadido
+- Recuento de progreso en los pasos **«objetos del mundo»** y **«presencia de personajes»** de la biblia visual, coherente con los demás pasos.
+
 ## [0.7.1] - 2026-07-02
 
 ### Cambiado

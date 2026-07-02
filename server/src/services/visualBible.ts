@@ -221,7 +221,6 @@ export async function stepProps(
 ): Promise<void> {
   const book = await books.get(bookId);
   if (!book) return;
-  hooks.onTotal?.(1);
   const chapters = await books.chapters(bookId);
   const settingSet = new Set<string>();
   const objectSet = new Set<string>();
@@ -237,6 +236,8 @@ export async function stepProps(
       if (t) objectSet.add(t);
     }
   }
+  const worldCount = settingSet.size + objectSet.size;
+  hooks.onTotal?.(worldCount);
   const cast = await characters.byBook(bookId);
   const props = await generateVisualProps(engine, {
     bookTitle: book.title,
@@ -246,7 +247,7 @@ export async function stepProps(
     characters: cast.map((ch) => ch.name),
   });
   if (props) await books.setVisualProps(bookId, props);
-  hooks.onItem?.();
+  for (let i = 0; i < worldCount; i++) hooks.onItem?.();
 }
 
 // ---- STEP: PERSONAGGI MINORI/incidentali canonici (visual_extras_json), dedup per label ----
@@ -307,9 +308,10 @@ async function stepPresence(
   bookId: number,
   hooks: StepHooks = {},
 ): Promise<void> {
-  hooks.onTotal?.(1);
+  const cast = await characters.byBook(bookId);
+  hooks.onTotal?.(cast.length);
   await chapterScenes.recomputeCharacterChapters(bookId);
-  hooks.onItem?.();
+  for (let i = 0; i < cast.length; i++) hooks.onItem?.();
 }
 
 // Esegue UN singolo step avvolto in try/catch (best-effort): aggiorna lo stato del job e prosegue.

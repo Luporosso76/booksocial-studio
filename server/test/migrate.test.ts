@@ -3,7 +3,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-const LATEST_VERSION = 12;
+const LATEST_VERSION = 13;
 const CORE_TABLES = [
   "book",
   "book_chapter",

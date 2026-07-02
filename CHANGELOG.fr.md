@@ -5,6 +5,14 @@ Toutes les modifications notables apportées à ce projet sont documentées dans
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 et ce projet respecte le [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] - 2026-07-02
+
+### Modifié
+- **Présence temporelle des personnages — architecture revue** : l'appartenance temporelle par personnage (Présent / Flashback / Rêve) est désormais stockée explicitement par chapitre et fait office de source de vérité. Chacun des trois groupes liste **tous** les chapitres du livre comme sélectionnables — et non plus seulement ceux dont la scène est de ce type — de sorte qu'un personnage peut être affecté à n'importe quel chapitre. Cette appartenance détermine quels personnages apparaissent dans les images générées de chaque chapitre (les fiches de scène ne servent plus que de repli). Régénérer la bible visuelle recalcule l'appartenance à partir des scènes et écrase les modifications manuelles.
+
+### Ajouté
+- Compteurs de progression sur les étapes **« objets du monde »** et **« présence des personnages »** de la bible visuelle, comme pour les autres étapes.
+
 ## [0.7.1] - 2026-07-02
 
 ### Modifié
