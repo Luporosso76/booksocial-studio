@@ -331,11 +331,6 @@ export function mountVisualBible(api: Hono, ctx: RouteContext): void {
     }
   });
 
-  api.get("/books/:id/marketing-cards", async (c) => {
-    const id = Number(c.req.param("id"));
-    return c.json(await marketingCards.byBook(id));
-  });
-
   api.get("/books/:id/marketing-cards/status", async (c) => {
     const id = Number(c.req.param("id"));
     const st = marketingBuilds.get(id);

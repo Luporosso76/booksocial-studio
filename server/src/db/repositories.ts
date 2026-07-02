@@ -1683,22 +1683,30 @@ export const contentUsage = {
 };
 
 function mapMarketingCard(r: Row): ChapterMarketingCard {
+  const fallback: ChapterMarketingCardData = {
+    spoilerLevel: "low",
+    nonSpoilerSummary: "",
+    emotionalCore: "",
+    humanTruth: "",
+    readerQuestion: "",
+    mainTension: "",
+    visualMoment: "",
+    safeQuotes: [],
+    characterFocus: [],
+    postAngles: [],
+  };
   let data: ChapterMarketingCardData;
   try {
-    data = JSON.parse(r.card_json as string) as ChapterMarketingCardData;
-  } catch {
+    const parsed = JSON.parse(r.card_json as string) as Partial<ChapterMarketingCardData>;
     data = {
-      spoilerLevel: "low",
-      nonSpoilerSummary: "",
-      emotionalCore: "",
-      humanTruth: "",
-      readerQuestion: "",
-      mainTension: "",
-      visualMoment: "",
-      safeQuotes: [],
-      characterFocus: [],
-      postAngles: [],
+      ...fallback,
+      ...parsed,
+      safeQuotes: Array.isArray(parsed.safeQuotes) ? parsed.safeQuotes : [],
+      characterFocus: Array.isArray(parsed.characterFocus) ? parsed.characterFocus : [],
+      postAngles: Array.isArray(parsed.postAngles) ? parsed.postAngles : [],
     };
+  } catch {
+    data = fallback;
   }
   return {
     bookId: Number(r.book_id),
